@@ -1,47 +1,141 @@
 # MERP Flutter Shell
 
-本项目用于替换原 Cordova 6.5 外壳：Flutter 负责登录、鉴权、菜单权限、统一 HTTP、设备能力 bridge、系统设置和逐步原生化；现有 Vue2 业务页面继续通过 WebView 承载，后续可按模块迁移为 Flutter 原生页面。
+MERP Flutter Shell 是原 Cordova 6.5 外壳的升级替代方案。Flutter 负责登录鉴权、菜单权限、统一 HTTP、系统设置、WebView 承载和原生能力 Bridge；现有 Vue2 业务页面继续运行在 WebView 中，后续可按模块逐步迁移为 Flutter 原生页面。
 
-## 功能模块
+## 目录结构
 
-### 登录与鉴权
-- 登录接口由后端提供，默认路径为 `/auth/login`。
-- 登录成功后保存 token，后续请求自动注入 `Authorization: Bearer <token>`。
-- App 启动时会恢复本地 token，恢复成功后自动拉取菜单权限。
-- 后端返回 401 时会清理本地 token，并由路由守卫引导回登录页。
+```text
+merp/
+├── android/                         # Android 工程壳，包含权限、Activity、Gradle 配置
+├── ios/                             # iOS 工程壳，包含 Info.plist 权限说明
+├── web/                             # Flutter Web 运行入口，用于浏览器调试
+├── test/                            # 自动化测试
+│   └── app_smoke_test.dart          # App 启动冒烟测试
+├── lib/                             # Flutter 主代码
+│   ├── main.dart                    # 应用入口，只负责初始化依赖并启动 MerpApp
+│   ├── app/                         # 应用级装配层
+│   │   ├── app_dependencies.dart    # 统一创建配置、HTTP、鉴权、权限、设置、设备能力
+│   │   ├── app_scope.dart           # InheritedWidget 依赖容器，页面通过它读取全局服务
+│   │   ├── merp_app.dart            # MaterialApp、路由、全局自动锁屏守护
+│   │   └── theme/
+│   │       └── app_theme.dart       # 全局主题、颜色、控件样式
+│   ├── routing/                     # 路由层
+│   │   ├── app_router.dart          # go_router 路由表和登录守卫
+│   │   ├── forbidden_page.dart      # 无权限页面
+│   │   └── splash_page.dart         # 启动恢复登录态页面
+│   ├── core/                        # 跨业务基础能力
+│   │   ├── auth/                    # 登录、token、会话恢复
+│   │   │   ├── auth_controller.dart # 登录态控制器，通知 UI 和路由刷新
+│   │   │   ├── auth_repository.dart # 登录接口、退出、恢复本地 session
+│   │   │   └── secure_token_store.dart # token 安全存储
+│   │   ├── config/
+│   │   │   └── app_config.dart      # API 地址、旧 Vue2 地址、地图密钥预留
+│   │   ├── device/                  # 原生设备能力边界
+│   │   │   ├── camera_service.dart  # 相机能力，供 Vue2 Bridge 调用
+│   │   │   ├── location_service.dart # 定位能力占位
+│   │   │   └── map_sdk_service.dart # 地图 SDK 初始化占位
+│   │   └── network/                 # 统一 HTTP 层
+│   │       ├── api_client.dart      # Dio 封装、token 注入、统一响应解析
+│   │       ├── api_exception.dart   # 统一异常模型
+│   │       ├── api_response.dart    # 后端响应壳解析
+│   │       └── app_error_code.dart  # 企业级错误码分段
+│   ├── shared/                      # 跨模块复用 UI
+│   │   └── app_error_view.dart      # 统一错误页、空状态、重试视图
+│   └── features/                    # 业务功能模块
+│       ├── login/                   # 登录页
+│       ├── home/                    # 首页工作台
+│       │   ├── data/
+│       │   │   └── permission_repository.dart # 菜单权限加载和缓存
+│       │   ├── domain/
+│       │   │   └── feature_item.dart # 功能菜单实体
+│       │   └── home_page.dart       # 首页 UI、功能入口、左侧抽屉
+│       ├── all_features/            # 全部功能页，有权限蓝色、无权限灰色
+│       ├── legacy/                  # 旧 Vue2 WebView 承载
+│       │   └── legacy_web_page.dart # WebView 加载、错误页、JS Bridge 注入
+│       ├── map/                     # 地图占位页，预留百度地图等 SDK 接入点
+│       ├── profile/                 # 个人中心
+│       └── settings/                # 系统设置和安全能力
+│           ├── settings_controller.dart # 指纹、自动锁屏、语言、版本检测
+│           ├── settings_page.dart   # 系统设置页面
+│           ├── gesture_password_page.dart # 手势密码设置
+│           └── pattern_lock_pad.dart # 3x3 手势密码控件
+├── pubspec.yaml                     # Flutter 依赖和版本配置
+├── analysis_options.yaml            # Dart 静态检查规则
+└── README.md                        # 项目说明
+```
 
-### 首页工作台
-- 顶部标题为 `MERP 2025`，左侧打开个人抽屉，右侧进入个人中心。
-- 蓝色横幅为 `PageView` 图片轮播位，支持自动轮播和手动滑动。
-- 功能区为 3 列 4 行：
-  - 前 3 行展示当前账号有权限的 9 个常用功能。
-  - 第 4 行只展示“更多”入口。
-- 功能块使用白底、圆角、图标底色和阴影，贴近移动 ERP 工作台入口。
+## 架构约定
 
-### 更多与全部功能
-- 点击首页“更多”进入 `/features`。
-- 全部功能页展示后端返回的完整功能清单。
-- 有权限的功能显示蓝色，可点击进入。
-- 无权限的功能显示灰色，点击后提示当前账号无权限。
+当前分层适合“Flutter 外壳 + Vue2 逐步迁移”的 ERP 项目：
 
-### 旧 Vue2 页面承载
+- `app`：应用装配层，只放全局依赖、主题、启动流程、自动锁屏等应用级能力。
+- `core`：跨业务基础能力，例如鉴权、HTTP、设备能力、配置。
+- `routing`：路由表、登录守卫、无权限和启动页。
+- `features`：按业务模块纵向拆分，模块内部可继续拆 `data / domain / presentation`。
+- `shared`：真正跨模块复用的 UI 组件，避免业务模块之间互相引用。
+
+新增 Flutter 原生业务模块时，推荐结构：
+
+```text
+lib/features/inventory/
+├── data/             # API、DTO、Repository 实现
+├── domain/           # 实体、枚举、业务规则
+└── presentation/     # Page、Widget、Controller 或 StateNotifier
+```
+
+## 状态管理
+
+当前外壳阶段使用 `ChangeNotifier + AppScope(InheritedWidget)`，因为全局状态主要集中在登录、权限、系统设置三个对象，足够轻量。
+
+后续原生业务模块增多后，推荐从新模块开始引入 `flutter_riverpod`；审批流、工单流转这类事件驱动很强的模块，也可以单独使用 `bloc`。不建议在大型 ERP 中全局滥用 `GetX`，避免状态来源分散。
+
+## 核心功能
+
+### 登录鉴权
+
+- 登录接口默认路径：`/auth/login`。
+- 登录成功后保存 token。
+- 后续 HTTP 请求自动注入：`Authorization: Bearer <token>`。
+- App 启动时恢复本地 session，恢复成功后拉取菜单权限。
+- 后端返回 401 时清理 token 并回到登录页。
+
+### 菜单权限
+
+后端推荐返回“全部功能 + 当前账号权限码”：
+
+```json
+{
+  "features": [
+    {
+      "id": "e-form",
+      "title": "电子表单",
+      "icon": "form",
+      "permissionCode": "form.electronic.view",
+      "launchMode": "legacyWeb",
+      "route": "/legacy/e-form",
+      "legacyPath": "/forms/electronic"
+    }
+  ],
+  "permissionCodes": [
+    "form.electronic.view"
+  ]
+}
+```
+
+首页只展示当前账号有权限的常用功能；全部功能页展示完整清单，有权限显示蓝色，无权限显示灰色。
+
+### 旧 Vue2 WebView
+
 - `launchMode=legacyWeb` 的功能进入 WebView。
-- WebView 地址由 `legacyVueBaseUrl + legacyPath` 拼接。
-- 未配置旧系统根地址、未配置页面路径、网络失败、HTTP 404 等情况都会展示统一错误页。
-- WebView 会带上登录 token：`Authorization: Bearer <token>`。
-- 当前默认 `legacyVueBaseUrl` 仍为占位地址，正式接入时需要改成真实旧 Vue2 移动端入口。
+- 页面地址由 `legacyVueBaseUrl + legacyPath` 拼接。
+- WebView 加载时携带登录 token。
+- 未配置 URL、网络失败、HTTP 404、无权限等场景统一展示错误 UI。
 
 ### Vue2 原生能力 Bridge
 
-相机不是独立 Flutter 业务功能，而是预留给旧 Vue2 页面调用的原生 bridge。
+相机能力不是独立 Flutter 页面，而是通过 WebView Bridge 提供给旧 Vue2 页面。
 
-Flutter 注入到 WebView 的对象：
-
-```js
-window.MERPBridge
-```
-
-Vue2 调用拍照：
+Vue2 调用示例：
 
 ```js
 try {
@@ -51,10 +145,8 @@ try {
     maxWidth: 1920
   })
 
-  // photo.dataUrl 可直接用于预览；photo.path 可用于后续扩展原生上传。
   console.log(photo.name, photo.mimeType, photo.size, photo.dataUrl)
 } catch (error) {
-  // error: { code, message }
   console.warn(error.code, error.message)
 }
 ```
@@ -72,158 +164,16 @@ try {
 }
 ```
 
-错误码：
+Bridge 错误码：
+
 - `CAMERA_CANCELLED`：用户取消拍照。
-- `BRIDGE_BAD_REQUEST`：Vue2 发送的 bridge 消息格式错误。
+- `BRIDGE_BAD_REQUEST`：Vue2 发送的 Bridge 消息格式错误。
 - `BRIDGE_UNSUPPORTED_ACTION`：Flutter 外壳暂不支持该 action。
 - `BRIDGE_ERROR`：原生能力调用异常，例如权限被拒绝。
 
-主要文件：
-- `lib/features/legacy/legacy_web_page.dart`：WebView 容器与 JS bridge 注入。
-- `lib/core/device/camera_service.dart`：相机权限、拍照和返回结构封装。
+## 统一 HTTP 错误码
 
-### Flutter 原生页面
-- `launchMode=native` 的功能直接进入 Flutter 路由。
-- 当前已有地图占位页、个人中心、全部功能、系统设置等原生页面。
-- 百度地图暂不接插件，只保留配置位置和接口边界，后续可替换具体地图厂商。
-
-### 系统设置与安全
-系统设置入口在左侧抽屉中，路由为 `/settings`。
-
-已包含：
-- 启用指纹解锁：基于 `local_auth`，用于自动锁屏后的快速解锁。
-- 自动锁屏：开启后登录状态下 10 秒未操作自动锁屏。
-- 修改图形密码：3x3 手势密码盘，两次确认后保存。
-- 设置语言：本地保存 `简体中文 / English` 选择。
-- 版本检测：当前保留后端接口接入点，demo 返回当前已是最新版本。
-
-## 架构分层
-
-- `lib/app`：应用入口、主题、依赖容器、自动锁屏守护。
-- `lib/app/app_dependencies.dart`：应用级依赖装配，集中初始化配置、HTTP、鉴权、权限、设置和设备能力。
-- `lib/routing`：基于 `go_router` 的登录守卫和页面路由。
-- `lib/core/auth`：登录、token 存储、会话恢复、退出。
-- `lib/core/network`：基于 `dio` 的统一 HTTP 客户端、响应壳解析和错误码。
-- `lib/core/device`：相机 bridge 支撑、地图 SDK 占位、定位占位接口。
-- `lib/features/home`：首页工作台、功能入口、权限菜单模型。
-- `lib/features/all_features`：全部功能页和权限状态展示。
-- `lib/features/legacy`：旧 Vue2 页面 WebView 容器和原生能力 bridge。
-- `lib/features/settings`：系统设置、指纹、自动锁屏、手势密码、语言、版本检测。
-- `lib/features/profile`：个人中心。
-- `lib/features/map`：地图定位占位页面。
-
-### 分包是否合理
-
-当前分包方式是合理的，适合 MERP 这种“旧系统承载 + 新功能逐步原生化”的迁移项目：
-- `core` 放跨业务能力，例如鉴权、HTTP、设备能力、配置。
-- `app` 放应用装配能力，例如主题、依赖容器、全局锁屏。
-- `routing` 放路由表和登录守卫。
-- `features` 按业务模块纵向拆分，每个模块内部再分 `data / domain / page`。
-- `shared` 放真正跨模块复用的 UI 组件，避免每个业务模块互相引用。
-
-后续新增库存、销售、审批等 Flutter 原生模块时，推荐结构：
-
-```text
-lib/features/inventory/
-  data/                 # 接口、DTO、Repository 实现
-  domain/               # 实体、枚举、业务规则
-  presentation/         # Page、Widget、Controller/StateNotifier
-```
-
-### 状态管理选型
-
-当前项目使用 `ChangeNotifier + AppScope(InheritedWidget)`，原因是现阶段状态集中在登录、权限、系统设置三个外壳级对象，代码少、学习成本低、可调试。
-
-当满足以下任一条件时，建议升级状态管理：
-- 原生业务模块超过 5 个，并且模块之间共享筛选条件、单据草稿、审批流等状态。
-- 页面中出现多个异步列表、分页、缓存刷新、局部错误恢复。
-- 需要更系统地做单元测试、mock Repository、离线缓存和权限变更监听。
-
-推荐路线：
-- 首选 `flutter_riverpod`：适合企业应用，依赖注入、异步状态、测试隔离都比较自然。
-- 可选 `bloc`：适合流程很重、事件驱动明显的模块，例如审批流、工单状态机。
-- 不建议全局滥用 `GetX`：上手快，但大型 ERP 中容易让状态来源变得分散。
-
-迁移方式建议渐进式：
-- 外壳层暂时保留 `AppDependencies` 和现有 controller。
-- 新增 Flutter 原生业务模块时，从该模块开始使用 Riverpod。
-- 等原生模块稳定后，再把 `AuthController`、`PermissionRepository`、`SettingsController` 迁成 Provider。
-
-## 后端接口约定
-
-真实接口地址集中在 `lib/core/config/app_config.dart`：
-- `apiBaseUrl`：后端 API 根地址。
-- `loginPath`：登录接口，默认 `/auth/login`。
-- `menuPath`：权限菜单接口，默认 `/auth/menus`。
-- `legacyVueBaseUrl`：旧 Vue2 移动端根地址。
-
-### 登录响应
-
-建议返回：
-
-```json
-{
-  "token": "access-token",
-  "userName": "张三"
-}
-```
-
-也兼容统一响应壳：
-
-```json
-{
-  "success": true,
-  "code": "000000",
-  "message": "请求成功",
-  "data": {
-    "token": "access-token",
-    "userName": "张三"
-  },
-  "traceId": "20260610-xxxx"
-}
-```
-
-### 菜单权限响应
-
-推荐返回“全部功能 + 当前账号权限码”：
-
-```json
-{
-  "features": [
-    {
-      "id": "e-form",
-      "title": "电子表单",
-      "description": "旧表单中心",
-      "icon": "form",
-      "permissionCode": "form.electronic.view",
-      "launchMode": "legacyWeb",
-      "route": "/legacy/e-form",
-      "legacyPath": "/forms/electronic"
-    },
-    {
-      "id": "field-work",
-      "title": "外勤管理2.0",
-      "description": "外勤签到与定位",
-      "icon": "field",
-      "permissionCode": "field.work.view",
-      "launchMode": "native",
-      "route": "/native/map"
-    }
-  ],
-  "permissionCodes": [
-    "form.electronic.view",
-    "field.work.view"
-  ]
-}
-```
-
-兼容迁移期：如果后端暂时只返回数组，前端会把数组中的功能都当作已授权功能。
-
-## 统一 HTTP 与错误码
-
-所有后端接口统一从 `lib/core/network/api_client.dart` 发起，业务代码不直接使用 `dio`。
-
-推荐后端响应壳：
+统一响应壳建议：
 
 ```json
 {
@@ -235,51 +185,13 @@ lib/features/inventory/
 }
 ```
 
-前端错误码分段：
+错误码分段：
+
 - `000000`：成功。
-- `Cxxxxx`：客户端错误，如网络不可用、请求超时、响应格式错误。
-- `Axxxxx`：认证授权错误，如未登录、token 过期、无权限。
-- `Bxxxxx`：业务错误，如校验失败、数据不存在、状态冲突。
-- `Sxxxxx`：服务端或网关错误，如 400、404、500、503。
-
-业务层捕获 `ApiException` 后使用 `error.userMessage` 展示给用户，里面会自动附带后端 `traceId`。
-
-## 地图接口预留
-
-当前不接入具体地图插件，只保留对接位置：
-- `mapProvider`：地图厂商标识，可填 `baidu`、`amap`、`tencent` 等。
-- `androidMapApiKey`：Android 地图 SDK 密钥。
-- `iosMapApiKey`：iOS 地图 SDK 密钥。
-- `webMapApiKey`：Web 地图 SDK 密钥。
-
-主要预留文件：
-- `lib/core/device/map_sdk_service.dart`
-- `lib/core/device/location_service.dart`
-- `lib/features/map/map_page.dart`
-
-## VSCode 与 E 盘缓存
-
-项目已包含 `.vscode/settings.json`、`.vscode/launch.json`、`.vscode/extensions.json`：
-- Flutter SDK：`E:\flutter_windows_3.24.4-stable\flutter`
-- Android SDK：`E:\android`
-- 模拟机目录：`E:\android-avd`
-- Gradle 缓存：`E:\.gradle`
-- Pub 缓存：`E:\pub-cache`
-
-写入 Windows 用户环境变量：
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\tools\setup_android_e_drive.ps1 -Apply
-```
-
-确认无误后清理 C 盘旧缓存：
-
-```powershell
-.\tools\setup_android_e_drive.ps1 -Apply -CleanResidual
-```
-
-如果 `flutter doctor -v` 提示缺少 Android cmdline-tools，请在 Android Studio 的 SDK Manager 中把 SDK Location 设置为 `E:\android`，并安装 `Android SDK Command-line Tools (latest)`。
+- `Cxxxxx`：客户端错误，例如网络不可用、请求超时、响应格式错误。
+- `Axxxxx`：认证授权错误，例如未登录、token 过期、无权限。
+- `Bxxxxx`：业务错误，例如校验失败、数据不存在、状态冲突。
+- `Sxxxxx`：服务端或网关错误，例如 400、404、500、503。
 
 ## 验证命令
 
