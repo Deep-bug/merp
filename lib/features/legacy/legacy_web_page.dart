@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -47,8 +49,9 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
       return;
     }
 
-    // 第二层校验：只允许打开登录后后端返回的菜单，避免手动拼路由越权访问。
-    final feature = scope.permissionRepository.features
+    // 从“全量功能清单”查找功能，再单独判断权限。
+    // 这样“更多”页面里的灰色无权限功能也能给出明确的授权提示。
+    final feature = scope.permissionRepository.allFeatures
         .where((item) => item.id == moduleId)
         .firstOrNull;
     if (feature == null) {
@@ -65,7 +68,7 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
 
     _title = feature.title;
 
-    // 第三层校验：即使用户知道 URL，也要经过前端权限缓存再拦一次。
+    // 权限校验放在 WebView 加载前，避免用户手动拼路由越权访问旧系统页面。
     if (!scope.permissionRepository.canOpen(feature)) {
       _showError(
         _LegacyError(
@@ -78,7 +81,7 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
       return;
     }
 
-    // 第四层校验：旧 Vue2 页面必须由后端菜单返回 legacyPath，方便后续逐步替换原生页。
+    // 旧 Vue2 页面必须由后端菜单返回 legacyPath，方便后续逐步替换为 Flutter 原生页。
     final legacyPath = feature.legacyPath?.trim();
     if (legacyPath == null || legacyPath.isEmpty) {
       _showError(
@@ -92,7 +95,6 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
       return;
     }
 
-    // 当前库存管理属于 legacyWeb 功能；如果根地址仍是 example.com，就只提示“未接入”。
     final legacyBaseUrl = scope.config.legacyVueBaseUrl.trim();
     if (legacyBaseUrl.isEmpty || legacyBaseUrl.contains('example.com')) {
       _showError(
@@ -126,6 +128,10 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     final token = scope.authController.session?.token ?? '';
     final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..addJavaScriptChannel(
+        'MerpNative',
+        onMessageReceived: (message) => _handleBridgeMessage(message.message),
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           // 进度只表示 WebView 加载过程，不代表旧系统业务接口已经成功。
@@ -133,6 +139,10 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
             if (mounted) {
               setState(() => _progress = progress);
             }
+          },
+          // 每次页面加载完都注入 bridge，兼容旧 Vue2 的 hash 路由和刷新场景。
+          onPageFinished: (_) {
+            _injectBridge();
           },
           onWebResourceError: (error) {
             // 图片、字体等子资源失败不阻断业务页；主框架失败才展示整页错误。
@@ -163,10 +173,190 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
         ),
       )
       // 旧 Vue2 页面优先通过 Authorization Header 拿 token。
-      // 如果旧系统只能读 URL 参数，建议后端换成短期 ticket，避免长 token 暴露在地址栏。
+      // 如果旧系统只能读 URL 参数，建议后端换成短期 ticket，避免长 token 暴露。
       ..loadRequest(uri, headers: {'Authorization': 'Bearer $token'});
 
     setState(() => _controller = controller);
+  }
+
+  /// 注入给旧 Vue2 使用的原生能力 bridge。
+  ///
+  /// Vue2 调用示例：
+  /// const photo = await window.MERPBridge.takePhoto({ includeBase64: true });
+  ///
+  /// Flutter 只负责调原生能力并返回结果；图片如何上传、写入哪张业务表，
+  /// 仍然由旧 Vue2 页面或后端接口决定，方便后续逐步迁移。
+  Future<void> _injectBridge() async {
+    final controller = _controller;
+    if (controller == null) {
+      return;
+    }
+
+    await controller.runJavaScript(r'''
+(function () {
+  if (window.MERPBridge) {
+    return;
+  }
+
+  var pending = {};
+
+  function createId() {
+    return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
+  }
+
+  window.MERPBridge = {
+    call: function (action, payload) {
+      var id = createId();
+      MerpNative.postMessage(JSON.stringify({
+        id: id,
+        action: action,
+        payload: payload || {}
+      }));
+
+      return new Promise(function (resolve, reject) {
+        pending[id] = { resolve: resolve, reject: reject };
+      });
+    },
+
+    takePhoto: function (options) {
+      return this.call('camera.takePhoto', options || {});
+    },
+
+    _resolve: function (id, data) {
+      if (!pending[id]) {
+        return;
+      }
+      pending[id].resolve(data);
+      delete pending[id];
+    },
+
+    _reject: function (id, error) {
+      if (!pending[id]) {
+        return;
+      }
+      pending[id].reject(error);
+      delete pending[id];
+    }
+  };
+})();
+''');
+  }
+
+  Future<void> _handleBridgeMessage(String rawMessage) async {
+    String? requestId;
+    try {
+      final decoded = jsonDecode(rawMessage);
+      if (decoded is! Map<String, dynamic>) {
+        throw const _BridgeException('BRIDGE_BAD_REQUEST', 'bridge 消息格式错误');
+      }
+
+      requestId = decoded['id']?.toString();
+      final action = decoded['action']?.toString();
+      final payload = decoded['payload'];
+
+      if (requestId == null || requestId.isEmpty || action == null) {
+        throw const _BridgeException(
+          'BRIDGE_BAD_REQUEST',
+          'bridge 缺少 id 或 action',
+        );
+      }
+
+      switch (action) {
+        case 'camera.takePhoto':
+          await _takePhotoForLegacy(requestId, payload);
+        default:
+          await _rejectBridge(
+            requestId,
+            'BRIDGE_UNSUPPORTED_ACTION',
+            '暂不支持的原生能力：$action',
+          );
+      }
+    } catch (error) {
+      final bridgeError = error is _BridgeException
+          ? error
+          : _BridgeException('BRIDGE_ERROR', error.toString());
+      if (requestId != null && requestId.isNotEmpty) {
+        await _rejectBridge(requestId, bridgeError.code, bridgeError.message);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('原生 bridge 调用失败：${bridgeError.message}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _takePhotoForLegacy(String requestId, Object? payload) async {
+    final cameraService = AppScope.of(context).cameraService;
+    final options = payload is Map<String, dynamic>
+        ? payload
+        : const <String, dynamic>{};
+    final includeBase64 = options['includeBase64'] == true;
+    final imageQuality = _readInt(
+      options['imageQuality'],
+      fallback: 88,
+    ).clamp(1, 100);
+    final maxWidth = _readDouble(options['maxWidth'], fallback: 1920);
+
+    final capture = await cameraService.takePhoto(
+      includeBase64: includeBase64,
+      imageQuality: imageQuality,
+      maxWidth: maxWidth,
+    );
+
+    if (!mounted) {
+      return;
+    }
+    if (capture == null) {
+      await _rejectBridge(requestId, 'CAMERA_CANCELLED', '用户取消拍照');
+      return;
+    }
+
+    await _resolveBridge(requestId, capture.toJson());
+  }
+
+  int _readInt(Object? value, {required int fallback}) {
+    if (value is num) {
+      return value.toInt();
+    }
+    if (value is String) {
+      return int.tryParse(value) ?? fallback;
+    }
+    return fallback;
+  }
+
+  double _readDouble(Object? value, {required double fallback}) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value) ?? fallback;
+    }
+    return fallback;
+  }
+
+  Future<void> _resolveBridge(String requestId, Object? data) {
+    return _runBridgeCallback('_resolve', requestId, data);
+  }
+
+  Future<void> _rejectBridge(String requestId, String code, String message) {
+    return _runBridgeCallback('_reject', requestId, {
+      'code': code,
+      'message': message,
+    });
+  }
+
+  Future<void> _runBridgeCallback(
+    String method,
+    String requestId,
+    Object? payload,
+  ) async {
+    final controller = _controller;
+    if (controller == null) {
+      return;
+    }
+    final script =
+        'window.MERPBridge && window.MERPBridge.$method(${jsonEncode(requestId)}, ${jsonEncode(payload)});';
+    await controller.runJavaScript(script);
   }
 
   void _showError(_LegacyError error) {
@@ -242,4 +432,14 @@ class _LegacyError {
   final String message;
   final String? detail;
   final AppErrorTone tone;
+}
+
+class _BridgeException implements Exception {
+  const _BridgeException(this.code, this.message);
+
+  final String code;
+  final String message;
+
+  @override
+  String toString() => '$code: $message';
 }

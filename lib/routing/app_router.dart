@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../core/auth/auth_controller.dart';
 import '../features/all_features/all_features_page.dart';
-import '../features/camera/camera_page.dart';
 import '../features/home/home_page.dart';
 import '../features/legacy/legacy_web_page.dart';
 import '../features/login/login_page.dart';
@@ -65,10 +64,6 @@ class AppRouter {
             path: '/legacy/:moduleId',
             builder: (context, state) =>
                 LegacyWebPage(moduleId: state.pathParameters['moduleId'] ?? ''),
-          ),
-          GoRoute(
-            path: '/native/camera',
-            builder: (context, state) => const CameraPage(),
           ),
           GoRoute(
             path: '/native/map',
