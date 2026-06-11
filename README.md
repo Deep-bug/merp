@@ -100,6 +100,7 @@ try {
 ## 架构分层
 
 - `lib/app`：应用入口、主题、依赖容器、自动锁屏守护。
+- `lib/app/app_dependencies.dart`：应用级依赖装配，集中初始化配置、HTTP、鉴权、权限、设置和设备能力。
 - `lib/routing`：基于 `go_router` 的登录守卫和页面路由。
 - `lib/core/auth`：登录、token 存储、会话恢复、退出。
 - `lib/core/network`：基于 `dio` 的统一 HTTP 客户端、响应壳解析和错误码。
@@ -110,6 +111,43 @@ try {
 - `lib/features/settings`：系统设置、指纹、自动锁屏、手势密码、语言、版本检测。
 - `lib/features/profile`：个人中心。
 - `lib/features/map`：地图定位占位页面。
+
+### 分包是否合理
+
+当前分包方式是合理的，适合 MERP 这种“旧系统承载 + 新功能逐步原生化”的迁移项目：
+- `core` 放跨业务能力，例如鉴权、HTTP、设备能力、配置。
+- `app` 放应用装配能力，例如主题、依赖容器、全局锁屏。
+- `routing` 放路由表和登录守卫。
+- `features` 按业务模块纵向拆分，每个模块内部再分 `data / domain / page`。
+- `shared` 放真正跨模块复用的 UI 组件，避免每个业务模块互相引用。
+
+后续新增库存、销售、审批等 Flutter 原生模块时，推荐结构：
+
+```text
+lib/features/inventory/
+  data/                 # 接口、DTO、Repository 实现
+  domain/               # 实体、枚举、业务规则
+  presentation/         # Page、Widget、Controller/StateNotifier
+```
+
+### 状态管理选型
+
+当前项目使用 `ChangeNotifier + AppScope(InheritedWidget)`，原因是现阶段状态集中在登录、权限、系统设置三个外壳级对象，代码少、学习成本低、可调试。
+
+当满足以下任一条件时，建议升级状态管理：
+- 原生业务模块超过 5 个，并且模块之间共享筛选条件、单据草稿、审批流等状态。
+- 页面中出现多个异步列表、分页、缓存刷新、局部错误恢复。
+- 需要更系统地做单元测试、mock Repository、离线缓存和权限变更监听。
+
+推荐路线：
+- 首选 `flutter_riverpod`：适合企业应用，依赖注入、异步状态、测试隔离都比较自然。
+- 可选 `bloc`：适合流程很重、事件驱动明显的模块，例如审批流、工单状态机。
+- 不建议全局滥用 `GetX`：上手快，但大型 ERP 中容易让状态来源变得分散。
+
+迁移方式建议渐进式：
+- 外壳层暂时保留 `AppDependencies` 和现有 controller。
+- 新增 Flutter 原生业务模块时，从该模块开始使用 Riverpod。
+- 等原生模块稳定后，再把 `AuthController`、`PermissionRepository`、`SettingsController` 迁成 Provider。
 
 ## 后端接口约定
 

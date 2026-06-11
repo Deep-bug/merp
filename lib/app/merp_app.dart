@@ -3,33 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/auth/auth_controller.dart';
-import '../core/config/app_config.dart';
-import '../core/device/camera_service.dart';
-import '../core/device/location_service.dart';
-import '../features/home/data/permission_repository.dart';
 import '../features/settings/pattern_lock_pad.dart';
 import '../features/settings/settings_controller.dart';
+import 'app_dependencies.dart';
 import '../routing/app_router.dart';
 import 'app_scope.dart';
 import 'theme/app_theme.dart';
 
 class MerpApp extends StatefulWidget {
-  const MerpApp({
-    super.key,
-    required this.config,
-    required this.authController,
-    required this.permissionRepository,
-    required this.settingsController,
-    required this.cameraService,
-    required this.locationService,
-  });
+  const MerpApp({super.key, required this.dependencies});
 
-  final AppConfig config;
-  final AuthController authController;
-  final PermissionRepository permissionRepository;
-  final SettingsController settingsController;
-  final CameraService cameraService;
-  final LocationService locationService;
+  final AppDependencies dependencies;
 
   @override
   State<MerpApp> createState() => _MerpAppState();
@@ -37,18 +21,20 @@ class MerpApp extends StatefulWidget {
 
 class _MerpAppState extends State<MerpApp> {
   late final AppRouter _appRouter = AppRouter(
-    authController: widget.authController,
+    authController: widget.dependencies.authController,
   );
 
   @override
   Widget build(BuildContext context) {
+    final dependencies = widget.dependencies;
+
     return AppScope(
-      config: widget.config,
-      authController: widget.authController,
-      permissionRepository: widget.permissionRepository,
-      settingsController: widget.settingsController,
-      cameraService: widget.cameraService,
-      locationService: widget.locationService,
+      config: dependencies.config,
+      authController: dependencies.authController,
+      permissionRepository: dependencies.permissionRepository,
+      settingsController: dependencies.settingsController,
+      cameraService: dependencies.cameraService,
+      locationService: dependencies.locationService,
       child: MaterialApp.router(
         title: 'MERP',
         theme: AppTheme.light(),
@@ -56,8 +42,8 @@ class _MerpAppState extends State<MerpApp> {
         debugShowCheckedModeBanner: false,
         builder: (context, child) {
           return _AutoLockGuard(
-            authController: widget.authController,
-            settingsController: widget.settingsController,
+            authController: dependencies.authController,
+            settingsController: dependencies.settingsController,
             child: child ?? const SizedBox.shrink(),
           );
         },

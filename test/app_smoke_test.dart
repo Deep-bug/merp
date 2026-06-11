@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merp/app/app_dependencies.dart';
 import 'package:merp/app/merp_app.dart';
 import 'package:merp/core/auth/auth_controller.dart';
 import 'package:merp/core/auth/auth_repository.dart';
@@ -29,16 +30,18 @@ void main() {
     );
     auth.status = AuthStatus.unauthenticated;
 
-    await tester.pumpWidget(
-      MerpApp(
-        config: config,
-        authController: auth,
-        permissionRepository: permissions,
-        settingsController: settings,
-        cameraService: CameraService(),
-        locationService: LocationService(config: config),
-      ),
+    final dependencies = AppDependencies(
+      config: config,
+      tokenStore: tokenStore,
+      apiClient: apiClient,
+      authController: auth,
+      permissionRepository: permissions,
+      settingsController: settings,
+      cameraService: CameraService(),
+      locationService: LocationService(config: config),
     );
+
+    await tester.pumpWidget(MerpApp(dependencies: dependencies));
     await tester.pumpAndSettle();
 
     expect(find.text('MERP'), findsOneWidget);
