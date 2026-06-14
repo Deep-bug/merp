@@ -1,6 +1,6 @@
 # MERP Flutter Shell
 
-MERP Flutter Shell 是原 Cordova 6.5 外壳的升级替代方案。Flutter 负责登录鉴权、菜单权限、统一 HTTP、系统设置、WebView 承载和原生能力 Bridge；现有 Vue2 业务页面继续运行在 WebView 中，后续可按模块逐步迁移为 Flutter 原生页面。
+MFlutter 负责登录鉴权、菜单权限、统一 HTTP、系统设置、WebView 承载和原生能力 Bridge；现有 Vue2 业务页面继续运行在 WebView 中，后续可按模块逐步迁移为 Flutter 原生页面。
 
 ## 目录结构
 
