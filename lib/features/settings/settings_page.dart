@@ -33,18 +33,16 @@ class SettingsPage extends StatelessWidget {
                       subtitle: const Text('用于自动锁屏后的快速解锁'),
                       onChanged: (value) async {
                         final ok = await settings.setBiometricEnabled(value);
-                        if (!context.mounted) {
+                        if (!context.mounted || ok) {
                           return;
                         }
-                        if (!ok) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                settings.lastBiometricError ?? '当前设备无法启用指纹解锁',
-                              ),
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              settings.lastBiometricError ?? '当前设备无法启用指纹解锁',
                             ),
-                          );
-                        }
+                          ),
+                        );
                       },
                     ),
                     SwitchListTile(
@@ -91,6 +89,13 @@ class SettingsPage extends StatelessWidget {
                           }
                         },
                       ),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.dynamic_feed_outlined),
+                      title: const Text('静态资源热更新演示'),
+                      subtitle: const Text('本地模拟资源清单更新首页背景和图标颜色'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.go('/settings/resource-update'),
                     ),
                     ListTile(
                       leading: const Icon(Icons.system_update_alt_outlined),

@@ -8,6 +8,7 @@ import 'package:merp/core/config/app_config.dart';
 import 'package:merp/core/device/camera_service.dart';
 import 'package:merp/core/device/location_service.dart';
 import 'package:merp/core/network/api_client.dart';
+import 'package:merp/core/resources/resource_update_controller.dart';
 import 'package:merp/features/home/data/permission_repository.dart';
 import 'package:merp/features/settings/settings_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,6 +22,8 @@ void main() {
     final permissions = PermissionRepository(apiClient: apiClient);
     final settings = SettingsController(useSecureStorage: false);
     await settings.load();
+    final resources = ResourceUpdateController();
+    await resources.load();
     final auth = AuthController(
       authRepository: AuthRepository(
         apiClient: apiClient,
@@ -37,6 +40,7 @@ void main() {
       authController: auth,
       permissionRepository: permissions,
       settingsController: settings,
+      resourceUpdateController: resources,
       cameraService: CameraService(),
       locationService: LocationService(config: config),
     );

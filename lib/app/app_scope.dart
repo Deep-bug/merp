@@ -4,6 +4,7 @@ import '../core/auth/auth_controller.dart';
 import '../core/config/app_config.dart';
 import '../core/device/camera_service.dart';
 import '../core/device/location_service.dart';
+import '../core/resources/resource_update_controller.dart';
 import '../features/home/data/permission_repository.dart';
 import '../features/settings/settings_controller.dart';
 
@@ -18,6 +19,7 @@ class AppScope extends InheritedWidget {
     required this.authController,
     required this.permissionRepository,
     required this.settingsController,
+    required this.resourceUpdateController,
     required this.cameraService,
     required this.locationService,
     required super.child,
@@ -27,6 +29,7 @@ class AppScope extends InheritedWidget {
   final AuthController authController;
   final PermissionRepository permissionRepository;
   final SettingsController settingsController;
+  final ResourceUpdateController resourceUpdateController;
   final CameraService cameraService;
   final LocationService locationService;
 
@@ -42,6 +45,7 @@ class AppScope extends InheritedWidget {
         authController != oldWidget.authController ||
         permissionRepository != oldWidget.permissionRepository ||
         settingsController != oldWidget.settingsController ||
+        resourceUpdateController != oldWidget.resourceUpdateController ||
         cameraService != oldWidget.cameraService ||
         locationService != oldWidget.locationService;
   }

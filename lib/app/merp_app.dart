@@ -33,6 +33,7 @@ class _MerpAppState extends State<MerpApp> {
       authController: dependencies.authController,
       permissionRepository: dependencies.permissionRepository,
       settingsController: dependencies.settingsController,
+      resourceUpdateController: dependencies.resourceUpdateController,
       cameraService: dependencies.cameraService,
       locationService: dependencies.locationService,
       child: MaterialApp.router(

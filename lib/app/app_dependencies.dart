@@ -6,6 +6,7 @@ import '../core/device/camera_service.dart';
 import '../core/device/location_service.dart';
 import '../core/device/map_sdk_service.dart';
 import '../core/network/api_client.dart';
+import '../core/resources/resource_update_controller.dart';
 import '../features/home/data/permission_repository.dart';
 import '../features/settings/settings_controller.dart';
 
@@ -22,6 +23,7 @@ class AppDependencies {
     required this.authController,
     required this.permissionRepository,
     required this.settingsController,
+    required this.resourceUpdateController,
     required this.cameraService,
     required this.locationService,
   });
@@ -32,6 +34,7 @@ class AppDependencies {
   final AuthController authController;
   final PermissionRepository permissionRepository;
   final SettingsController settingsController;
+  final ResourceUpdateController resourceUpdateController;
   final CameraService cameraService;
   final LocationService locationService;
 
@@ -52,6 +55,8 @@ class AppDependencies {
     final permissionRepository = PermissionRepository(apiClient: apiClient);
     final settingsController = SettingsController();
     await settingsController.load();
+    final resourceUpdateController = ResourceUpdateController();
+    await resourceUpdateController.load();
 
     final authController = AuthController(
       authRepository: AuthRepository(
@@ -69,6 +74,7 @@ class AppDependencies {
       authController: authController,
       permissionRepository: permissionRepository,
       settingsController: settingsController,
+      resourceUpdateController: resourceUpdateController,
       cameraService: CameraService(),
       locationService: LocationService(config: config),
     );
@@ -79,5 +85,6 @@ class AppDependencies {
     authController.dispose();
     permissionRepository.dispose();
     settingsController.dispose();
+    resourceUpdateController.dispose();
   }
 }

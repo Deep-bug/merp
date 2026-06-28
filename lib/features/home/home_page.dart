@@ -4,14 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/app_scope.dart';
+import '../../core/resources/runtime_resource_manifest.dart';
 import '../../shared/app_error_view.dart';
 import 'domain/feature_item.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
-  static const brandBlue = Color(0xFF5E93E5);
-  static const iconBlue = Color(0xFF16A3DE);
   static const inkText = Color(0xFF2E2F33);
 
   @override
@@ -19,14 +18,19 @@ class HomePage extends StatelessWidget {
     final scope = AppScope.of(context);
     final auth = scope.authController;
     final permissions = scope.permissionRepository;
+    final resources = scope.resourceUpdateController;
 
     return AnimatedBuilder(
-      animation: Listenable.merge([auth, permissions]),
+      animation: Listenable.merge([auth, permissions, resources]),
       builder: (context, _) {
         final userName = auth.session?.userName ?? '当前用户';
+        final manifest = resources.manifest;
 
         return Scaffold(
-          drawer: _HomeDrawer(userName: userName),
+          drawer: _HomeDrawer(
+            userName: userName,
+            brandColor: manifest.brandColor,
+          ),
           body: SafeArea(
             child: Stack(
               children: [
@@ -40,25 +44,33 @@ class HomePage extends StatelessWidget {
                   child: CustomScrollView(
                     slivers: [
                       SliverToBoxAdapter(
-                        child: _HomeHeader(userName: userName),
+                        child: _HomeHeader(
+                          brandColor: manifest.brandColor,
+                          onProfile: () => context.go('/profile'),
+                        ),
                       ),
-                      const SliverToBoxAdapter(child: _HomeBannerCarousel()),
+                      SliverToBoxAdapter(
+                        child: _HomeBannerCarousel(manifest: manifest),
+                      ),
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(18, 22, 18, 34),
                           child: _HomeFeatureArea(
                             features: permissions.features,
                             hasAnyFeature: permissions.allFeatures.isNotEmpty,
+                            iconColor: manifest.iconColor,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Positioned(
+                Positioned(
                   right: 18,
                   bottom: 18,
-                  child: _FloatingAssistantButton(),
+                  child: _FloatingAssistantButton(
+                    iconColor: manifest.iconColor,
+                  ),
                 ),
               ],
             ),
@@ -70,9 +82,10 @@ class HomePage extends StatelessWidget {
 }
 
 class _HomeHeader extends StatelessWidget {
-  const _HomeHeader({required this.userName});
+  const _HomeHeader({required this.brandColor, required this.onProfile});
 
-  final String userName;
+  final Color brandColor;
+  final VoidCallback onProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -88,13 +101,13 @@ class _HomeHeader extends StatelessWidget {
               tooltip: '菜单',
               onPressed: () => Scaffold.of(context).openDrawer(),
               icon: const Icon(Icons.menu, size: 34),
-              color: HomePage.brandBlue,
+              color: brandColor,
             ),
           ),
           Text(
             'MERP 2025',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: HomePage.brandBlue,
+              color: brandColor,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -102,9 +115,9 @@ class _HomeHeader extends StatelessWidget {
             right: 18,
             child: IconButton(
               tooltip: '个人中心',
-              onPressed: () => context.go('/profile'),
+              onPressed: onProfile,
               icon: const Icon(Icons.person, size: 34),
-              color: HomePage.brandBlue,
+              color: brandColor,
             ),
           ),
         ],
@@ -114,29 +127,35 @@ class _HomeHeader extends StatelessWidget {
 }
 
 class _HomeBannerCarousel extends StatefulWidget {
-  const _HomeBannerCarousel();
+  const _HomeBannerCarousel({required this.manifest});
+
+  final RuntimeResourceManifest manifest;
 
   @override
   State<_HomeBannerCarousel> createState() => _HomeBannerCarouselState();
 }
 
 class _HomeBannerCarouselState extends State<_HomeBannerCarousel> {
-  static const _slides = [
+  final _controller = PageController();
+  Timer? _timer;
+  var _index = 0;
+
+  List<_BannerData> get _slides => [
     _BannerData(
-      title: 'MERP 移动工作台',
-      subtitle: '旧系统与 Flutter 原生能力并行升级',
-      color: Color(0xFF4DA9D7),
-      darkColor: Color(0xFF439BC7),
+      title: widget.manifest.bannerTitle,
+      subtitle: widget.manifest.bannerSubtitle,
+      color: widget.manifest.bannerColor,
+      darkColor: widget.manifest.bannerDarkColor,
       icon: Icons.qr_code_2,
     ),
-    _BannerData(
+    const _BannerData(
       title: '外勤管理',
       subtitle: '任务、定位、工单一站处理',
       color: Color(0xFF5BA2E6),
       darkColor: Color(0xFF4489C7),
       icon: Icons.location_on_outlined,
     ),
-    _BannerData(
+    const _BannerData(
       title: '数据资产',
       subtitle: '客户、设备、盘点统一入口',
       color: Color(0xFF43B7C7),
@@ -145,14 +164,18 @@ class _HomeBannerCarouselState extends State<_HomeBannerCarousel> {
     ),
   ];
 
-  final _controller = PageController();
-  Timer? _timer;
-  var _index = 0;
-
   @override
   void initState() {
     super.initState();
     _timer = Timer.periodic(const Duration(seconds: 4), (_) => _nextBanner());
+  }
+
+  @override
+  void didUpdateWidget(covariant _HomeBannerCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_index >= _slides.length) {
+      _index = 0;
+    }
   }
 
   @override
@@ -175,24 +198,25 @@ class _HomeBannerCarouselState extends State<_HomeBannerCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    final slides = _slides;
+
     return SizedBox(
       height: 178,
       width: double.infinity,
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: [
-          // Banner 按真实图片轮播位设计。上线后可以把 _BannerSlide 换成 Image.asset/network。
           PageView.builder(
             controller: _controller,
-            itemCount: _slides.length,
+            itemCount: slides.length,
             onPageChanged: (value) => setState(() => _index = value),
-            itemBuilder: (context, index) => _BannerSlide(data: _slides[index]),
+            itemBuilder: (context, index) => _BannerSlide(data: slides[index]),
           ),
           Positioned(
             bottom: 14,
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: List.generate(_slides.length, (index) {
+              children: List.generate(slides.length, (index) {
                 final active = index == _index;
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
@@ -364,10 +388,15 @@ class _BannerData {
 }
 
 class _HomeFeatureArea extends StatelessWidget {
-  const _HomeFeatureArea({required this.features, required this.hasAnyFeature});
+  const _HomeFeatureArea({
+    required this.features,
+    required this.hasAnyFeature,
+    required this.iconColor,
+  });
 
   final List<FeatureItem> features;
   final bool hasAnyFeature;
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -379,10 +408,10 @@ class _HomeFeatureArea extends StatelessWidget {
       );
     }
 
-    // 首页固定 3 列，前 9 个常用功能占前三行，第四行只放“更多”入口。
     final tiles = <Widget>[
-      for (final feature in features.take(9)) _FeatureTile(item: feature),
-      const _MoreFeatureTile(),
+      for (final feature in features.take(9))
+        _FeatureTile(item: feature, iconColor: iconColor),
+      _MoreFeatureTile(iconColor: iconColor),
     ];
 
     return Column(
@@ -416,24 +445,22 @@ class _HomeFeatureArea extends StatelessWidget {
 }
 
 class _FeatureTile extends StatelessWidget {
-  const _FeatureTile({required this.item});
+  const _FeatureTile({required this.item, required this.iconColor});
 
   final FeatureItem item;
+  final Color iconColor;
 
   void _open(BuildContext context) {
     final permissions = AppScope.of(context).permissionRepository;
 
-    // 点击入口时再次校验权限，避免用户通过缓存页面或伪造菜单直接跳转。
     if (!permissions.canOpen(item)) {
       context.go('/forbidden');
       return;
     }
-
     if (item.route.trim().isEmpty) {
       _showMissingRouteDialog(context, item.title);
       return;
     }
-
     context.go(item.route);
   }
 
@@ -442,7 +469,7 @@ class _FeatureTile extends StatelessWidget {
     return _FeatureCard(
       icon: item.icon,
       label: item.title,
-      iconColor: HomePage.iconBlue,
+      iconColor: iconColor,
       textColor: HomePage.inkText,
       onTap: () => _open(context),
     );
@@ -450,14 +477,16 @@ class _FeatureTile extends StatelessWidget {
 }
 
 class _MoreFeatureTile extends StatelessWidget {
-  const _MoreFeatureTile();
+  const _MoreFeatureTile({required this.iconColor});
+
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
     return _FeatureCard(
       icon: Icons.grid_view_rounded,
       label: '更多',
-      iconColor: HomePage.iconBlue,
+      iconColor: iconColor,
       textColor: HomePage.inkText,
       onTap: () => context.go('/features'),
     );
@@ -556,9 +585,10 @@ void _showMissingRouteDialog(BuildContext context, String title) {
 }
 
 class _HomeDrawer extends StatelessWidget {
-  const _HomeDrawer({required this.userName});
+  const _HomeDrawer({required this.userName, required this.brandColor});
 
   final String userName;
+  final Color brandColor;
 
   @override
   Widget build(BuildContext context) {
@@ -567,14 +597,17 @@ class _HomeDrawer extends StatelessWidget {
     return Drawer(
       width: MediaQuery.sizeOf(context).width * 0.62,
       shape: const RoundedRectangleBorder(),
-      backgroundColor: HomePage.brandBlue,
+      backgroundColor: brandColor,
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 50, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Align(alignment: Alignment.center, child: _DrawerLogo()),
+              Align(
+                alignment: Alignment.center,
+                child: _DrawerLogo(iconColor: brandColor),
+              ),
               const SizedBox(height: 28),
               Text(
                 userName,
@@ -621,7 +654,9 @@ class _HomeDrawer extends StatelessWidget {
 }
 
 class _DrawerLogo extends StatelessWidget {
-  const _DrawerLogo();
+  const _DrawerLogo({required this.iconColor});
+
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -650,7 +685,7 @@ class _DrawerLogo extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          const Icon(Icons.cloud_queue, color: HomePage.iconBlue, size: 30),
+          Icon(Icons.cloud_queue, color: iconColor, size: 30),
         ],
       ),
     );
@@ -740,7 +775,9 @@ class _DrawerAction extends StatelessWidget {
 }
 
 class _FloatingAssistantButton extends StatelessWidget {
-  const _FloatingAssistantButton();
+  const _FloatingAssistantButton({required this.iconColor});
+
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -756,9 +793,9 @@ class _FloatingAssistantButton extends StatelessWidget {
           ),
         ],
       ),
-      child: const Padding(
-        padding: EdgeInsets.all(12),
-        child: Icon(Icons.smart_toy_outlined, color: HomePage.iconBlue),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Icon(Icons.smart_toy_outlined, color: iconColor),
       ),
     );
   }

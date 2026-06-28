@@ -8,6 +8,7 @@ import '../features/legacy/legacy_web_page.dart';
 import '../features/login/login_page.dart';
 import '../features/map/map_page.dart';
 import '../features/profile/profile_page.dart';
+import '../features/resources/resource_update_demo_page.dart';
 import '../features/settings/gesture_password_page.dart';
 import '../features/settings/settings_page.dart';
 import '../shared/app_error_view.dart';
@@ -59,6 +60,10 @@ class AppRouter {
           GoRoute(
             path: '/settings/gesture',
             builder: (context, state) => const GesturePasswordPage(),
+          ),
+          GoRoute(
+            path: '/settings/resource-update',
+            builder: (context, state) => const ResourceUpdateDemoPage(),
           ),
           GoRoute(
             path: '/legacy/:moduleId',
