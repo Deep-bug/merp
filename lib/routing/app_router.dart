@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/auth/auth_controller.dart';
 import '../features/all_features/all_features_page.dart';
+import '../features/bridge_test/bridge_test_page.dart';
 import '../features/home/home_page.dart';
 import '../features/legacy/legacy_web_page.dart';
 import '../features/login/login_page.dart';
@@ -64,6 +65,10 @@ class AppRouter {
           GoRoute(
             path: '/settings/resource-update',
             builder: (context, state) => const ResourceUpdateDemoPage(),
+          ),
+          GoRoute(
+            path: '/settings/bridge-test',
+            builder: (context, state) => const BridgeTestPage(),
           ),
           GoRoute(
             path: '/legacy/:moduleId',

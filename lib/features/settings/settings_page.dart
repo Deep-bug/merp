@@ -98,6 +98,15 @@ class SettingsPage extends StatelessWidget {
                       onTap: () => context.go('/settings/resource-update'),
                     ),
                     ListTile(
+                      leading: const Icon(
+                        Icons.integration_instructions_outlined,
+                      ),
+                      title: const Text('WebView Bridge 测试'),
+                      subtitle: const Text('验证 Vue/H5 页面调用 Flutter 原生能力'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.go('/settings/bridge-test'),
+                    ),
+                    ListTile(
                       leading: const Icon(Icons.system_update_alt_outlined),
                       title: const Text('版本检测'),
                       subtitle: const Text('当前版本 1.0.0'),
