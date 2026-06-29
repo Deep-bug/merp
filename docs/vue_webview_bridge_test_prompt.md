@@ -1,19 +1,22 @@
-# Vue2 WebView Bridge 测试页提示词
+# Vue3 WebView Bridge 测试页提示词
 
-下面这段提示词可以直接复制给前端同事或 AI，让它生成一个 Vue2 测试页面，用于验证 WebView 中的 Vue 应用调用 Flutter 手机端能力。
+下面这段提示词可以直接复制给前端同事或 AI，让它生成一个 Vue3 测试页面，用于验证 WebView 中的 Vue 应用调用 Flutter 手机端能力。
 
 ## 提示词
 
 ```text
-请帮我写一个 Vue2 单文件组件或 Vue2 页面，用于测试 Flutter WebView 注入的 window.MERPBridge。
+请帮我写一个 Vue3 单文件组件，用于测试 Flutter WebView 注入的 window.MERPBridge。
 
 技术要求：
-1. 使用 Vue2 语法，不要使用 Vue3 Composition API。
-2. 页面要适配手机端 WebView，宽度 100%，按钮适合手指点击。
-3. 页面不依赖 UI 组件库，使用普通 HTML/CSS 即可。
-4. 页面加载后检测 window.MERPBridge 是否存在。
-5. 如果 Bridge 还没有注入，需要监听 window 的 MERPBridgeReady 事件。
-6. 所有调用都要 try/catch，并把成功结果或失败错误显示在页面日志区。
+1. 使用 Vue3 Composition API，推荐 <script setup lang="ts">。
+2. 如果不方便使用 TypeScript，可以输出 <script setup> 版本，但结构仍然按 Vue3 写。
+3. 页面要适配手机端 WebView，宽度 100%，按钮适合手指点击。
+4. 页面不依赖 UI 组件库，使用普通 HTML/CSS 即可。
+5. 页面加载后检测 window.MERPBridge 是否存在。
+6. 如果 Bridge 还没有注入，需要监听 window 的 MERPBridgeReady 事件。
+7. 组件卸载时要移除事件监听。
+8. 所有调用都要 try/catch，并把成功结果或失败错误显示在页面日志区。
+9. 给 window.MERPBridge 写一个基础 TypeScript 类型声明，避免 TS 报错。
 
 需要测试的 Bridge API：
 
@@ -27,7 +30,7 @@ await window.MERPBridge.getSession()
 await window.MERPBridge.getResourceManifest()
 
 4. 调用 Flutter Toast：
-await window.MERPBridge.showToast('Vue 页面调用 Flutter Toast 成功')
+await window.MERPBridge.showToast('Vue3 页面调用 Flutter Toast 成功')
 
 5. 调用相机拍照，仅返回路径：
 await window.MERPBridge.takePhoto({
@@ -42,14 +45,14 @@ const photo = await window.MERPBridge.takePhoto({
   imageQuality: 80,
   maxWidth: 1280
 })
-如果 photo.dataUrl 存在，在页面中用 <img :src="photo.dataUrl" /> 展示预览。
+如果 photo.dataUrl 存在，在页面中用 <img :src="previewUrl" /> 展示预览。
 
 7. 异常测试：
 await window.MERPBridge.call('unsupported.action', {})
 这个调用应当失败，页面要显示错误 code 和 message。
 
 页面 UI 要包含：
-- 顶部标题：MERP Vue Bridge 测试页
+- 顶部标题：MERP Vue3 Bridge 测试页
 - Bridge 状态：等待注入 / 已注入
 - 7 个测试按钮
 - 日志输出区，显示 JSON.stringify(result, null, 2)
@@ -62,7 +65,12 @@ Bridge 错误对象格式：
   message: string
 }
 
-请输出完整可运行的 Vue2 页面代码，并在代码里写清楚每个按钮调用的是哪个 action。
+请输出完整可运行的 Vue3 SFC 代码，包含：
+- <template>
+- <script setup lang="ts">
+- <style scoped>
+
+代码里要写清楚每个按钮调用的是哪个 action。
 ```
 
 ## Flutter 侧已支持的 API
@@ -97,50 +105,92 @@ App 内已经提供一个不依赖后端的内置测试页：
 
 该页面运行在 Flutter WebView 中，使用同一套 `window.MERPBridge` 协议，可以先验证 Flutter 侧能力是否正常。
 
-## Vue2 接入注意事项
+## Vue3 接入示例片段
 
-1. 不要在页面初始化时立刻假设 `window.MERPBridge` 一定存在。
+### 类型声明
 
-   推荐：
+```ts
+type BridgeError = {
+  code: string
+  message: string
+}
 
-```js
-mounted() {
-  if (window.MERPBridge) {
-    this.bridgeReady = true
-    return
+type TakePhotoOptions = {
+  includeBase64?: boolean
+  imageQuality?: number
+  maxWidth?: number
+}
+
+type CameraCapture = {
+  path: string
+  name: string
+  mimeType: string
+  size: number
+  base64?: string | null
+  dataUrl?: string | null
+}
+
+type MerpBridge = {
+  version: string
+  call<T = unknown>(action: string, payload?: Record<string, unknown>): Promise<T>
+  ping(): Promise<unknown>
+  getSession(): Promise<unknown>
+  getResourceManifest(): Promise<unknown>
+  showToast(message: string): Promise<unknown>
+  takePhoto(options?: TakePhotoOptions): Promise<CameraCapture>
+}
+
+declare global {
+  interface Window {
+    MERPBridge?: MerpBridge
   }
-  window.addEventListener('MERPBridgeReady', () => {
-    this.bridgeReady = true
-  })
 }
 ```
 
-2. 所有 Bridge 调用必须 try/catch。
+### Bridge Ready 监听
 
-```js
-try {
-  const result = await window.MERPBridge.ping()
-  console.log(result)
-} catch (error) {
-  console.warn(error.code, error.message)
+```ts
+import { onMounted, onUnmounted, ref } from 'vue'
+
+const bridgeReady = ref(false)
+
+function refreshBridgeState() {
+  bridgeReady.value = Boolean(window.MERPBridge)
+}
+
+onMounted(() => {
+  refreshBridgeState()
+  window.addEventListener('MERPBridgeReady', refreshBridgeState)
+  setTimeout(refreshBridgeState, 300)
+  setTimeout(refreshBridgeState, 1000)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('MERPBridgeReady', refreshBridgeState)
+})
+```
+
+### 调用示例
+
+```ts
+async function runPing() {
+  try {
+    const result = await window.MERPBridge?.ping()
+    console.log(result)
+  } catch (error) {
+    const bridgeError = error as BridgeError
+    console.warn(bridgeError.code, bridgeError.message)
+  }
 }
 ```
 
-3. 拍照 base64 可能比较大。
+## Vue3 接入注意事项
 
-列表、表单普通上传场景建议：
-
-```js
-includeBase64: false
-```
-
-需要页面立即预览时再使用：
-
-```js
-includeBase64: true
-```
-
-4. 正式业务里 token 建议优先通过 WebView 请求头传递。
+1. 不要在组件初始化时立刻假设 `window.MERPBridge` 一定存在。
+2. 所有 Bridge 调用必须 `try/catch`。
+3. 拍照 `base64` 可能比较大，普通上传场景建议 `includeBase64: false`。
+4. 需要页面立即预览时再使用 `includeBase64: true`。
+5. 正式业务里 token 建议优先通过 WebView 请求头传递。
 
 Flutter 旧系统容器会给 WebView 请求加：
 
@@ -148,4 +198,4 @@ Flutter 旧系统容器会给 WebView 请求加：
 Authorization: Bearer <token>
 ```
 
-`getSession()` 主要用于测试和特殊场景，不建议旧 Vue2 页面到处手动拼 token。
+`getSession()` 主要用于测试和特殊场景，不建议旧 Vue 页面到处手动拼 token。
