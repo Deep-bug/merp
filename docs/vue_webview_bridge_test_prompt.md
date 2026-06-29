@@ -94,7 +94,15 @@ window.MERPBridge
 
 ## Flutter 内置测试入口
 
-App 内已经提供一个不依赖后端的内置测试页：
+平台 Vue3 测试页已部署：
+
+```text
+http://42.192.127.131:8088/merp-bridge-test
+```
+
+普通浏览器打开时会显示“等待注入”，这是正常现象；只有放到 Flutter WebView 中，页面才能检测到 `window.MERPBridge`。
+
+Flutter App 内测试入口：
 
 ```text
 首页
@@ -103,7 +111,9 @@ App 内已经提供一个不依赖后端的内置测试页：
   → WebView Bridge 测试
 ```
 
-该页面运行在 Flutter WebView 中，使用同一套 `window.MERPBridge` 协议，可以先验证 Flutter 侧能力是否正常。
+该页面会加载平台地址，并注入同一套 `window.MERPBridge` 协议，用于验证真实 Vue3 页面调用 Flutter 手机端能力。
+
+当前平台地址使用 HTTP。Android 侧已为测试放开 `usesCleartextTraffic`，iOS 侧已为 WebView 测试放开 `NSAllowsArbitraryLoadsInWebContent`。生产环境建议改成 HTTPS。
 
 ## Vue3 接入示例片段
 

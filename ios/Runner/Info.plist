@@ -55,5 +55,10 @@
 	<string>用于需要持续定位的企业移动业务。</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>用于启用指纹或面容解锁，保护企业移动工作台数据安全。</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+	</dict>
 </dict>
 </plist>
