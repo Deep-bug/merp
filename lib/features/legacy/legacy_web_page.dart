@@ -4,6 +4,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/bridge/merp_native_bridge.dart';
+import '../../core/platform/webview_support.dart';
 import '../../shared/app_error_view.dart';
 
 class LegacyWebPage extends StatefulWidget {
@@ -36,6 +37,18 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
   void _configureAndLoad() {
     final scope = AppScope.of(context);
     final moduleId = widget.moduleId.trim();
+
+    if (!WebViewSupport.isSupported) {
+      _showError(
+        _LegacyError(
+          title: '当前平台不支持 WebView',
+          message: '旧 Vue 页面需要在 Android/iOS 手机端 WebView 中验证。',
+          detail: WebViewSupport.unsupportedDetail,
+          tone: AppErrorTone.warning,
+        ),
+      );
+      return;
+    }
 
     if (moduleId.isEmpty) {
       _showError(

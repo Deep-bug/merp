@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../core/bridge/merp_native_bridge.dart';
+import '../../core/platform/webview_support.dart';
 import '../../shared/app_error_view.dart';
 
 class BridgeTestPage extends StatefulWidget {
@@ -25,12 +26,24 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_controller == null) {
+    if (_controller == null && _error == null) {
       _createController();
     }
   }
 
   void _createController() {
+    if (!WebViewSupport.isSupported) {
+      _showError(
+        _BridgePageError(
+          title: '当前平台不支持 WebView',
+          message: '请在 Android/iOS 手机端验证 Vue 页面调用 Flutter Bridge。',
+          detail: WebViewSupport.unsupportedDetail,
+          tone: AppErrorTone.warning,
+        ),
+      );
+      return;
+    }
+
     final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
@@ -105,6 +118,10 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
       _error = null;
       _progress = 0;
     });
+    if (!WebViewSupport.isSupported) {
+      _createController();
+      return;
+    }
     _controller?.loadRequest(BridgeTestPage.testUri);
   }
 
@@ -132,6 +149,7 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
       body: error != null
           ? AppErrorView(
               icon: Icons.integration_instructions_outlined,
+              tone: error.tone,
               title: error.title,
               message: error.message,
               detail: error.detail,
@@ -158,9 +176,11 @@ class _BridgePageError {
     required this.title,
     required this.message,
     required this.detail,
+    this.tone = AppErrorTone.error,
   });
 
   final String title;
   final String message;
   final String detail;
+  final AppErrorTone tone;
 }

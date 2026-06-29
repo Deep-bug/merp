@@ -115,6 +115,32 @@ Flutter App 内测试入口：
 
 当前平台地址使用 HTTP。Android 侧已为测试放开 `usesCleartextTraffic`，iOS 侧已为 WebView 测试放开 `NSAllowsArbitraryLoadsInWebContent`。生产环境建议改成 HTTPS。
 
+## 常见错误：WebViewPlatform.instance == null
+
+如果在 Flutter Web、Windows 桌面或未配置 WebView 平台实现的环境里打开测试页，可能会看到：
+
+```text
+WebViewPlatform.instance != null
+A platform implementation for `webview_flutter` has not been set.
+```
+
+原因：
+
+```text
+webview_flutter 在当前项目中用于 Android/iOS；
+Flutter Web、Windows、macOS、Linux 默认没有注册这个 WebView 平台实现。
+```
+
+正确验证方式：
+
+```text
+Android 真机
+Android 模拟器
+iOS 真机或模拟器
+```
+
+项目已加平台保护：非 Android/iOS 打开 WebView Bridge 测试页时，会显示说明页，不再红屏。
+
 ## Vue3 接入示例片段
 
 ### 类型声明
