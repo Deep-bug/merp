@@ -10,7 +10,7 @@ $AndroidAvd = 'E:\android-avd'
 $AndroidUserHome = 'E:\android-user'
 $GradleHome = 'E:\.gradle'
 $PubCache = 'E:\pub-cache'
-$FlutterSdk = 'E:\flutter_windows_3.24.4-stable\flutter'
+$FlutterSdk = 'E:\flutter_windows_3.44.5-stable\flutter'
 
 function Get-DirSizeGB([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path)) {

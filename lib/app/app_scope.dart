@@ -1,9 +1,17 @@
+// -----------------------------------------------------------------------------
+// 文件：app_scope.dart
+// 作用：向 Widget 树提供有明确生命周期的应用级依赖
+// 编写时间：2026-07-10
+// 维护说明：业务页面通过 AppScope 读取服务，避免隐式全局单例
+// -----------------------------------------------------------------------------
+
 import 'package:flutter/widgets.dart';
 
 import '../core/auth/auth_controller.dart';
 import '../core/config/app_config.dart';
 import '../core/device/camera_service.dart';
 import '../core/device/location_service.dart';
+import '../core/logging/app_logger.dart';
 import '../core/resources/resource_update_controller.dart';
 import '../features/home/data/permission_repository.dart';
 import '../features/settings/settings_controller.dart';
@@ -22,6 +30,7 @@ class AppScope extends InheritedWidget {
     required this.resourceUpdateController,
     required this.cameraService,
     required this.locationService,
+    required this.logger,
     required super.child,
   });
 
@@ -32,6 +41,7 @@ class AppScope extends InheritedWidget {
   final ResourceUpdateController resourceUpdateController;
   final CameraService cameraService;
   final LocationService locationService;
+  final AppLogger logger;
 
   static AppScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();
@@ -47,6 +57,7 @@ class AppScope extends InheritedWidget {
         settingsController != oldWidget.settingsController ||
         resourceUpdateController != oldWidget.resourceUpdateController ||
         cameraService != oldWidget.cameraService ||
-        locationService != oldWidget.locationService;
+        locationService != oldWidget.locationService ||
+        logger != oldWidget.logger;
   }
 }

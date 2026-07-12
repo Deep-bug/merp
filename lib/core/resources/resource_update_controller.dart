@@ -1,9 +1,28 @@
+// -----------------------------------------------------------------------------
+// 文件：resource_update_controller.dart
+// 作用：加载、验证、缓存、应用和回滚运行时静态资源清单
+// 编写时间：2026-07-10
+// 维护说明：生产下载实现应替换演示预设，但保持控制器对页面的接口稳定
+// -----------------------------------------------------------------------------
+
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../logging/app_logger.dart';
 import 'runtime_resource_manifest.dart';
+
+/// 资源来源使用枚举表达，避免 Controller 保存某一种语言的展示文案。
+enum ResourceSource {
+  builtIn,
+  cache,
+  cacheFallback,
+  manualJson,
+  emeraldDemo,
+  violetDemo,
+  reset,
+}
 
 /// 运行时静态资源控制器。
 ///
@@ -11,21 +30,25 @@ import 'runtime_resource_manifest.dart';
 /// 真实项目只需要把 applyPreset 替换成 HTTPS 拉取 manifest，再校验版本、
 /// hash 和签名后写入本地缓存即可，页面层不用改。
 class ResourceUpdateController extends ChangeNotifier {
-  ResourceUpdateController({SharedPreferences? preferences})
-    : _preferences = preferences;
+  ResourceUpdateController({
+    required AppLogger logger,
+    SharedPreferences? preferences,
+  }) : _logger = logger,
+       _preferences = preferences;
 
   static const _manifestKey = 'merp.runtimeResourceManifest';
 
   SharedPreferences? _preferences;
+  final AppLogger _logger;
   RuntimeResourceManifest manifest = RuntimeResourceManifest.defaults();
-  String lastSource = '内置默认资源';
+  ResourceSource source = ResourceSource.builtIn;
 
   Future<void> load() async {
     _preferences ??= await SharedPreferences.getInstance();
     final cached = _preferences?.getString(_manifestKey);
     if (cached == null || cached.isEmpty) {
       manifest = RuntimeResourceManifest.defaults();
-      lastSource = '内置默认资源';
+      source = ResourceSource.builtIn;
       notifyListeners();
       return;
     }
@@ -34,23 +57,34 @@ class ResourceUpdateController extends ChangeNotifier {
       final decoded = jsonDecode(cached);
       if (decoded is Map<String, dynamic>) {
         manifest = RuntimeResourceManifest.fromJson(decoded);
-        lastSource = '本地缓存资源';
+        source = ResourceSource.cache;
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
       manifest = RuntimeResourceManifest.defaults();
-      lastSource = '缓存解析失败，已回退默认资源';
+      source = ResourceSource.cacheFallback;
+      _logger.warning(
+        'resource',
+        '运行时资源缓存解析失败，已回退默认资源',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
     notifyListeners();
   }
 
   Future<void> applyManifest(
     RuntimeResourceManifest value, {
-    required String source,
+    required ResourceSource source,
   }) async {
     _preferences ??= await SharedPreferences.getInstance();
     manifest = value;
-    lastSource = source;
+    this.source = source;
     await _preferences?.setString(_manifestKey, jsonEncode(value.toJson()));
+    _logger.info(
+      'resource',
+      '运行时资源清单已应用',
+      fields: {'version': value.version, 'source': source.name},
+    );
     notifyListeners();
   }
 
@@ -61,21 +95,21 @@ class ResourceUpdateController extends ChangeNotifier {
     }
     await applyManifest(
       RuntimeResourceManifest.fromJson(decoded),
-      source: '手动粘贴 JSON',
+      source: ResourceSource.manualJson,
     );
   }
 
   Future<void> applyEmeraldDemo() async {
     await applyManifest(
       RuntimeResourceManifest.emeraldDemo(),
-      source: '本地模拟绿色资源包',
+      source: ResourceSource.emeraldDemo,
     );
   }
 
   Future<void> applyVioletDemo() async {
     await applyManifest(
       RuntimeResourceManifest.violetDemo(),
-      source: '本地模拟紫色资源包',
+      source: ResourceSource.violetDemo,
     );
   }
 
@@ -83,7 +117,8 @@ class ResourceUpdateController extends ChangeNotifier {
     _preferences ??= await SharedPreferences.getInstance();
     await _preferences?.remove(_manifestKey);
     manifest = RuntimeResourceManifest.defaults();
-    lastSource = '已重置为内置默认资源';
+    source = ResourceSource.reset;
+    _logger.info('resource', '运行时资源已重置');
     notifyListeners();
   }
 }

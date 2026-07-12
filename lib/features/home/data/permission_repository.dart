@@ -1,6 +1,14 @@
+// -----------------------------------------------------------------------------
+// 文件：permission_repository.dart
+// 作用：加载、解析和缓存后端功能清单及当前账号权限码
+// 编写时间：2026-07-10
+// 维护说明：后端菜单兼容逻辑只在此维护，页面只调用 canOpen
+// -----------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 
 import '../../../core/auth/auth_repository.dart';
+import '../../../core/logging/app_logger.dart';
 import '../../../core/network/api_client.dart';
 import '../domain/feature_item.dart';
 
@@ -14,9 +22,14 @@ import '../domain/feature_item.dart';
 ///
 /// features 是系统全部功能，permissionCodes 是当前账号被授权的功能权限。
 class PermissionRepository extends ChangeNotifier {
-  PermissionRepository({required ApiClient apiClient}) : _apiClient = apiClient;
+  PermissionRepository({
+    required ApiClient apiClient,
+    required AppLogger logger,
+  }) : _apiClient = apiClient,
+       _logger = logger;
 
   final ApiClient _apiClient;
+  final AppLogger _logger;
   final List<FeatureItem> _allFeatures = [];
   final Set<String> _allowedCodes = {};
 
@@ -39,6 +52,14 @@ class PermissionRepository extends ChangeNotifier {
     _allowedCodes
       ..clear()
       ..addAll(snapshot.permissionCodes);
+    _logger.info(
+      'permission',
+      '功能权限加载完成',
+      fields: {
+        'featureCount': _allFeatures.length,
+        'allowedCount': _allowedCodes.length,
+      },
+    );
     notifyListeners();
   }
 
@@ -56,7 +77,13 @@ class PermissionRepository extends ChangeNotifier {
       // 迁移期如果后端仍直接返回数组，则兼容为“返回的功能全部有权限”。
       final raw = await _apiClient.get<Object?>(_apiClient.config.menuPath);
       return _snapshotFromRaw(raw);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _logger.warning(
+        'permission',
+        '菜单接口不可用，已加载本地演示权限',
+        error: error,
+        stackTrace: stackTrace,
+      );
       return _demoSnapshot();
     }
   }

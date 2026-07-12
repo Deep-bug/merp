@@ -1,7 +1,16 @@
+// -----------------------------------------------------------------------------
+// 文件：gesture_password_page.dart
+// 作用：完成手势密码的首次绘制、二次确认和安全保存流程
+// 编写时间：2026-07-10
+// 维护说明：密码持久化委托 SettingsController，页面不保存明文轨迹
+// -----------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/app_scope.dart';
+import '../../l10n/l10n.dart';
+import '../../routing/app_routes.dart';
 import 'pattern_lock_pad.dart';
 
 class GesturePasswordPage extends StatefulWidget {
@@ -16,12 +25,12 @@ class GesturePasswordPage extends StatefulWidget {
 class _GesturePasswordPageState extends State<GesturePasswordPage> {
   List<int>? _firstPattern;
   var _padKey = 0;
-  var _message = '请绘制新的手势密码，至少连接 4 个点';
+  var _message = _GestureMessage.drawNew;
 
   void _handlePattern(List<int> pattern) {
     if (pattern.length < 4) {
       setState(() {
-        _message = '手势密码至少需要连接 4 个点';
+        _message = _GestureMessage.tooShort;
         _padKey++;
       });
       return;
@@ -31,7 +40,7 @@ class _GesturePasswordPageState extends State<GesturePasswordPage> {
     if (first == null) {
       setState(() {
         _firstPattern = pattern;
-        _message = '请再次绘制相同手势以确认';
+        _message = _GestureMessage.confirm;
         _padKey++;
       });
       return;
@@ -40,7 +49,7 @@ class _GesturePasswordPageState extends State<GesturePasswordPage> {
     if (!_samePattern(first, pattern)) {
       setState(() {
         _firstPattern = null;
-        _message = '两次手势不一致，请重新设置';
+        _message = _GestureMessage.mismatch;
         _padKey++;
       });
       return;
@@ -56,8 +65,8 @@ class _GesturePasswordPageState extends State<GesturePasswordPage> {
     }
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('手势密码已更新')));
-    context.go('/settings');
+    ).showSnackBar(SnackBar(content: Text(context.l10n.gestureUpdated)));
+    context.go(AppRoute.settings);
   }
 
   bool _samePattern(List<int> left, List<int> right) {
@@ -83,7 +92,7 @@ class _GesturePasswordPageState extends State<GesturePasswordPage> {
             const _GestureHeader(),
             const SizedBox(height: 42),
             Text(
-              _message,
+              _message.localized(context),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: const Color(0xFF60646C),
@@ -105,12 +114,12 @@ class _GesturePasswordPageState extends State<GesturePasswordPage> {
               onPressed: () {
                 setState(() {
                   _firstPattern = null;
-                  _message = '请绘制新的手势密码，至少连接 4 个点';
+                  _message = _GestureMessage.drawNew;
                   _padKey++;
                 });
               },
               icon: const Icon(Icons.refresh),
-              label: const Text('重新绘制'),
+              label: Text(context.l10n.redraw),
             ),
           ],
         ),
@@ -132,14 +141,14 @@ class _GestureHeader extends StatelessWidget {
           Positioned(
             left: -10,
             child: IconButton(
-              tooltip: '返回',
-              onPressed: () => context.go('/settings'),
+              tooltip: context.l10n.back,
+              onPressed: () => context.go(AppRoute.settings),
               icon: const Icon(Icons.chevron_left, size: 42),
               color: GesturePasswordPage.brandBlue,
             ),
           ),
           Text(
-            '修改图形密码',
+            context.l10n.changeGesturePassword,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               color: GesturePasswordPage.brandBlue,
               fontWeight: FontWeight.w800,
@@ -149,4 +158,15 @@ class _GestureHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+enum _GestureMessage { drawNew, tooShort, confirm, mismatch }
+
+extension on _GestureMessage {
+  String localized(BuildContext context) => switch (this) {
+    _GestureMessage.drawNew => context.l10n.gestureDrawNew,
+    _GestureMessage.tooShort => context.l10n.gestureTooShort,
+    _GestureMessage.confirm => context.l10n.gestureConfirm,
+    _GestureMessage.mismatch => context.l10n.gestureMismatch,
+  };
 }

@@ -1,3 +1,10 @@
+// -----------------------------------------------------------------------------
+// 文件：merp_native_bridge.dart
+// 作用：定义 Vue/H5 调用 Flutter 鉴权、资源和设备能力的受控协议
+// 编写时间：2026-07-10
+// 维护说明：新增 action 必须校验参数、定义错误码并同步 Bridge 文档
+// -----------------------------------------------------------------------------
+
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -24,11 +31,25 @@ class MerpNativeBridge {
   /// 页面加载完成后调用即可。Vue2 页面可以在 mounted 后等待
   /// `window.MERPBridge` 存在，也可以监听 `MERPBridgeReady` 事件。
   Future<void> inject() async {
-    await controller.runJavaScript(_bridgeScript);
+    final logger = AppScope.of(context).logger;
+    try {
+      await controller.runJavaScript(_bridgeScript);
+      logger.info('bridge', 'MERPBridge 注入完成');
+    } catch (error, stackTrace) {
+      logger.error(
+        'bridge',
+        'MERPBridge 注入失败',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
   }
 
   Future<void> handleMessage(String rawMessage) async {
+    final logger = AppScope.of(context).logger;
     String? requestId;
+    String? action;
     try {
       final decoded = jsonDecode(rawMessage);
       if (decoded is! Map<String, dynamic>) {
@@ -39,7 +60,7 @@ class MerpNativeBridge {
       }
 
       requestId = decoded['id']?.toString();
-      final action = decoded['action']?.toString();
+      action = decoded['action']?.toString();
       final payload = decoded['payload'];
 
       if (requestId == null || requestId.isEmpty || action == null) {
@@ -49,6 +70,12 @@ class MerpNativeBridge {
         );
       }
 
+      logger.debug(
+        'bridge',
+        '收到 WebView Bridge 调用',
+        fields: {'action': action, 'requestId': requestId},
+      );
+
       switch (action) {
         case 'bridge.ping':
           await _resolve(requestId, _pingPayload());
@@ -56,26 +83,49 @@ class MerpNativeBridge {
           await _resolve(requestId, _sessionPayload());
         case 'resource.getManifest':
           await _resolve(requestId, _resourceManifestPayload());
+        case 'app.getLocale':
+          await _resolve(requestId, _localePayload());
         case 'app.showToast':
           await _showToast(requestId, payload);
         case 'camera.takePhoto':
           await _takePhoto(requestId, payload);
         default:
+          logger.warning(
+            'bridge',
+            'WebView 请求了未开放的原生能力',
+            fields: {'action': action, 'requestId': requestId},
+          );
           await _reject(
             requestId,
             'BRIDGE_UNSUPPORTED_ACTION',
             '暂不支持的原生能力：$action',
           );
       }
-    } catch (error) {
+    } catch (error, stackTrace) {
       final bridgeError = error is _BridgeException
           ? error
           : _BridgeException('BRIDGE_ERROR', error.toString());
+      final incidentId = logger.error(
+        'bridge',
+        bridgeError.message,
+        error: error,
+        stackTrace: stackTrace,
+        fields: {'action': action, 'requestId': requestId},
+      );
       if (requestId != null && requestId.isNotEmpty) {
-        await _reject(requestId, bridgeError.code, bridgeError.message);
+        await _reject(
+          requestId,
+          bridgeError.code,
+          bridgeError.message,
+          incidentId: incidentId,
+        );
       } else if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Bridge 调用失败：${bridgeError.message}')),
+          SnackBar(
+            content: Text(
+              'Bridge 调用失败：${bridgeError.message}\n故障编号：$incidentId',
+            ),
+          ),
         );
       }
     }
@@ -104,6 +154,11 @@ class MerpNativeBridge {
   Map<String, Object?> _resourceManifestPayload() {
     final manifest = AppScope.of(context).resourceUpdateController.manifest;
     return manifest.toJson();
+  }
+
+  Map<String, Object?> _localePayload() {
+    final language = AppScope.of(context).settingsController.language;
+    return {'code': language.code, 'locale': language.locale.toLanguageTag()};
   }
 
   Future<void> _showToast(String requestId, Object? payload) async {
@@ -169,10 +224,16 @@ class MerpNativeBridge {
     return _runCallback('_resolve', requestId, data);
   }
 
-  Future<void> _reject(String requestId, String code, String message) {
+  Future<void> _reject(
+    String requestId,
+    String code,
+    String message, {
+    String? incidentId,
+  }) {
     return _runCallback('_reject', requestId, {
       'code': code,
       'message': message,
+      'incidentId': ?incidentId,
     });
   }
 
@@ -236,6 +297,10 @@ const _bridgeScript = r'''
 
     getResourceManifest: function () {
       return this.call('resource.getManifest', {});
+    },
+
+    getLocale: function () {
+      return this.call('app.getLocale', {});
     },
 
     showToast: function (message) {

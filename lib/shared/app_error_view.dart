@@ -1,3 +1,10 @@
+// -----------------------------------------------------------------------------
+// 文件：app_error_view.dart
+// 作用：统一展示错误、警告、空状态、详情和恢复操作
+// 编写时间：2026-07-10
+// 维护说明：业务页面传入语义信息，颜色和布局统一在此维护
+// -----------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 
 enum AppErrorTone { info, warning, error }
@@ -10,6 +17,7 @@ class AppErrorView extends StatelessWidget {
     required this.message,
     this.tone = AppErrorTone.error,
     this.detail,
+    this.referenceId,
     this.primaryLabel,
     this.onPrimary,
     this.secondaryLabel,
@@ -21,6 +29,7 @@ class AppErrorView extends StatelessWidget {
   final String message;
   final AppErrorTone tone;
   final String? detail;
+  final String? referenceId;
   final String? primaryLabel;
   final VoidCallback? onPrimary;
   final String? secondaryLabel;
@@ -76,6 +85,28 @@ class AppErrorView extends StatelessWidget {
                         child: SelectableText(
                           detail!,
                           style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                    if (referenceId != null && referenceId!.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      SelectableText(
+                        '故障编号 / Incident: $referenceId',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: toneColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                    if (referenceId != null && referenceId!.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      SelectableText(
+                        '故障编号 / Incident: $referenceId',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: toneColor,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],

@@ -1,9 +1,19 @@
+// -----------------------------------------------------------------------------
+// 文件：bridge_test_page.dart
+// 作用：加载 Vue3 测试页并验证 WebView 到 Flutter 原生能力通信
+// 编写时间：2026-07-10
+// 维护说明：测试地址与生产业务 WebView 分离，便于独立排查 Bridge 协议
+// -----------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../app/app_scope.dart';
 import '../../core/bridge/merp_native_bridge.dart';
 import '../../core/platform/webview_support.dart';
+import '../../l10n/l10n.dart';
+import '../../routing/app_routes.dart';
 import '../../shared/app_error_view.dart';
 
 class BridgeTestPage extends StatefulWidget {
@@ -35,8 +45,8 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
     if (!WebViewSupport.isSupported) {
       _showError(
         _BridgePageError(
-          title: '当前平台不支持 WebView',
-          message: '请在 Android/iOS 手机端验证 Vue 页面调用 Flutter Bridge。',
+          title: context.l10n.webViewUnsupported,
+          message: context.l10n.bridgeMobileOnly,
           detail: WebViewSupport.unsupportedDetail,
           tone: AppErrorTone.warning,
         ),
@@ -68,8 +78,8 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
             }
             _showError(
               _BridgePageError(
-                title: '桥接测试页加载失败',
-                message: '无法打开平台上的 Vue3 桥接测试页，请检查网络、端口、防火墙或 HTTP 明文访问配置。',
+                title: context.l10n.bridgeLoadFailed,
+                message: context.l10n.bridgeLoadFailedMessage,
                 detail:
                     'URL: ${BridgeTestPage.testUri}\n错误码: ${error.errorCode}\n原因: ${error.description}',
               ),
@@ -80,8 +90,8 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
             if (statusCode != null && statusCode >= 400) {
               _showError(
                 _BridgePageError(
-                  title: '桥接测试页返回异常',
-                  message: '平台测试页已响应，但 HTTP 状态码不是成功状态。',
+                  title: context.l10n.bridgeHttpError,
+                  message: context.l10n.bridgeHttpErrorMessage,
                   detail:
                       'URL: ${BridgeTestPage.testUri}\nHTTP 状态码: $statusCode',
                 ),
@@ -107,8 +117,13 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
     if (!mounted) {
       return;
     }
+    final incidentId = AppScope.of(context).logger.error(
+      'webview',
+      error.message,
+      fields: {'detail': error.detail, 'page': 'bridge-test'},
+    );
     setState(() {
-      _error = error;
+      _error = error.withIncidentId(incidentId);
       _progress = 100;
     });
   }
@@ -133,14 +148,14 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          onPressed: () => context.go('/settings'),
+          onPressed: () => context.go(AppRoute.settings),
           icon: const Icon(Icons.chevron_left),
         ),
-        title: const Text('WebView Bridge 测试'),
+        title: Text(context.l10n.bridgeTest),
         centerTitle: true,
         actions: [
           IconButton(
-            tooltip: '刷新',
+            tooltip: context.l10n.refresh,
             onPressed: _reload,
             icon: const Icon(Icons.refresh),
           ),
@@ -153,10 +168,11 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
               title: error.title,
               message: error.message,
               detail: error.detail,
-              primaryLabel: '重新加载',
+              referenceId: error.incidentId,
+              primaryLabel: context.l10n.reload,
               onPrimary: _reload,
-              secondaryLabel: '返回设置',
-              onSecondary: () => context.go('/settings'),
+              secondaryLabel: context.l10n.backToSettings,
+              onSecondary: () => context.go(AppRoute.settings),
             )
           : controller == null
           ? const Center(child: CircularProgressIndicator())
@@ -177,10 +193,22 @@ class _BridgePageError {
     required this.message,
     required this.detail,
     this.tone = AppErrorTone.error,
+    this.incidentId,
   });
 
   final String title;
   final String message;
   final String detail;
   final AppErrorTone tone;
+  final String? incidentId;
+
+  _BridgePageError withIncidentId(String value) {
+    return _BridgePageError(
+      title: title,
+      message: message,
+      detail: detail,
+      tone: tone,
+      incidentId: value,
+    );
+  }
 }

@@ -1,3 +1,10 @@
+// -----------------------------------------------------------------------------
+// 文件：legacy_web_page.dart
+// 作用：承载旧 Vue 业务页并统一处理权限、URL、网络和 Bridge 生命周期
+// 编写时间：2026-07-10
+// 维护说明：迁移期功能统一经过此容器，禁止业务模块自行创建 WebView
+// -----------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -5,6 +12,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../app/app_scope.dart';
 import '../../core/bridge/merp_native_bridge.dart';
 import '../../core/platform/webview_support.dart';
+import '../../l10n/l10n.dart';
+import '../../routing/app_routes.dart';
 import '../../shared/app_error_view.dart';
 
 class LegacyWebPage extends StatefulWidget {
@@ -22,7 +31,7 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
   Uri? _currentUri;
   _LegacyError? _error;
   var _progress = 0;
-  var _title = '旧系统页面';
+  var _title = '';
   var _configured = false;
 
   @override
@@ -41,8 +50,8 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     if (!WebViewSupport.isSupported) {
       _showError(
         _LegacyError(
-          title: '当前平台不支持 WebView',
-          message: '旧 Vue 页面需要在 Android/iOS 手机端 WebView 中验证。',
+          title: context.l10n.webViewUnsupported,
+          message: context.l10n.legacyMobileOnly,
           detail: WebViewSupport.unsupportedDetail,
           tone: AppErrorTone.warning,
         ),
@@ -52,9 +61,9 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
 
     if (moduleId.isEmpty) {
       _showError(
-        const _LegacyError(
-          title: '功能参数缺失',
-          message: '当前功能没有传入模块编号，请检查菜单 route 配置。',
+        _LegacyError(
+          title: context.l10n.moduleMissing,
+          message: context.l10n.moduleMissingMessage,
           tone: AppErrorTone.warning,
         ),
       );
@@ -67,8 +76,8 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     if (feature == null) {
       _showError(
         _LegacyError(
-          title: '功能不存在',
-          message: '后端菜单中没有找到这个功能，可能是菜单已下线或权限数据过期。',
+          title: context.l10n.featureNotFound,
+          message: context.l10n.featureNotFoundMessage,
           detail: 'moduleId=$moduleId',
           tone: AppErrorTone.warning,
         ),
@@ -81,8 +90,8 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     if (!scope.permissionRepository.canOpen(feature)) {
       _showError(
         _LegacyError(
-          title: '无访问权限',
-          message: '当前账号没有打开该功能的权限，请联系管理员调整角色或菜单授权。',
+          title: context.l10n.noPermission,
+          message: context.l10n.legacyForbiddenMessage,
           detail: 'permissionCode=${feature.permissionCode}',
           tone: AppErrorTone.warning,
         ),
@@ -94,8 +103,8 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     if (legacyPath == null || legacyPath.isEmpty) {
       _showError(
         _LegacyError(
-          title: '页面地址未配置',
-          message: '该功能还没有配置旧 Vue2 页面 URL，暂时无法打开。',
+          title: context.l10n.urlMissing,
+          message: context.l10n.urlMissingMessage,
           detail: '功能：${feature.title}\n建议：请后端在菜单中返回 legacyPath。',
           tone: AppErrorTone.warning,
         ),
@@ -107,8 +116,8 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     if (legacyBaseUrl.isEmpty || legacyBaseUrl.contains('example.com')) {
       _showError(
         _LegacyError(
-          title: '功能暂未接入',
-          message: '当前旧 Vue2 系统根地址还是占位地址，所以旧页面还不能打开。',
+          title: context.l10n.featureNotIntegrated,
+          message: context.l10n.featureNotIntegratedMessage,
           detail: 'legacyVueBaseUrl=$legacyBaseUrl',
           tone: AppErrorTone.warning,
         ),
@@ -120,8 +129,8 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     if (!uri.hasScheme || (uri.scheme != 'http' && uri.scheme != 'https')) {
       _showError(
         _LegacyError(
-          title: '页面地址格式错误',
-          message: '旧系统页面地址必须是 http 或 https 地址。',
+          title: context.l10n.invalidUrl,
+          message: context.l10n.invalidUrlMessage,
           detail: uri.toString(),
           tone: AppErrorTone.warning,
         ),
@@ -133,7 +142,6 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     _progress = 0;
     _error = null;
 
-    final token = scope.authController.session?.token ?? '';
     final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
@@ -152,8 +160,8 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
             }
             _showError(
               _LegacyError(
-                title: '页面加载失败',
-                message: '网络连接失败、服务器不可达，或旧系统页面暂时不可用。',
+                title: context.l10n.pageLoadFailed,
+                message: context.l10n.pageLoadFailedMessage,
                 detail:
                     'URL: ${_currentUri ?? uri}\n错误码: ${error.errorCode}\n原因: ${error.description}',
               ),
@@ -163,10 +171,10 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
             final statusCode = error.response?.statusCode;
             _showError(
               _LegacyError(
-                title: '服务器返回错误',
+                title: context.l10n.serverError,
                 message: statusCode == 404
-                    ? '旧系统没有找到该页面，请检查菜单 URL 是否正确。'
-                    : '旧系统服务器返回异常状态，请稍后重试或联系管理员。',
+                    ? context.l10n.legacyNotFoundMessage
+                    : context.l10n.legacyServerErrorMessage,
                 detail: 'URL: ${_currentUri ?? uri}\nHTTP 状态码: $statusCode',
               ),
             );
@@ -180,7 +188,7 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
         MerpNativeBridge.channelName,
         onMessageReceived: (message) => bridge.handleMessage(message.message),
       )
-      ..loadRequest(uri, headers: {'Authorization': 'Bearer $token'});
+      ..loadRequest(uri, headers: _requestHeaders(scope));
 
     _bridge = bridge;
     setState(() => _controller = controller);
@@ -190,8 +198,13 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     if (!mounted) {
       return;
     }
+    final incidentId = AppScope.of(context).logger.error(
+      'webview',
+      error.message,
+      fields: {'moduleId': widget.moduleId, 'detail': error.detail},
+    );
     setState(() {
-      _error = error;
+      _error = error.withIncidentId(incidentId);
       _progress = 100;
     });
   }
@@ -207,12 +220,20 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
       return;
     }
 
-    final token = AppScope.of(context).authController.session?.token ?? '';
+    final scope = AppScope.of(context);
     setState(() {
       _error = null;
       _progress = 0;
     });
-    _controller!.loadRequest(uri, headers: {'Authorization': 'Bearer $token'});
+    _controller!.loadRequest(uri, headers: _requestHeaders(scope));
+  }
+
+  Map<String, String> _requestHeaders(AppScope scope) {
+    final token = scope.authController.session?.token ?? '';
+    return {
+      'Authorization': 'Bearer $token',
+      'Accept-Language': scope.settingsController.language.code,
+    };
   }
 
   @override
@@ -221,7 +242,9 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     final controller = _controller;
 
     return Scaffold(
-      appBar: AppBar(title: Text(_title)),
+      appBar: AppBar(
+        title: Text(_title.isEmpty ? context.l10n.legacyPage : _title),
+      ),
       body: error != null
           ? AppErrorView(
               icon: Icons.cloud_off_outlined,
@@ -229,10 +252,11 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
               title: error.title,
               message: error.message,
               detail: error.detail,
-              primaryLabel: '重试',
+              referenceId: error.incidentId,
+              primaryLabel: context.l10n.retry,
               onPrimary: _retry,
-              secondaryLabel: '返回工作台',
-              onSecondary: () => context.go('/home'),
+              secondaryLabel: context.l10n.returnWorkbench,
+              onSecondary: () => context.go(AppRoute.home),
             )
           : controller == null
           ? const Center(child: CircularProgressIndicator())
@@ -253,10 +277,22 @@ class _LegacyError {
     required this.message,
     this.detail,
     this.tone = AppErrorTone.error,
+    this.incidentId,
   });
 
   final String title;
   final String message;
   final String? detail;
   final AppErrorTone tone;
+  final String? incidentId;
+
+  _LegacyError withIncidentId(String value) {
+    return _LegacyError(
+      title: title,
+      message: message,
+      detail: detail,
+      tone: tone,
+      incidentId: value,
+    );
+  }
 }

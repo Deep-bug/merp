@@ -1,21 +1,22 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- WebView、地图接口和后端接口需要网络访问。 -->
+    <!-- WebView、地图接口和后端 API 需要网络访问。 -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
 
-    <!-- 相机和定位由 Flutter 页面按需动态申请。 -->
+    <!-- 相机和定位由 Flutter Bridge 按需动态申请，避免启动时过度授权。 -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+    <!-- Android 9 以下设备使用旧指纹权限，保证 Android 7.0 可调用。 -->
     <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
 
     <application
-        android:label="merp"
+        android:label="MERP"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

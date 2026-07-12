@@ -1,3 +1,10 @@
+// -----------------------------------------------------------------------------
+// 文件：camera_service.dart
+// 作用：统一处理相机权限、拍照参数和返回给 WebView 的图片结构
+// 编写时间：2026-07-10
+// 维护说明：业务与 Bridge 不直接依赖 image_picker 和 permission_handler
+// -----------------------------------------------------------------------------
+
 import 'dart:convert';
 
 import 'package:image_picker/image_picker.dart';

@@ -1,6 +1,14 @@
+// -----------------------------------------------------------------------------
+// 文件：map_page.dart
+// 作用：展示地图与定位能力的稳定业务入口和厂商 SDK 对接边界
+// 编写时间：2026-07-10
+// 维护说明：页面不直接引用百度、高德等插件类型，统一通过设备服务适配
+// -----------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
+import '../../l10n/l10n.dart';
 
 class MapPage extends StatelessWidget {
   const MapPage({super.key});
@@ -10,7 +18,7 @@ class MapPage extends StatelessWidget {
     final config = AppScope.of(context).config;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('地图定位')),
+      appBar: AppBar(title: Text(context.l10n.mapLocation)),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
@@ -31,13 +39,16 @@ class MapPage extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '地图 SDK 接口占位',
+                          context.l10n.mapPlaceholder,
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    _InfoRow(label: '当前厂商', value: config.mapProvider),
+                    _InfoRow(
+                      label: context.l10n.currentProvider,
+                      value: config.mapProvider,
+                    ),
                     _InfoRow(
                       label: 'Android Key',
                       value: config.androidMapApiKey,
@@ -45,9 +56,7 @@ class MapPage extends StatelessWidget {
                     _InfoRow(label: 'iOS Key', value: config.iosMapApiKey),
                     _InfoRow(label: 'Web Key', value: config.webMapApiKey),
                     const SizedBox(height: 12),
-                    const Text(
-                      '后续接入地图时，实现 core/device/map_sdk_service.dart 和 core/device/location_service.dart 即可，业务页面和路由不用跟着第三方插件改。',
-                    ),
+                    Text(context.l10n.mapIntegrationHint),
                   ],
                 ),
               ),

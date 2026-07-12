@@ -1,202 +1,241 @@
 # MERP Flutter Shell
 
-MERP Flutter Shell 是原 Cordova 6.5 外壳的升级替代方案。Flutter 负责登录鉴权、菜单权限、统一 HTTP、系统设置、WebView 承载和原生能力 Bridge；现有 Vue2 业务页面继续运行在 WebView 中，后续可按模块逐步迁移为 Flutter 原生页面。
+MERP 是原 Cordova 6.5 外壳的 Flutter 升级版本。Flutter 统一负责启动、登录鉴权、菜单权限、HTTP、系统安全、国际化、诊断日志、WebView 和原生能力 Bridge；旧 Vue 业务继续运行在 WebView 中，后续按模块逐步迁移为 Flutter 原生实现。
+
+## 架构目标
+
+- 清晰：启动、基础能力、路由、共享 UI 和业务模块边界明确。
+- 可扩展：新业务按 feature 纵向拆分，不持续膨胀全局文件。
+- 可协作：页面编排与具体组件分离，减少多人修改同一文件的冲突。
+- 可诊断：启动、路由、鉴权、权限、HTTP、WebView 和 Bridge 使用统一结构化日志。
+- 可兼容：Android 最低版本固定为 API 24，即 Android 7.0。
+- 可迁移：Vue 与 Flutter 原生模块共用登录态、权限模型、路由和设备能力边界。
 
 ## 目录结构
 
 ```text
 merp/
-├── android/                         # Android 工程壳，包含权限、Activity、Gradle 配置
-├── ios/                             # iOS 工程壳，包含 Info.plist 权限说明
-├── web/                             # Flutter Web 运行入口，用于浏览器调试
-├── test/                            # 自动化测试
-│   └── app_smoke_test.dart          # App 启动冒烟测试
-├── lib/                             # Flutter 主代码
-│   ├── main.dart                    # 应用入口，只负责初始化依赖并启动 MerpApp
-│   ├── app/                         # 应用级装配层
-│   │   ├── app_dependencies.dart    # 统一创建配置、HTTP、鉴权、权限、设置、设备能力
-│   │   ├── app_scope.dart           # InheritedWidget 依赖容器，页面通过它读取全局服务
-│   │   ├── merp_app.dart            # MaterialApp、路由、全局自动锁屏守护
+├── android/                                  # Android 工程、权限、启动图、图标和 Gradle 配置
+│   └── app/
+│       ├── build.gradle.kts                  # minSdk=24，明确兼容 Android 7.0
+│       └── src/main/
+│           ├── AndroidManifest.xml           # 网络、相机、定位和生物识别权限
+│           └── res/                          # 原生 Splash 和 MERP 启动图标
+├── docs/                                     # 架构验证和迁移说明文档
+├── lib/
+│   ├── main.dart                             # 进程入口、Zone 和全局异常捕获
+│   ├── app/                                  # 应用装配层
+│   │   ├── app_dependencies.dart             # 依赖创建、并行初始化和生命周期
+│   │   ├── app_scope.dart                    # 向 Widget 树显式提供全局服务
+│   │   ├── merp_bootstrap_app.dart           # 品牌启动页、异步初始化和启动错误页
+│   │   ├── merp_app.dart                     # 主题、路由、语言和安全守卫装配
+│   │   ├── security/
+│   │   │   └── auto_lock_guard.dart          # 自动锁屏、前后台计时和解锁流程
 │   │   └── theme/
-│   │       └── app_theme.dart       # 全局主题、颜色、控件样式
-│   ├── routing/                     # 路由层
-│   │   ├── app_router.dart          # go_router 路由表和登录守卫
-│   │   ├── forbidden_page.dart      # 无权限页面
-│   │   └── splash_page.dart         # 启动恢复登录态页面
-│   ├── core/                        # 跨业务基础能力
-│   │   ├── auth/                    # 登录、token、会话恢复
-│   │   │   ├── auth_controller.dart # 登录态控制器，通知 UI 和路由刷新
-│   │   │   ├── auth_repository.dart # 登录接口、退出、恢复本地 session
-│   │   │   └── secure_token_store.dart # token 安全存储
-│   │   ├── config/
-│   │   │   └── app_config.dart      # API 地址、旧 Vue2 地址、地图密钥预留
-│   │   ├── device/                  # 原生设备能力边界
-│   │   │   ├── camera_service.dart  # 相机能力，供 Vue2 Bridge 调用
-│   │   │   ├── location_service.dart # 定位能力占位
-│   │   │   └── map_sdk_service.dart # 地图 SDK 初始化占位
-│   │   └── network/                 # 统一 HTTP 层
-│   │       ├── api_client.dart      # Dio 封装、token 注入、统一响应解析
-│   │       ├── api_exception.dart   # 统一异常模型
-│   │       ├── api_response.dart    # 后端响应壳解析
-│   │       └── app_error_code.dart  # 企业级错误码分段
-│   ├── shared/                      # 跨模块复用 UI
-│   │   └── app_error_view.dart      # 统一错误页、空状态、重试视图
-│   └── features/                    # 业务功能模块
-│       ├── login/                   # 登录页
-│       ├── home/                    # 首页工作台
-│       │   ├── data/
-│       │   │   └── permission_repository.dart # 菜单权限加载和缓存
-│       │   ├── domain/
-│       │   │   └── feature_item.dart # 功能菜单实体
-│       │   └── home_page.dart       # 首页 UI、功能入口、左侧抽屉
-│       ├── all_features/            # 全部功能页，有权限蓝色、无权限灰色
-│       ├── legacy/                  # 旧 Vue2 WebView 承载
-│       │   └── legacy_web_page.dart # WebView 加载、错误页、JS Bridge 注入
-│       ├── map/                     # 地图占位页，预留百度地图等 SDK 接入点
-│       ├── profile/                 # 个人中心
-│       └── settings/                # 系统设置和安全能力
-│           ├── settings_controller.dart # 指纹、自动锁屏、语言、版本检测
-│           ├── settings_page.dart   # 系统设置页面
-│           ├── gesture_password_page.dart # 手势密码设置
-│           └── pattern_lock_pad.dart # 3x3 手势密码控件
-├── pubspec.yaml                     # Flutter 依赖和版本配置
-├── analysis_options.yaml            # Dart 静态检查规则
-└── README.md                        # 项目说明
+│   │       └── app_theme.dart                # Material 主题和企业控件样式
+│   ├── core/                                 # 与具体业务无关的基础能力
+│   │   ├── auth/                             # 会话、登录仓库和 Token 安全存储
+│   │   ├── bridge/                           # Vue/H5 调用 Flutter 的受控协议
+│   │   ├── config/                           # API、Vue 和地图环境配置
+│   │   ├── device/                           # 相机、定位和地图 SDK 适配边界
+│   │   ├── logging/                          # 结构化日志、故障编号和全局异常捕获
+│   │   ├── network/                          # Dio、响应壳、异常和企业错误码
+│   │   ├── platform/                         # WebView 等平台能力判断
+│   │   └── resources/                        # 运行时静态资源清单和缓存控制
+│   ├── features/                             # 按业务纵向拆分的功能模块
+│   │   ├── all_features/                     # 全部功能及权限状态
+│   │   ├── bridge_test/                      # Vue3 Bridge 真机验证页
+│   │   ├── home/
+│   │   │   ├── data/                         # 权限菜单 Repository
+│   │   │   ├── domain/                       # FeatureItem 领域模型
+│   │   │   ├── widgets/                      # 头部、轮播、功能区、抽屉和悬浮按钮
+│   │   │   └── home_page.dart                # 首页状态订阅和页面编排
+│   │   ├── legacy/                           # 旧 Vue WebView 承载和错误处理
+│   │   ├── login/                            # 登录页面
+│   │   ├── map/                              # 地图业务入口和 SDK 占位
+│   │   ├── profile/                          # 个人中心
+│   │   ├── resources/                        # 静态资源更新验证页面
+│   │   └── settings/                         # 指纹、锁屏、手势、语言、版本和日志
+│   ├── l10n/
+│   │   ├── arb/                              # 简体与繁体 ARB 文案源文件
+│   │   ├── generated/                        # Flutter gen_l10n 自动生成代码
+│   │   └── l10n.dart                         # context.l10n 快捷入口
+│   ├── routing/
+│   │   ├── app_routes.dart                   # 路由路径唯一常量来源
+│   │   ├── app_router.dart                   # go_router 路由表和登录守卫
+│   │   ├── forbidden_page.dart               # 无权限页
+│   │   └── splash_page.dart                  # Flutter 品牌加载页
+│   └── shared/
+│       └── app_error_view.dart               # 统一错误、空状态、故障编号和恢复操作
+├── test/                                     # 冒烟、国际化和日志安全测试
+├── tools/                                    # E 盘环境配置和图标生成工具
+├── l10n.yaml                                 # Flutter 官方多语言生成配置
+├── pubspec.yaml                              # Flutter 版本、依赖和资源配置
+└── README.md                                 # 当前架构与团队协作约定
 ```
 
-## 架构约定
+## 启动流程
 
-当前分层适合“Flutter 外壳 + Vue2 逐步迁移”的 ERP 项目：
+```text
+Android 原生 Splash
+    -> main 安装 Zone / Flutter / Platform 异常捕获
+    -> 立即渲染 MerpBootstrapApp 品牌加载页
+    -> AppDependencies 并行读取设置、资源缓存和地图占位初始化
+    -> 恢复 Token、会话和菜单权限
+    -> MerpApp 装配语言、路由、主题和自动锁屏
+```
 
-- `app`：应用装配层，只放全局依赖、主题、启动流程、自动锁屏等应用级能力。
-- `core`：跨业务基础能力，例如鉴权、HTTP、设备能力、配置。
-- `routing`：路由表、登录守卫、无权限和启动页。
-- `features`：按业务模块纵向拆分，模块内部可继续拆 `data / domain / presentation`。
-- `shared`：真正跨模块复用的 UI 组件，避免业务模块之间互相引用。
+`main.dart` 不等待磁盘或网络后再 `runApp`，可以缩短中低端手机冷启动空白时间。具体业务权限和定位仍按需加载，避免首屏一次初始化全部插件。
 
-新增 Flutter 原生业务模块时，推荐结构：
+## 模块协作规范
+
+新增原生模块建议使用以下结构：
 
 ```text
 lib/features/inventory/
-├── data/             # API、DTO、Repository 实现
-├── domain/           # 实体、枚举、业务规则
-└── presentation/     # Page、Widget、Controller 或 StateNotifier
+├── data/                 # API DTO、数据源和 Repository 实现
+├── domain/               # 实体、枚举、业务规则和 Repository 接口
+├── presentation/         # Page、Controller 和页面级状态
+└── widgets/              # 仅本模块复用的组件
+```
+
+协作约定：
+
+- `features/A` 不直接引用 `features/B` 的页面实现，共用能力下沉到 `core` 或 `shared`。
+- 页面不创建 Dio、插件服务或安全存储，统一通过 `AppScope` 获取已装配依赖。
+- 所有页面路径写入 `AppRoute`，后端菜单与原生导航使用同一套路径。
+- 页面点击前再次检查权限，不能只依赖“按钮是否显示”。
+- 大页面只做状态订阅和编排，独立区域拆入模块自己的 `widgets`。
+- 每个 Dart 文件使用统一文件头，标明文件意义、编写时间和维护边界。
+- 关键注释解释设计原因、安全边界和扩展点，不重复描述显而易见的代码。
+
+文件头模板：
+
+```dart
+// -----------------------------------------------------------------------------
+// 文件：inventory_page.dart
+// 作用：展示库存列表并编排筛选、分页和详情入口
+// 编写时间：2026-07-10
+// 维护说明：数据加载委托 InventoryController，页面不直接调用 Dio
+// -----------------------------------------------------------------------------
 ```
 
 ## 状态管理
 
-当前外壳阶段使用 `ChangeNotifier + AppScope(InheritedWidget)`，因为全局状态主要集中在登录、权限、系统设置三个对象，足够轻量。
+当前外壳使用 `ChangeNotifier + AppScope(InheritedWidget)`。登录、权限、设置、资源和日志状态数量有限，这种方案依赖显式、运行成本低，也适合 Android 7 中低端设备。
 
-后续原生业务模块增多后，推荐从新模块开始引入 `flutter_riverpod`；审批流、工单流转这类事件驱动很强的模块，也可以单独使用 `bloc`。不建议在大型 ERP 中全局滥用 `GetX`，避免状态来源分散。
+原生业务明显增多后，可从新模块开始引入 Riverpod；审批流、工单流转等强事件模块可独立使用 Bloc。不要同时在全局混用多种状态容器，也不要让页面通过隐式单例寻找业务状态。
 
-## 核心功能
+## 简繁体国际化
 
-### 登录鉴权
+项目使用 Flutter 官方 `gen_l10n`：
 
-- 登录接口默认路径：`/auth/login`。
-- 登录成功后保存 token。
-- 后续 HTTP 请求自动注入：`Authorization: Bearer <token>`。
-- App 启动时恢复本地 session，恢复成功后拉取菜单权限。
-- 后端返回 401 时清理 token 并回到登录页。
+- 简体源文件：`lib/l10n/arb/app_zh.arb`
+- 繁体源文件：`lib/l10n/arb/app_zh_TW.arb`
+- 设置入口：系统设置 -> 设置语言
+- 本地持久化：`SettingsController` 保存 `zh-CN` 或 `zh-TW`
+- 页面调用：`context.l10n.login`
 
-### 菜单权限
+新增文案时：
 
-后端推荐返回“全部功能 + 当前账号权限码”：
+1. 在两个 ARB 文件添加相同 key。
+2. 执行 `flutter gen-l10n`。
+3. 页面通过 `context.l10n` 使用生成属性，禁止手写 Locale 分支。
+4. 动态菜单标题由后端按当前语言返回，Flutter 不翻译业务数据。
 
-```json
-{
-  "features": [
-    {
-      "id": "e-form",
-      "title": "电子表单",
-      "icon": "form",
-      "permissionCode": "form.electronic.view",
-      "launchMode": "legacyWeb",
-      "route": "/legacy/e-form",
-      "legacyPath": "/forms/electronic"
-    }
-  ],
-  "permissionCodes": [
-    "form.electronic.view"
-  ]
-}
+## 结构化日志
+
+`AppLogger` 当前写入 Android Studio/VS Code 调试终端，并保留最近 200 条到内存环形缓冲区。系统设置中的“诊断日志”可查看、复制和清空日志。
+
+```dart
+logger.info(
+  'inventory',
+  '库存列表加载完成',
+  fields: {'count': rows.length, 'warehouseId': warehouseId},
+);
+
+final incidentId = logger.error(
+  'inventory',
+  '库存列表加载失败',
+  error: error,
+  stackTrace: stackTrace,
+  fields: {'warehouseId': warehouseId},
+);
 ```
 
-首页只展示当前账号有权限的常用功能；全部功能页展示完整清单，有权限显示蓝色，无权限显示灰色。
+异常日志会生成 `MERP-日期-时间-序号` 格式的故障编号。HTTP、WebView、Bridge、Flutter 渲染和未处理异步异常均进入统一日志；错误页面展示故障编号，用户可直接提供给研发定位。
 
-### 旧 Vue2 WebView
+日志安全约定：
 
-- `launchMode=legacyWeb` 的功能进入 WebView。
-- 页面地址由 `legacyVueBaseUrl + legacyPath` 拼接。
-- WebView 加载时携带登录 token。
-- 未配置 URL、网络失败、HTTP 404、无权限等场景统一展示错误 UI。
+- 禁止记录密码、完整 Token、Cookie、Secret 和图片 Base64。
+- `AppLogger` 会对常见敏感 key 和 Bearer Token 做兜底脱敏，但不能代替代码审查。
+- 生产接入 ELK、Sentry 或公司日志平台时，在日志层增加输出适配器，不修改业务页面。
+- 远程上传必须取得隐私授权，并限制日志保留周期和访问权限。
 
-### Vue2 原生能力 Bridge
+## 统一 HTTP 与错误码
 
-相机能力不是独立 Flutter 页面，而是通过 WebView Bridge 提供给旧 Vue2 页面。
+业务 Repository 只调用 `ApiClient.get/post/put/delete`。客户端统一完成：
 
-Vue2 调用示例：
-
-```js
-try {
-  const photo = await window.MERPBridge.takePhoto({
-    includeBase64: true,
-    imageQuality: 88,
-    maxWidth: 1920
-  })
-
-  console.log(photo.name, photo.mimeType, photo.size, photo.dataUrl)
-} catch (error) {
-  console.warn(error.code, error.message)
-}
-```
-
-返回结构：
-
-```json
-{
-  "path": "app-temp-file-path",
-  "name": "image.jpg",
-  "mimeType": "image/jpeg",
-  "size": 123456,
-  "base64": "...",
-  "dataUrl": "data:image/jpeg;base64,..."
-}
-```
-
-Bridge 错误码：
-
-- `CAMERA_CANCELLED`：用户取消拍照。
-- `BRIDGE_BAD_REQUEST`：Vue2 发送的 Bridge 消息格式错误。
-- `BRIDGE_UNSUPPORTED_ACTION`：Flutter 外壳暂不支持该 action。
-- `BRIDGE_ERROR`：原生能力调用异常，例如权限被拒绝。
-
-## 统一 HTTP 错误码
-
-统一响应壳建议：
-
-```json
-{
-  "success": true,
-  "code": "000000",
-  "message": "请求成功",
-  "data": {},
-  "traceId": "20260610-xxxx"
-}
-```
+- `Authorization: Bearer <token>` 注入。
+- `X-Request-Id` 和请求耗时记录。
+- 响应壳 `code/message/data/traceId` 解析。
+- Dio 异常、HTTP 状态和后端错误码转换。
+- 401 清理失效 Token。
+- 错误日志与客户端故障编号生成。
 
 错误码分段：
 
 - `000000`：成功。
-- `Cxxxxx`：客户端错误，例如网络不可用、请求超时、响应格式错误。
-- `Axxxxx`：认证授权错误，例如未登录、token 过期、无权限。
-- `Bxxxxx`：业务错误，例如校验失败、数据不存在、状态冲突。
-- `Sxxxxx`：服务端或网关错误，例如 400、404、500、503。
+- `Cxxxxx`：客户端、网络、超时、配置和响应错误。
+- `Axxxxx`：登录、Token 和权限错误。
+- `Bxxxxx`：业务校验、不存在、冲突和限流。
+- `Sxxxxx`：服务端和网关错误。
+
+## Vue WebView Bridge
+
+旧 Vue 页面通过 `window.MERPBridge.call(action, payload)` 调用 Flutter。当前支持：
+
+- `bridge.ping`
+- `auth.getSession`
+- `resource.getManifest`
+- `app.getLocale`
+- `app.showToast`
+- `camera.takePhoto`
+
+新增 action 必须在 `MerpNativeBridge` 中完成参数校验、返回结构、错误码和日志，并同步 Bridge 文档。相机仍由 Vue 页面调用 Bridge 触发，不是独立 Flutter 拍照业务页。
+
+统一 HTTP 和 WebView 首次请求会自动携带 `Accept-Language: zh-CN/zh-TW`。Vue 页面也可调用 `window.MERPBridge.getLocale()` 获取当前语言；后端菜单应按该语言返回本地化标题和描述。
+
+## Android 7.0 兼容
+
+- `android/app/build.gradle.kts` 固定 `minSdk = 24`。
+- Android 7 使用 PNG launcher 图标；Android 8 及以上使用 adaptive icon。
+- 生物识别同时声明 `USE_FINGERPRINT` 与 `USE_BIOMETRIC`。
+- 避免首页大图一次性解码、无限日志缓存、频繁定时器和首屏批量插件初始化。
+- 发布前至少验证 API 24、API 28、API 33 和当前 targetSdk 真机或模拟器。
+- Android 7 系统 WebView 较旧，部署 Vue 页面时避免仅支持现代浏览器的新语法，必要时由构建工具转译并提供 polyfill。
+
+## 环境配置
+
+生产环境使用 `--dart-define` 注入 API、Vue 地址和地图配置。真实密钥不得提交 Git：
+
+```bash
+flutter run \
+  --dart-define=API_BASE_URL=https://api.example.com \
+  --dart-define=LEGACY_VUE_BASE_URL=https://erp.example.com/mobile
+```
+
+地图暂不接入具体插件。密钥位置和厂商边界保留在 `AppConfig`、`MapSdkService` 与 `LocationService`。
 
 ## 验证命令
 
 ```bash
+flutter pub get
+flutter gen-l10n
 dart format lib test
 flutter analyze
 flutter test
+flutter build apk --debug
 ```
+
+提交前必须保证格式化、静态分析和自动化测试通过；涉及 Android 权限、启动图、WebView 或插件升级时，还需构建 APK 并在 API 24 设备验证。

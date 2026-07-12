@@ -1,7 +1,16 @@
+// -----------------------------------------------------------------------------
+// 文件：settings_page.dart
+// 作用：展示企业安全、语言、资源更新、Bridge、版本和诊断日志设置入口
+// 编写时间：2026-07-10
+// 维护说明：设置状态由 SettingsController 维护，本页面不直接读写本地存储
+// -----------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/app_scope.dart';
+import '../../l10n/l10n.dart';
+import '../../routing/app_routes.dart';
 import 'settings_controller.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -24,13 +33,13 @@ class SettingsPage extends StatelessWidget {
                 const _SettingsHeader(),
                 const SizedBox(height: 16),
                 _SettingsSection(
-                  title: '安全',
+                  title: context.l10n.security,
                   children: [
                     SwitchListTile(
                       value: settings.biometricEnabled,
                       secondary: const Icon(Icons.fingerprint),
-                      title: const Text('启用指纹解锁'),
-                      subtitle: const Text('用于自动锁屏后的快速解锁'),
+                      title: Text(context.l10n.enableBiometric),
+                      subtitle: Text(context.l10n.biometricSubtitle),
                       onChanged: (value) async {
                         final ok = await settings.setBiometricEnabled(value);
                         if (!context.mounted || ok) {
@@ -39,7 +48,8 @@ class SettingsPage extends StatelessWidget {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              settings.lastBiometricError ?? '当前设备无法启用指纹解锁',
+                              settings.lastBiometricError ??
+                                  context.l10n.biometricUnavailable,
                             ),
                           ),
                         );
@@ -48,30 +58,32 @@ class SettingsPage extends StatelessWidget {
                     SwitchListTile(
                       value: settings.autoLockEnabled,
                       secondary: const Icon(Icons.lock_clock_outlined),
-                      title: const Text('自动锁屏'),
-                      subtitle: const Text('开启后 10 秒未操作自动锁屏'),
+                      title: Text(context.l10n.autoLock),
+                      subtitle: Text(context.l10n.autoLockSubtitle),
                       onChanged: settings.setAutoLockEnabled,
                     ),
                     ListTile(
                       leading: const Icon(Icons.pattern_outlined),
-                      title: const Text('修改图形密码'),
+                      title: Text(context.l10n.changeGesturePassword),
                       subtitle: Text(
                         settings.gesturePasswordConfigured
-                            ? '已设置手势密码'
-                            : '未设置手势密码',
+                            ? context.l10n.gestureConfigured
+                            : context.l10n.gestureNotConfigured,
                       ),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.go('/settings/gesture'),
+                      onTap: () => context.go(AppRoute.gesture),
                     ),
                   ],
                 ),
                 _SettingsSection(
-                  title: '通用',
+                  title: context.l10n.general,
                   children: [
                     ListTile(
                       leading: const Icon(Icons.language_outlined),
-                      title: const Text('设置语言'),
-                      subtitle: Text(settings.language.label),
+                      title: Text(context.l10n.language),
+                      subtitle: Text(
+                        _languageLabel(context, settings.language),
+                      ),
                       trailing: DropdownButton<AppLanguage>(
                         value: settings.language,
                         underline: const SizedBox.shrink(),
@@ -79,7 +91,7 @@ class SettingsPage extends StatelessWidget {
                             .map(
                               (item) => DropdownMenuItem(
                                 value: item,
-                                child: Text(item.label),
+                                child: Text(_languageLabel(context, item)),
                               ),
                             )
                             .toList(),
@@ -92,27 +104,34 @@ class SettingsPage extends StatelessWidget {
                     ),
                     ListTile(
                       leading: const Icon(Icons.dynamic_feed_outlined),
-                      title: const Text('静态资源热更新演示'),
-                      subtitle: const Text('本地模拟资源清单更新首页背景和图标颜色'),
+                      title: Text(context.l10n.resourceUpdate),
+                      subtitle: Text(context.l10n.resourceUpdateSubtitle),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.go('/settings/resource-update'),
+                      onTap: () => context.go(AppRoute.resourceUpdate),
                     ),
                     ListTile(
                       leading: const Icon(
                         Icons.integration_instructions_outlined,
                       ),
-                      title: const Text('WebView Bridge 测试'),
-                      subtitle: const Text('验证 Vue/H5 页面调用 Flutter 原生能力'),
+                      title: Text(context.l10n.bridgeTest),
+                      subtitle: Text(context.l10n.bridgeTestSubtitle),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.go('/settings/bridge-test'),
+                      onTap: () => context.go(AppRoute.bridgeTest),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.receipt_long_outlined),
+                      title: Text(context.l10n.diagnosticLogs),
+                      subtitle: Text(context.l10n.diagnosticLogsSubtitle),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.go(AppRoute.logs),
                     ),
                     ListTile(
                       leading: const Icon(Icons.system_update_alt_outlined),
-                      title: const Text('版本检测'),
-                      subtitle: const Text('当前版本 1.0.0'),
+                      title: Text(context.l10n.versionCheck),
+                      subtitle: Text(context.l10n.currentVersion('1.0.0')),
                       trailing: OutlinedButton(
                         onPressed: () => _checkVersion(context, settings),
-                        child: const Text('检查'),
+                        child: Text(context.l10n.check),
                       ),
                     ),
                   ],
@@ -136,14 +155,22 @@ class SettingsPage extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(result.hasUpdate ? '发现新版本' : '版本检测'),
+        title: Text(
+          result.hasUpdate
+              ? context.l10n.newVersion
+              : context.l10n.versionCheck,
+        ),
         content: Text(
-          '${result.message}\n当前版本：${result.currentVersion}\n最新版本：${result.latestVersion}',
+          context.l10n.versionResult(
+            result.message,
+            result.currentVersion,
+            result.latestVersion,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('知道了'),
+            child: Text(context.l10n.acknowledge),
           ),
         ],
       ),
@@ -167,14 +194,14 @@ class _SettingsHeader extends StatelessWidget {
           Positioned(
             left: 14,
             child: IconButton(
-              tooltip: '返回',
-              onPressed: () => context.go('/home'),
+              tooltip: context.l10n.back,
+              onPressed: () => context.go(AppRoute.home),
               icon: const Icon(Icons.chevron_left, size: 42),
               color: SettingsPage._brandBlue,
             ),
           ),
           Text(
-            '系统设置',
+            context.l10n.systemSettings,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               color: SettingsPage._brandBlue,
               fontWeight: FontWeight.w800,
@@ -184,6 +211,13 @@ class _SettingsHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+String _languageLabel(BuildContext context, AppLanguage language) {
+  return switch (language) {
+    AppLanguage.zhHans => context.l10n.simplifiedChinese,
+    AppLanguage.zhHant => context.l10n.traditionalChinese,
+  };
 }
 
 class _SettingsSection extends StatelessWidget {

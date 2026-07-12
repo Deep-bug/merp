@@ -20,11 +20,10 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // 发布前替换为公司正式 applicationId，并与签名、推送和地图平台保持一致。
         applicationId = "com.example.merp"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // 明确锁定 API 24，即 Android 7.0。不要跟随 Flutter 默认值静默上升。
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -32,8 +31,7 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Demo 暂用 debug 签名；生产流水线必须改用受控的 release signingConfig。
             signingConfig = signingConfigs.getByName("debug")
         }
     }

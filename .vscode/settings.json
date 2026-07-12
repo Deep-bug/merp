@@ -1,7 +1,7 @@
 {
-  "dart.flutterSdkPath": "E:\\flutter_windows_3.24.4-stable\\flutter",
+  "dart.flutterSdkPath": "E:\\flutter_windows_3.44.5-stable\\flutter",
   "dart.flutterSdkPaths": [
-    "E:\\flutter_windows_3.24.4-stable\\flutter"
+    "E:\\flutter_windows_3.44.5-stable\\flutter"
   ],
   "dart.env": {
     "ANDROID_HOME": "E:\\android",

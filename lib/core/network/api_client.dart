@@ -1,7 +1,15 @@
+// -----------------------------------------------------------------------------
+// 文件：api_client.dart
+// 作用：统一执行 HTTP 请求、注入鉴权、解析响应并转换企业错误码
+// 编写时间：2026-07-10
+// 维护说明：Repository 禁止直接创建 Dio，所有请求必须经过此客户端
+// -----------------------------------------------------------------------------
+
 import 'package:dio/dio.dart';
 
 import '../auth/secure_token_store.dart';
 import '../config/app_config.dart';
+import '../logging/app_logger.dart';
 import 'api_exception.dart';
 import 'api_response.dart';
 import 'app_error_code.dart';
@@ -11,17 +19,23 @@ import 'app_error_code.dart';
 /// 业务仓库层只调用 get/post/put/delete，不直接接触 Dio。
 /// 这样 token 注入、错误码转换、响应壳解析都能在一个地方维护。
 class ApiClient {
-  ApiClient({required this.config, required SecureTokenStore tokenStore})
-    : _tokenStore = tokenStore,
-      _dio = Dio(
-        BaseOptions(
-          baseUrl: config.apiBaseUrl,
-          connectTimeout: const Duration(seconds: 12),
-          receiveTimeout: const Duration(seconds: 20),
-          sendTimeout: const Duration(seconds: 20),
-          responseType: ResponseType.json,
-        ),
-      ) {
+  ApiClient({
+    required this.config,
+    required SecureTokenStore tokenStore,
+    required AppLogger logger,
+    String Function()? localeProvider,
+  }) : _tokenStore = tokenStore,
+       _logger = logger,
+       _localeProvider = localeProvider ?? _defaultLocale,
+       _dio = Dio(
+         BaseOptions(
+           baseUrl: config.apiBaseUrl,
+           connectTimeout: const Duration(seconds: 12),
+           receiveTimeout: const Duration(seconds: 20),
+           sendTimeout: const Duration(seconds: 20),
+           responseType: ResponseType.json,
+         ),
+       ) {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
@@ -32,14 +46,51 @@ class ApiClient {
             options.headers['Authorization'] = 'Bearer $token';
           }
           options.headers['X-Client'] = 'merp-flutter';
+          options.headers['Accept-Language'] = _localeProvider();
           options.headers['X-Request-Id'] ??= _requestId();
+          options.extra['merp.startedAt'] = DateTime.now();
+          _logger.debug(
+            'http',
+            '请求开始',
+            fields: {
+              'method': options.method,
+              'path': options.path,
+              'requestId': options.headers['X-Request-Id'],
+            },
+          );
           handler.next(options);
+        },
+        onResponse: (response, handler) {
+          _logger.info(
+            'http',
+            '请求完成',
+            fields: {
+              'method': response.requestOptions.method,
+              'path': response.requestOptions.path,
+              'statusCode': response.statusCode,
+              'durationMs': _durationMs(response.requestOptions),
+              'requestId': response.requestOptions.headers['X-Request-Id'],
+            },
+          );
+          handler.next(response);
         },
         onError: (error, handler) async {
           // 401 代表登录态失效，先清理本地 token，路由守卫会把用户带回登录页。
           if (error.response?.statusCode == 401) {
             await _tokenStore.clear();
           }
+          _logger.warning(
+            'http',
+            '请求未成功',
+            error: error.error,
+            fields: {
+              'method': error.requestOptions.method,
+              'path': error.requestOptions.path,
+              'statusCode': error.response?.statusCode,
+              'durationMs': _durationMs(error.requestOptions),
+              'requestId': error.requestOptions.headers['X-Request-Id'],
+            },
+          );
           handler.next(error);
         },
       ),
@@ -48,6 +99,8 @@ class ApiClient {
 
   final AppConfig config;
   final SecureTokenStore _tokenStore;
+  final AppLogger _logger;
+  final String Function() _localeProvider;
   final Dio _dio;
 
   Future<T> get<T>(
@@ -128,17 +181,22 @@ class ApiClient {
         throw _fromHttpResponse(response, path);
       }
       return ApiResponse.unwrap<T>(response.data, path: path);
-    } on ApiException {
-      rethrow;
+    } on ApiException catch (error, stackTrace) {
+      final incidentId = _logRequestError(error, stackTrace, path);
+      throw error.withIncidentId(incidentId);
     } on DioException catch (error) {
-      throw _fromDioException(error, path);
-    } catch (error) {
-      throw ApiException(
+      final mapped = _fromDioException(error, path);
+      final incidentId = _logRequestError(mapped, error.stackTrace, path);
+      throw mapped.withIncidentId(incidentId);
+    } catch (error, stackTrace) {
+      final exception = ApiException(
         errorCode: AppErrorCode.clientUnknown,
         message: '客户端处理响应时发生未知错误',
         path: path,
         raw: error,
       );
+      final incidentId = _logRequestError(exception, stackTrace, path);
+      throw exception.withIncidentId(incidentId);
     }
   }
 
@@ -226,5 +284,33 @@ class ApiClient {
 
   String _requestId() {
     return 'merp-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  static String _defaultLocale() => 'zh-CN';
+
+  int? _durationMs(RequestOptions options) {
+    final startedAt = options.extra['merp.startedAt'];
+    return startedAt is DateTime
+        ? DateTime.now().difference(startedAt).inMilliseconds
+        : null;
+  }
+
+  String _logRequestError(
+    ApiException error,
+    StackTrace stackTrace,
+    String path,
+  ) {
+    return _logger.error(
+      'http',
+      error.message,
+      error: error.raw ?? error,
+      stackTrace: stackTrace,
+      fields: {
+        'path': path,
+        'errorCode': error.errorCode.code,
+        'httpStatusCode': error.httpStatusCode,
+        'traceId': error.traceId,
+      },
+    );
   }
 }

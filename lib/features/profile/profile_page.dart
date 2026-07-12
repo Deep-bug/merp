@@ -1,5 +1,15 @@
+// -----------------------------------------------------------------------------
+// 文件：profile_page.dart
+// 作用：展示当前账号个人中心和用户级功能入口
+// 编写时间：2026-07-10
+// 维护说明：后续个人资料数据应由独立 Repository 提供
+// -----------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../l10n/l10n.dart';
+import '../../routing/app_routes.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -16,7 +26,7 @@ class ProfilePage extends StatelessWidget {
             const _ProfileHeader(),
             const SizedBox(height: 68),
             Text(
-              '个人中心',
+              context.l10n.profile,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: const Color(0xFF9B9B9B),
                 fontWeight: FontWeight.w800,
@@ -31,11 +41,13 @@ class ProfilePage extends StatelessWidget {
             const SizedBox(height: 24),
             _ProfileMenuItem(
               icon: Icons.assignment_turned_in_outlined,
-              label: '报表订阅',
+              label: context.l10n.reportSubscription,
               onTap: () {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('报表订阅功能预留中')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(context.l10n.reportSubscriptionReserved),
+                  ),
+                );
               },
             ),
           ],
@@ -63,8 +75,8 @@ class _ProfileHeader extends StatelessWidget {
           Positioned(
             left: 14,
             child: IconButton(
-              tooltip: '返回',
-              onPressed: () => context.go('/home'),
+              tooltip: context.l10n.back,
+              onPressed: () => context.go(AppRoute.home),
               icon: const Icon(Icons.chevron_left, size: 42),
               color: ProfilePage._brandBlue,
             ),

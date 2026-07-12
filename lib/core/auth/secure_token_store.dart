@@ -1,3 +1,10 @@
+// -----------------------------------------------------------------------------
+// 文件：secure_token_store.dart
+// 作用：隔离登录 Token 的安全读写与清理实现
+// 编写时间：2026-07-10
+// 维护说明：Token 禁止写入 SharedPreferences、日志或页面状态
+// -----------------------------------------------------------------------------
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureTokenStore {

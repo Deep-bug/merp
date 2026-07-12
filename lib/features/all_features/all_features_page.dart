@@ -1,8 +1,18 @@
+// -----------------------------------------------------------------------------
+// 文件：all_features_page.dart
+// 作用：展示后端完整功能清单及当前账号授权状态
+// 编写时间：2026-07-10
+// 维护说明：权限判断统一委托 PermissionRepository，灰色入口不可绕过校验
+// -----------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/app_scope.dart';
 import '../../shared/app_error_view.dart';
+import '../../l10n/l10n.dart';
+import '../../routing/app_routes.dart';
+import '../../shared/adaptive_feature_grid.dart';
 import '../home/domain/feature_item.dart';
 
 class AllFeaturesPage extends StatelessWidget {
@@ -26,30 +36,44 @@ class AllFeaturesPage extends StatelessWidget {
               slivers: [
                 const SliverToBoxAdapter(child: _AllFeaturesHeader()),
                 if (permissions.allFeatures.isEmpty)
-                  const SliverFillRemaining(
+                  SliverFillRemaining(
                     hasScrollBody: false,
                     child: AppErrorView(
                       icon: Icons.apps_outlined,
-                      title: '暂无功能清单',
-                      message: '后端没有返回全部功能数据，请检查菜单权限接口。',
+                      title: context.l10n.noFeatureList,
+                      message: context.l10n.noFeatureListMessage,
                     ),
                   )
                 else
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(18, 22, 18, 34),
-                    sliver: SliverGrid(
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        final item = permissions.allFeatures[index];
-                        final enabled = permissions.canOpen(item);
-                        return _AllFeatureTile(item: item, enabled: enabled);
-                      }, childCount: permissions.allFeatures.length),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            mainAxisSpacing: 18,
-                            crossAxisSpacing: 18,
-                            childAspectRatio: 0.86,
-                          ),
+                    sliver: SliverLayoutBuilder(
+                      builder: (context, constraints) {
+                        final metrics = AdaptiveFeatureGridMetrics.allFeatures(
+                          context,
+                          constraints.crossAxisExtent,
+                        );
+                        return SliverGrid(
+                          delegate: SliverChildBuilderDelegate((
+                            context,
+                            index,
+                          ) {
+                            final item = permissions.allFeatures[index];
+                            final enabled = permissions.canOpen(item);
+                            return _AllFeatureTile(
+                              item: item,
+                              enabled: enabled,
+                            );
+                          }, childCount: permissions.allFeatures.length),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: metrics.crossAxisCount,
+                                mainAxisSpacing: metrics.spacing,
+                                crossAxisSpacing: metrics.spacing,
+                                mainAxisExtent: metrics.mainAxisExtent,
+                              ),
+                        );
+                      },
                     ),
                   ),
               ],
@@ -75,14 +99,14 @@ class _AllFeaturesHeader extends StatelessWidget {
           Positioned(
             left: 14,
             child: IconButton(
-              tooltip: '返回',
-              onPressed: () => context.go('/home'),
+              tooltip: context.l10n.back,
+              onPressed: () => context.go(AppRoute.home),
               icon: const Icon(Icons.chevron_left, size: 42),
               color: AllFeaturesPage._brandBlue,
             ),
           ),
           Text(
-            '全部功能',
+            context.l10n.allFeatures,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               color: AllFeaturesPage._brandBlue,
               fontWeight: FontWeight.w800,
@@ -102,9 +126,9 @@ class _AllFeatureTile extends StatelessWidget {
 
   void _open(BuildContext context) {
     if (!enabled) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('当前账号没有“${item.title}”的访问权限')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.noFeaturePermission(item.title))),
+      );
       return;
     }
 
@@ -112,12 +136,12 @@ class _AllFeatureTile extends StatelessWidget {
       showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('功能路由未配置'),
-          content: Text('功能“${item.title}”没有配置 route，请联系管理员检查菜单配置。'),
+          title: Text(context.l10n.missingRoute),
+          content: Text(context.l10n.missingRouteMessage(item.title)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('知道了'),
+              child: Text(context.l10n.acknowledge),
             ),
           ],
         ),
@@ -195,7 +219,9 @@ class _AllFeatureTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    enabled ? '已授权' : '未授权',
+                    enabled
+                        ? context.l10n.authorized
+                        : context.l10n.unauthorized,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(

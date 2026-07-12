@@ -1,8 +1,18 @@
+// -----------------------------------------------------------------------------
+// 文件：resource_update_demo_page.dart
+// 作用：演示运行时静态资源清单更新、缓存、预览和回滚
+// 编写时间：2026-07-10
+// 维护说明：生产接入必须增加 HTTPS、签名、哈希校验和灰度策略
+// -----------------------------------------------------------------------------
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/app_scope.dart';
+import '../../core/resources/resource_update_controller.dart';
 import '../../core/resources/runtime_resource_manifest.dart';
+import '../../l10n/l10n.dart';
+import '../../routing/app_routes.dart';
 
 class ResourceUpdateDemoPage extends StatefulWidget {
   const ResourceUpdateDemoPage({super.key});
@@ -41,9 +51,9 @@ class _ResourceUpdateDemoPageState extends State<ResourceUpdateDemoPage> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('资源更新失败：$error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.resourceUpdateFailed('$error'))),
+      );
     }
   }
 
@@ -60,10 +70,10 @@ class _ResourceUpdateDemoPageState extends State<ResourceUpdateDemoPage> {
           backgroundColor: Colors.white,
           appBar: AppBar(
             leading: IconButton(
-              onPressed: () => context.go('/settings'),
+              onPressed: () => context.go(AppRoute.settings),
               icon: const Icon(Icons.chevron_left),
             ),
-            title: const Text('静态资源热更新演示'),
+            title: Text(context.l10n.resourceUpdate),
             centerTitle: true,
           ),
           body: ListView(
@@ -71,12 +81,18 @@ class _ResourceUpdateDemoPageState extends State<ResourceUpdateDemoPage> {
             children: [
               _ResourcePreview(manifest: manifest),
               const SizedBox(height: 16),
-              _InfoTile(label: '当前资源版本', value: manifest.version),
-              _InfoTile(label: '资源来源', value: controller.lastSource),
               _InfoTile(
-                label: '更新时间',
+                label: context.l10n.resourceVersion,
+                value: manifest.version,
+              ),
+              _InfoTile(
+                label: context.l10n.resourceSource,
+                value: _resourceSourceLabel(context, controller.source),
+              ),
+              _InfoTile(
+                label: context.l10n.resourceUpdatedAt,
                 value: manifest.updatedAt.millisecondsSinceEpoch == 0
-                    ? '内置资源'
+                    ? context.l10n.builtInResource
                     : manifest.updatedAt.toLocal().toString(),
               ),
               const SizedBox(height: 16),
@@ -85,27 +101,32 @@ class _ResourceUpdateDemoPageState extends State<ResourceUpdateDemoPage> {
                 runSpacing: 12,
                 children: [
                   FilledButton.icon(
-                    onPressed: () =>
-                        _run(controller.applyEmeraldDemo, '已应用绿色资源包，返回首页查看变化'),
+                    onPressed: () => _run(
+                      controller.applyEmeraldDemo,
+                      context.l10n.emeraldApplied,
+                    ),
                     icon: const Icon(Icons.cloud_download_outlined),
-                    label: const Text('应用绿色资源包'),
+                    label: Text(context.l10n.applyEmerald),
                   ),
                   FilledButton.tonalIcon(
-                    onPressed: () =>
-                        _run(controller.applyVioletDemo, '已应用紫色资源包，返回首页查看变化'),
+                    onPressed: () => _run(
+                      controller.applyVioletDemo,
+                      context.l10n.violetApplied,
+                    ),
                     icon: const Icon(Icons.palette_outlined),
-                    label: const Text('应用紫色资源包'),
+                    label: Text(context.l10n.applyViolet),
                   ),
                   OutlinedButton.icon(
-                    onPressed: () => _run(controller.reset, '已恢复内置默认资源'),
+                    onPressed: () =>
+                        _run(controller.reset, context.l10n.resourceReset),
                     icon: const Icon(Icons.restore),
-                    label: const Text('重置资源'),
+                    label: Text(context.l10n.resetResource),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
               Text(
-                '手动资源清单 JSON',
+                context.l10n.manualResourceJson,
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -116,9 +137,9 @@ class _ResourceUpdateDemoPageState extends State<ResourceUpdateDemoPage> {
                 maxLines: 12,
                 minLines: 8,
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   border: OutlineInputBorder(),
-                  helperText: '修改颜色值后点击“应用 JSON”，即可模拟后端下发资源清单。',
+                  helperText: context.l10n.resourceJsonHint,
                 ),
               ),
               const SizedBox(height: 12),
@@ -128,18 +149,18 @@ class _ResourceUpdateDemoPageState extends State<ResourceUpdateDemoPage> {
                     child: FilledButton.icon(
                       onPressed: () => _run(
                         () => controller.applyJson(_jsonController.text),
-                        '已应用 JSON 资源清单，返回首页查看变化',
+                        context.l10n.jsonApplied,
                       ),
                       icon: const Icon(Icons.playlist_add_check),
-                      label: const Text('应用 JSON'),
+                      label: Text(context.l10n.applyJson),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => context.go('/home'),
+                      onPressed: () => context.go(AppRoute.home),
                       icon: const Icon(Icons.home_outlined),
-                      label: const Text('查看首页'),
+                      label: Text(context.l10n.viewHome),
                     ),
                   ),
                 ],
@@ -150,6 +171,18 @@ class _ResourceUpdateDemoPageState extends State<ResourceUpdateDemoPage> {
       },
     );
   }
+}
+
+String _resourceSourceLabel(BuildContext context, ResourceSource source) {
+  return switch (source) {
+    ResourceSource.builtIn => context.l10n.sourceBuiltIn,
+    ResourceSource.cache => context.l10n.sourceCache,
+    ResourceSource.cacheFallback => context.l10n.sourceCacheFallback,
+    ResourceSource.manualJson => context.l10n.sourceManualJson,
+    ResourceSource.emeraldDemo => context.l10n.sourceEmerald,
+    ResourceSource.violetDemo => context.l10n.sourceViolet,
+    ResourceSource.reset => context.l10n.sourceReset,
+  };
 }
 
 class _ResourcePreview extends StatelessWidget {
