@@ -48,6 +48,7 @@ class _MerpAppState extends State<MerpApp> {
       resourceUpdateController: dependencies.resourceUpdateController,
       cameraService: dependencies.cameraService,
       locationService: dependencies.locationService,
+      mapSdkService: dependencies.mapSdkService,
       logger: dependencies.logger,
       child: AnimatedBuilder(
         animation: dependencies.settingsController,

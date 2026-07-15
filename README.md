@@ -34,7 +34,7 @@ merp/
 │   │   └── theme/
 │   │       └── app_theme.dart                # Material 主题和企业控件样式
 │   ├── core/                                 # 与具体业务无关的基础能力
-│   │   ├── auth/                             # 会话、登录仓库和 Token 安全存储
+│   │   ├── auth/                             # Token、用户资料、会话、认证仓库和安全存储
 │   │   ├── bridge/                           # Vue/H5 调用 Flutter 的受控协议
 │   │   ├── config/                           # API、Vue 和地图环境配置
 │   │   ├── device/                           # 相机、定位和地图 SDK 适配边界
@@ -177,19 +177,20 @@ final incidentId = logger.error(
 业务 Repository 只调用 `ApiClient.get/post/put/delete`。客户端统一完成：
 
 - `Authorization: Bearer <token>` 注入。
-- `X-Request-Id` 和请求耗时记录。
-- 响应壳 `code/message/data/traceId` 解析。
+- `X-Client: merp-flutter`、`X-Request-Id: merp-{timestamp}` 和请求耗时记录。
+- 连接超时 30 秒、接收和发送超时 60 秒。
+- 响应壳 `code/message/data` 解析，兼容 `data` 与 `data.data`。
 - Dio 异常、HTTP 状态和后端错误码转换。
-- 401 清理失效 Token。
+- 401 使用 refresh_token 自动刷新并重放原请求。
+- 并发 401 共用同一次刷新请求，刷新失败后清理 Token 并跳转登录页。
 - 错误日志与客户端故障编号生成。
 
-错误码分段：
+客户端错误关键字：`clientTimeout`、`clientNetworkUnavailable`、
+`clientCancelled`、`clientInvalidConfig`、`serverUnauthorized`、
+`serverForbidden`、`serverNotFound`、`serverValidation`、`serverError`、
+`clientUnknown`。
 
-- `000000`：成功。
-- `Cxxxxx`：客户端、网络、超时、配置和响应错误。
-- `Axxxxx`：登录、Token 和权限错误。
-- `Bxxxxx`：业务校验、不存在、冲突和限流。
-- `Sxxxxx`：服务端和网关错误。
+真实接口结构、认证时序和代码位置见 [API 对接说明](docs/api_integration.md)。
 
 ## Vue WebView Bridge
 
@@ -201,8 +202,10 @@ final incidentId = logger.error(
 - `app.getLocale`
 - `app.showToast`
 - `camera.takePhoto`
+- `location.getCurrentPosition`
+- `device.openAppSettings`
 
-新增 action 必须在 `MerpNativeBridge` 中完成参数校验、返回结构、错误码和日志，并同步 Bridge 文档。相机仍由 Vue 页面调用 Bridge 触发，不是独立 Flutter 拍照业务页。
+新增 action 必须在 `MerpNativeBridge` 中完成参数校验、返回结构、错误码和日志，并同步 Bridge 文档。相机和定位都由用户在 Vue 页面主动操作触发，不在页面加载或 App 启动时申请权限。Vue2 精确定位接入见 [定位 Bridge 文档](docs/vue2_location_bridge.md)。
 
 统一 HTTP 和 WebView 首次请求会自动携带 `Accept-Language: zh-CN/zh-TW`。Vue 页面也可调用 `window.MERPBridge.getLocale()` 获取当前语言；后端菜单应按该语言返回本地化标题和描述。
 
@@ -217,15 +220,24 @@ final incidentId = logger.error(
 
 ## 环境配置
 
-生产环境使用 `--dart-define` 注入 API、Vue 地址和地图配置。真实密钥不得提交 Git：
+当前 API 默认地址是 `http://10.146.152.51:31234`。生产环境建议使用
+`--dart-define` 注入 API、Vue 地址和地图配置，真实密钥不得提交 Git：
 
 ```bash
 flutter run \
-  --dart-define=API_BASE_URL=https://api.example.com \
+  --dart-define=API_BASE_URL=http://10.146.152.51:31234 \
   --dart-define=LEGACY_VUE_BASE_URL=https://erp.example.com/mobile
 ```
 
-地图暂不接入具体插件。密钥位置和厂商边界保留在 `AppConfig`、`MapSdkService` 与 `LocationService`。
+百度地图当前接入 iOS 基础地图与按需精确定位，不包含 Search SDK。真实 AK 放在 Git 忽略的
+`config/baidu_map.local.json`，启动时使用：
+
+```bash
+flutter run --dart-define-from-file=config/baidu_map.local.json
+```
+
+隐私初始化、Bundle Identifier、CocoaPods、后端权限结构和故障排查见
+[百度地图 iOS 接入说明](docs/baidu_map_ios_integration.md)。
 
 ## 验证命令
 

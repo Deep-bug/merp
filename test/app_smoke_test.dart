@@ -14,6 +14,7 @@ import 'package:merp/core/auth/secure_token_store.dart';
 import 'package:merp/core/config/app_config.dart';
 import 'package:merp/core/device/camera_service.dart';
 import 'package:merp/core/device/location_service.dart';
+import 'package:merp/core/device/map_sdk_service.dart';
 import 'package:merp/core/logging/app_logger.dart';
 import 'package:merp/core/network/api_client.dart';
 import 'package:merp/core/resources/resource_update_controller.dart';
@@ -49,6 +50,7 @@ void main() {
       authRepository: AuthRepository(
         apiClient: apiClient,
         tokenStore: tokenStore,
+        logger: logger,
       ),
       permissionRepository: permissions,
       logger: logger,
@@ -64,7 +66,8 @@ void main() {
       settingsController: settings,
       resourceUpdateController: resources,
       cameraService: CameraService(),
-      locationService: LocationService(config: config),
+      locationService: LocationService(config: config, logger: logger),
+      mapSdkService: MapSdkService(config: config, logger: logger),
       logger: logger,
     );
 

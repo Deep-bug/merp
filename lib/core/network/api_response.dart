@@ -10,8 +10,8 @@ import 'app_error_code.dart';
 
 /// 统一响应壳解析器。
 ///
-/// 推荐后端返回：
-/// `{ "code": "000000", "message": "success", "data": {}, "traceId": "..." }`
+/// 当前后端允许一层或两层 data 包装：
+/// `{ "code": 0, "message": "success", "data": { "data": {} } }`。
 /// 兼容旧接口直接返回数组或对象，便于 Cordova/Vue2 迁移期逐步改造。
 class ApiResponse<T> {
   const ApiResponse({
@@ -34,6 +34,7 @@ class ApiResponse<T> {
     return code == null ||
         code.isEmpty ||
         code == AppErrorCode.success.code ||
+        code == '000000' ||
         code == '0' ||
         code == '200';
   }
@@ -64,12 +65,29 @@ class ApiResponse<T> {
             raw: raw,
           );
         }
-        return raw['data'] as T;
+        Object? payload = raw['data'];
+        if (payload is Map<String, dynamic> && payload.containsKey('data')) {
+          payload = payload['data'];
+        }
+        return _cast<T>(payload, path: path, raw: raw);
       }
     }
 
     // Some legacy endpoints return a raw list/object without an envelope.
-    return raw as T;
+    return _cast<T>(raw, path: path, raw: raw);
+  }
+
+  static T _cast<T>(Object? value, {required String path, Object? raw}) {
+    try {
+      return value as T;
+    } catch (_) {
+      throw ApiException(
+        errorCode: AppErrorCode.clientUnknown,
+        message: '接口响应数据结构与客户端约定不一致',
+        path: path,
+        raw: raw,
+      );
+    }
   }
 
   static String? _readString(Map<String, dynamic> raw, List<String> keys) {

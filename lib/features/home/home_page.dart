@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/app_scope.dart';
-import '../../l10n/l10n.dart';
 import '../../routing/app_routes.dart';
 import 'widgets/home_assistant_button.dart';
 import 'widgets/home_banner_carousel.dart';
@@ -30,12 +29,11 @@ class HomePage extends StatelessWidget {
     return AnimatedBuilder(
       animation: Listenable.merge([auth, permissions, resources]),
       builder: (context, _) {
-        final userName = auth.session?.userName ?? context.l10n.currentUser;
         final manifest = resources.manifest;
 
         return Scaffold(
           drawer: HomeDrawer(
-            userName: userName,
+            profile: auth.session?.profile,
             brandColor: manifest.brandColor,
           ),
           body: SafeArea(

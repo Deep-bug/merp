@@ -229,7 +229,7 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
   }
 
   Map<String, String> _requestHeaders(AppScope scope) {
-    final token = scope.authController.session?.token ?? '';
+    final token = scope.authController.session?.accessToken ?? '';
     return {
       'Authorization': 'Bearer $token',
       'Accept-Language': scope.settingsController.language.code,

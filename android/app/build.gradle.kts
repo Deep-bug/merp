@@ -5,6 +5,13 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+configurations.configureEach {
+    // 百度地图 Flutter 插件 4.0.1+1 的 Android 工程仍传递依赖旧版
+    // android.arch.lifecycle:extensions:1.1.1，但插件源码已经使用 AndroidX。
+    // 精确排除该过时依赖，避免与 androidx.core 产生重复类；升级插件后应复查并删除。
+    exclude(group = "android.arch.lifecycle", module = "extensions")
+}
+
 android {
     namespace = "com.example.merp"
     compileSdk = flutter.compileSdkVersion

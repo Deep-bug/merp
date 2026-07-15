@@ -92,4 +92,14 @@ class AuthController extends ChangeNotifier {
     _logger.info('auth', '用户已退出登录');
     notifyListeners();
   }
+
+  /// ApiClient 在 refresh_token 失效后调用，确保内存会话与路由立即同步。
+  Future<void> handleSessionExpired() async {
+    await _permissionRepository.clear();
+    session = null;
+    status = AuthStatus.unauthenticated;
+    lastError = '登录已过期，请重新登录';
+    _logger.warning('auth', '刷新令牌失效，已退出当前会话');
+    notifyListeners();
+  }
 }

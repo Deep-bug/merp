@@ -12,6 +12,8 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/app_scope.dart';
+import '../../l10n/l10n.dart';
+import '../device/location_service.dart';
 
 /// MERP WebView 原生能力 Bridge。
 ///
@@ -89,6 +91,10 @@ class MerpNativeBridge {
           await _showToast(requestId, payload);
         case 'camera.takePhoto':
           await _takePhoto(requestId, payload);
+        case 'location.getCurrentPosition':
+          await _getCurrentPosition(requestId, payload);
+        case 'device.openAppSettings':
+          await _openAppSettings(requestId);
         default:
           logger.warning(
             'bridge',
@@ -134,7 +140,7 @@ class MerpNativeBridge {
   Map<String, Object?> _pingPayload() {
     return {
       'message': 'pong',
-      'bridgeVersion': '1.0.0',
+      'bridgeVersion': '1.1.0',
       'platform': defaultTargetPlatform.name,
       'timestamp': DateTime.now().toIso8601String(),
     };
@@ -144,10 +150,12 @@ class MerpNativeBridge {
     final session = AppScope.of(context).authController.session;
     return {
       'authenticated': session != null,
-      'userName': session?.userName,
-      // 测试页需要验证旧 Vue2 是否能拿到移动端登录态。正式业务仍建议优先使用
-      // WebView 的 Authorization Header，避免到处手动传 token。
-      'token': session?.token,
+      'userName': session?.profile.displayName,
+      'userInfo': session?.profile.toJson(),
+      // Bridge 仅提供短期 access_token，绝不向 H5 暴露 refresh_token。
+      // `token` 是旧 Vue 迁移兼容字段，新页面应读取 access_token。
+      'access_token': session?.accessToken,
+      'token': session?.accessToken,
     };
   }
 
@@ -200,6 +208,93 @@ class MerpNativeBridge {
     await _resolve(requestId, capture.toJson());
   }
 
+  Future<void> _getCurrentPosition(String requestId, Object? payload) async {
+    final locationService = AppScope.of(context).locationService;
+    final l10n = context.l10n;
+    if (!await locationService.hasPrivacyConsent()) {
+      final accepted = await _requestLocationPrivacyConsent();
+      if (!accepted) {
+        await _reject(
+          requestId,
+          LocationFailureCode.privacyRequired.value,
+          l10n.locationPrivacyDeclined,
+        );
+        return;
+      }
+      await locationService.acceptPrivacyConsent();
+    }
+
+    final options = payload is Map<String, dynamic>
+        ? payload
+        : const <String, dynamic>{};
+    final timeoutMs = _readInt(
+      options['timeoutMs'],
+      fallback: 25000,
+    ).clamp(5000, 60000).toInt();
+    final maximumAccuracyMeters = _readDouble(
+      options['maximumAccuracyMeters'] ?? options['accuracy'],
+      fallback: 50,
+    ).clamp(5, 1000).toDouble();
+
+    try {
+      final location = await locationService.locateOnce(
+        timeout: Duration(milliseconds: timeoutMs),
+        maximumAccuracyMeters: maximumAccuracyMeters,
+      );
+      await _resolve(requestId, location.toJson());
+    } on AppLocationException catch (error) {
+      await _reject(
+        requestId,
+        error.code.value,
+        error.message,
+        details: {...error.details, 'canOpenSettings': error.canOpenSettings},
+      );
+    }
+  }
+
+  Future<bool> _requestLocationPrivacyConsent() async {
+    if (!context.mounted) {
+      return false;
+    }
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            icon: const Icon(Icons.privacy_tip_outlined),
+            title: Text(context.l10n.locationPrivacyTitle),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(context.l10n.locationPrivacyMessage),
+                  const SizedBox(height: 12),
+                  const SelectableText(
+                    'https://lbsyun.baidu.com/index.php?title=openprivacy',
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(context.l10n.mapDecline),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(context.l10n.mapAgreeAndContinue),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _openAppSettings(String requestId) async {
+    final opened = await AppScope.of(context).locationService.openAppSettings();
+    await _resolve(requestId, {'opened': opened});
+  }
+
   int _readInt(Object? value, {required int fallback}) {
     if (value is num) {
       return value.toInt();
@@ -229,11 +324,13 @@ class MerpNativeBridge {
     String code,
     String message, {
     String? incidentId,
+    Map<String, Object?> details = const {},
   }) {
     return _runCallback('_reject', requestId, {
       'code': code,
       'message': message,
       'incidentId': ?incidentId,
+      'details': details,
     });
   }
 
@@ -272,7 +369,7 @@ const _bridgeScript = r'''
   }
 
   window.MERPBridge = {
-    version: '1.0.0',
+    version: '1.1.0',
 
     call: function (action, payload) {
       var id = createId();
@@ -309,6 +406,14 @@ const _bridgeScript = r'''
 
     takePhoto: function (options) {
       return this.call('camera.takePhoto', options || {});
+    },
+
+    getCurrentPosition: function (options) {
+      return this.call('location.getCurrentPosition', options || {});
+    },
+
+    openAppSettings: function () {
+      return this.call('device.openAppSettings', {});
     },
 
     _resolve: function (id, data) {

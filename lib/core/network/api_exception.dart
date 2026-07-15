@@ -26,10 +26,7 @@ class ApiException implements Exception {
   final Object? raw;
   final String? incidentId;
 
-  bool get isAuthError =>
-      errorCode == AppErrorCode.authUnauthenticated ||
-      errorCode == AppErrorCode.authTokenExpired ||
-      errorCode == AppErrorCode.serverUnauthorized;
+  bool get isAuthError => errorCode == AppErrorCode.serverUnauthorized;
 
   String get userMessage {
     final references = <String>[

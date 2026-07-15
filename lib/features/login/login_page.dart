@@ -20,7 +20,7 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _accountController = TextEditingController(text: 'demo');
+  final _accountController = TextEditingController(text: 'admin');
   final _passwordController = TextEditingController(text: '123456');
   bool _submitting = false;
 

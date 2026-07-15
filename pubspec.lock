@@ -150,6 +150,30 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_baidu_mapapi_base:
+    dependency: "direct main"
+    description:
+      name: flutter_baidu_mapapi_base
+      sha256: "6108c473894bfc6949b69c5214ca3bf29fd3e457cc9b72005ba5cdd1fe113485"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "4.0.1+1"
+  flutter_baidu_mapapi_map:
+    dependency: "direct main"
+    description:
+      name: flutter_baidu_mapapi_map
+      sha256: "94787494aa615f0c2adb7226dc1e7bb386bbf9dc48571920d461b310afa60dd4"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "4.0.1"
+  flutter_bmflocation:
+    dependency: "direct main"
+    description:
+      name: flutter_bmflocation
+      sha256: "63374544bcbe16b6c1787260ccb9599eab3159f7eda818dc7a4175c5b29996f4"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "3.8.4"
   flutter_lints:
     dependency: "direct dev"
     description:

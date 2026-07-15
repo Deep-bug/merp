@@ -11,14 +11,29 @@
 /// 这样 Android、iOS、Web、Windows 可以共用一套代码，只替换环境变量。
 class AppConfig {
   const AppConfig({
-    this.apiBaseUrl = 'https://api.example.com',
+    this.apiBaseUrl = const String.fromEnvironment(
+      'API_BASE_URL',
+      defaultValue: 'http://10.146.152.51:31234',
+    ),
     this.legacyVueBaseUrl = 'https://erp.example.com/mobile',
-    this.loginPath = '/auth/login',
+    this.loginPath = '/api/v1/auth/login',
+    this.refreshTokenPath = '/api/v1/auth/refresh',
+    this.logoutPath = '/api/v1/auth/logout',
+    this.userInfoPath = '/api/v1/user/userInfo',
     this.menuPath = '/auth/menus',
-    this.mapProvider = 'unconfigured',
-    this.androidMapApiKey = '请替换为 Android 地图 AK',
-    this.iosMapApiKey = '请替换为 iOS 地图 AK',
-    this.webMapApiKey = '请替换为 Web 地图 AK',
+    this.mapProvider = 'baidu',
+    this.androidMapApiKey = const String.fromEnvironment(
+      'BAIDU_MAP_ANDROID_AK',
+      defaultValue: '',
+    ),
+    this.iosMapApiKey = const String.fromEnvironment(
+      'BAIDU_MAP_IOS_AK',
+      defaultValue: '',
+    ),
+    this.webMapApiKey = const String.fromEnvironment(
+      'BAIDU_MAP_WEB_AK',
+      defaultValue: '',
+    ),
   });
 
   /// 后端 API 域名。真实接入时建议按 dev/test/prod 使用 --dart-define 注入。
@@ -28,6 +43,17 @@ class AppConfig {
   final String legacyVueBaseUrl;
 
   final String loginPath;
+
+  /// 使用 refresh_token 换取新访问令牌的接口。
+  final String refreshTokenPath;
+
+  /// 服务端注销 refresh_token 的接口。
+  final String logoutPath;
+
+  /// 当前登录用户的完整资料接口。
+  final String userInfoPath;
+
+  /// 菜单权限接口尚未包含在本次后端文档中，继续保留独立配置入口。
   final String menuPath;
 
   /// 地图厂商标识。后续可改成 baidu/amap/tencent 等。
@@ -41,8 +67,6 @@ class AppConfig {
 
   /// Web 地图 SDK 密钥填写位置。
   final String webMapApiKey;
-
-  bool get usesDemoBackend => apiBaseUrl.contains('example.com');
 
   Uri legacyUri(String legacyPath) {
     final base = legacyVueBaseUrl.endsWith('/')

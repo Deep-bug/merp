@@ -45,6 +45,9 @@ dependencies:
   permission_handler: ^12.0.3
   shared_preferences: ^2.5.5
   local_auth: ^3.0.1
+  flutter_baidu_mapapi_base: 4.0.1+1
+  flutter_baidu_mapapi_map: 4.0.1
+  flutter_bmflocation: 3.8.4
 
 dev_dependencies:
   flutter_test:

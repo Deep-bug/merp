@@ -10,6 +10,7 @@ import '../core/auth/auth_repository.dart';
 import '../core/auth/secure_token_store.dart';
 import '../core/config/app_config.dart';
 import '../core/device/camera_service.dart';
+import '../core/device/baidu_privacy_consent_store.dart';
 import '../core/device/location_service.dart';
 import '../core/device/map_sdk_service.dart';
 import '../core/logging/app_logger.dart';
@@ -34,6 +35,7 @@ class AppDependencies {
     required this.resourceUpdateController,
     required this.cameraService,
     required this.locationService,
+    required this.mapSdkService,
     required this.logger,
   });
 
@@ -46,6 +48,7 @@ class AppDependencies {
   final ResourceUpdateController resourceUpdateController;
   final CameraService cameraService;
   final LocationService locationService;
+  final MapSdkService mapSdkService;
   final AppLogger logger;
 
   /// 统一启动顺序：
@@ -67,7 +70,12 @@ class AppDependencies {
       localeProvider: () => settingsController.language.code,
     );
 
-    // 当前只保留地图 SDK 对接边界；正式接百度地图时在 MapSdkService 内部替换实现。
+    const baiduPrivacyConsentStore = BaiduPrivacyConsentStore();
+    final mapSdkService = MapSdkService(
+      config: config,
+      logger: logger,
+      privacyConsentStore: baiduPrivacyConsentStore,
+    );
     final permissionRepository = PermissionRepository(
       apiClient: apiClient,
       logger: logger,
@@ -77,7 +85,7 @@ class AppDependencies {
     // 本地设置、运行时资源、地图 SDK 占位初始化互不依赖，可以并行加载。
     // 后续真正接入地图 SDK 时，仍然建议把耗时授权/定位动作放到具体业务页再触发。
     await Future.wait([
-      MapSdkService(config: config).initialize(),
+      mapSdkService.initialize(),
       settingsController.load(),
       resourceUpdateController.load(),
     ]);
@@ -86,10 +94,13 @@ class AppDependencies {
       authRepository: AuthRepository(
         apiClient: apiClient,
         tokenStore: tokenStore,
+        logger: logger,
       ),
       permissionRepository: permissionRepository,
       logger: logger,
     );
+    // 网络层只通过回调通知认证状态失效，避免 ApiClient 反向依赖 Controller。
+    apiClient.onSessionExpired = authController.handleSessionExpired;
     await authController.restoreSession();
 
     logger.info('bootstrap', '应用依赖初始化完成');
@@ -102,7 +113,12 @@ class AppDependencies {
       settingsController: settingsController,
       resourceUpdateController: resourceUpdateController,
       cameraService: CameraService(),
-      locationService: LocationService(config: config),
+      locationService: LocationService(
+        config: config,
+        logger: logger,
+        privacyConsentStore: baiduPrivacyConsentStore,
+      ),
+      mapSdkService: mapSdkService,
       logger: logger,
     );
   }

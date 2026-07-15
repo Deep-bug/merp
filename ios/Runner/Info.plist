@@ -50,15 +50,18 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>用于读取已拍摄的业务图片。</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>用于地图定位、签到和现场业务处理。</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>用于需要持续定位的企业移动业务。</string>
+	<string>仅在您主动使用地图定位、外勤或签到时获取精确位置和地址。</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>用于启用指纹或面容解锁，保护企业移动工作台数据安全。</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
+		<!-- 当前内网 API 为 HTTP；后端升级 HTTPS 后应删除此全局例外。 -->
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
 		<key>NSAllowsArbitraryLoadsInWebContent</key>
 		<true/>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>用于连接公司内网 MERP 后端服务。</string>
 </dict>
 </plist>

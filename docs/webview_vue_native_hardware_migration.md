@@ -254,18 +254,14 @@ camera.takePhoto
 
 ## 7. 定位能力改造
 
-当前项目已保留定位能力边界：
+当前项目已经接入百度 iOS 单次精确定位：
 
 ```text
 lib/core/device/location_service.dart
 ```
 
-目前尚未接入具体地图/定位 SDK，后续可接：
-
-- 百度地图定位 SDK。
-- 高德定位 SDK。
-- 腾讯位置服务。
-- 系统定位插件。
+`LocationService` 统一处理隐私、前台权限、BD-09 坐标、精度门槛、超时与错误码。
+完整 Vue2 示例见 [Vue2 精确定位 Bridge](vue2_location_bridge.md)。
 
 ### 7.1 推荐 Bridge action
 
@@ -277,9 +273,8 @@ Vue3 调用：
 
 ```ts
 const location = await window.MERPBridge.call('location.getCurrentPosition', {
-  highAccuracy: true,
-  timeoutMs: 10000,
-  needAddress: true
+  timeoutMs: 25000,
+  maximumAccuracyMeters: 50
 })
 ```
 
@@ -289,53 +284,22 @@ const location = await window.MERPBridge.call('location.getCurrentPosition', {
 {
   "latitude": 22.543096,
   "longitude": 114.057865,
-  "accuracy": 30,
+  "accuracyMeters": 30,
+  "coordinateType": "bd09ll",
   "provider": "baidu",
   "address": "广东省深圳市南山区...",
   "timestamp": "2026-06-29T10:00:00.000"
 }
 ```
 
-### 7.2 Flutter 侧改造步骤
+### 7.2 Flutter 侧实现位置
 
-1. 在 `LocationService` 中实现真实定位。
+- `lib/core/device/location_service.dart`：业务编排与统一错误。
+- `lib/core/device/baidu_location_adapter_mobile.dart`：百度最高精度单次定位。
+- `lib/core/bridge/merp_native_bridge.dart`：Vue 调用、隐私确认和结果返回。
+- `lib/features/map/map_page.dart`：地图定位按钮和定位点。
 
-```dart
-Future<AppLocation> locateOnce({
-  bool highAccuracy = true,
-  bool needAddress = true,
-  Duration timeout = const Duration(seconds: 10),
-}) async {
-  // 1. 检查定位权限
-  // 2. 检查定位服务是否开启
-  // 3. 调用百度/高德/系统定位 SDK
-  // 4. 转换成 AppLocation 返回
-}
-```
-
-2. 在 `MerpNativeBridge.handleMessage` 中增加 action。
-
-```dart
-case 'location.getCurrentPosition':
-  await _getCurrentPosition(requestId, payload);
-```
-
-3. 增加 `_getCurrentPosition` 方法。
-
-```dart
-Future<void> _getCurrentPosition(String requestId, Object? payload) async {
-  final locationService = AppScope.of(context).locationService;
-  final location = await locationService.locateOnce();
-  await _resolve(requestId, {
-    'latitude': location.latitude,
-    'longitude': location.longitude,
-    'address': location.address,
-    'timestamp': DateTime.now().toIso8601String(),
-  });
-}
-```
-
-4. Android/iOS 补齐权限说明。
+权限只在 `locateOnce` 被用户操作触发后申请。Android/iOS 权限声明如下：
 
 Android：
 
@@ -356,10 +320,12 @@ iOS：
 | 错误码 | 含义 |
 |---|---|
 | `LOCATION_PERMISSION_DENIED` | 用户拒绝定位权限 |
+| `LOCATION_PERMISSION_PERMANENTLY_DENIED` | 用户永久拒绝，需要手动去系统设置 |
 | `LOCATION_SERVICE_DISABLED` | 系统定位服务未开启 |
 | `LOCATION_TIMEOUT` | 定位超时 |
-| `LOCATION_SDK_NOT_CONFIGURED` | 定位 SDK 未接入或密钥未配置 |
-| `LOCATION_FAILED` | 定位失败 |
+| `LOCATION_KEY_MISSING` | 定位密钥未配置 |
+| `LOCATION_ACCURACY_INSUFFICIENT` | 定位结果未达到业务精度阈值 |
+| `LOCATION_SDK_FAILED` | 百度定位 SDK 失败 |
 
 ## 8. 其他手机硬件能力改造方式
 
@@ -585,7 +551,7 @@ Authorization: Bearer <token>
 2. `app.showToast`：验证 Flutter UI 回调。
 3. `auth.getSession`：验证登录态。
 4. `camera.takePhoto`：验证相机。
-5. `location.getCurrentPosition`：接入定位 SDK。
+5. `location.getCurrentPosition`：验证按需权限、精度阈值和拒绝恢复。
 6. `scanner.scanCode`：接入扫码。
 7. `file.pick` / `file.upload`：处理文件。
 8. `device.getInfo` / `device.vibrate`：补齐设备能力。

@@ -11,6 +11,7 @@ import '../core/auth/auth_controller.dart';
 import '../core/config/app_config.dart';
 import '../core/device/camera_service.dart';
 import '../core/device/location_service.dart';
+import '../core/device/map_sdk_service.dart';
 import '../core/logging/app_logger.dart';
 import '../core/resources/resource_update_controller.dart';
 import '../features/home/data/permission_repository.dart';
@@ -30,6 +31,7 @@ class AppScope extends InheritedWidget {
     required this.resourceUpdateController,
     required this.cameraService,
     required this.locationService,
+    required this.mapSdkService,
     required this.logger,
     required super.child,
   });
@@ -41,6 +43,7 @@ class AppScope extends InheritedWidget {
   final ResourceUpdateController resourceUpdateController;
   final CameraService cameraService;
   final LocationService locationService;
+  final MapSdkService mapSdkService;
   final AppLogger logger;
 
   static AppScope of(BuildContext context) {
@@ -58,6 +61,7 @@ class AppScope extends InheritedWidget {
         resourceUpdateController != oldWidget.resourceUpdateController ||
         cameraService != oldWidget.cameraService ||
         locationService != oldWidget.locationService ||
+        mapSdkService != oldWidget.mapSdkService ||
         logger != oldWidget.logger;
   }
 }
