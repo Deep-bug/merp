@@ -11,6 +11,66 @@ MERP 是原 Cordova 6.5 外壳的 Flutter 升级版本。Flutter 统一负责启
 - 可兼容：Android 最低版本固定为 API 24，即 Android 7.0。
 - 可迁移：Vue 与 Flutter 原生模块共用登录态、权限模型、路由和设备能力边界。
 
+## 开发环境与打包
+
+项目推荐使用 FVM 固定 Flutter 版本，版本配置见 `.fvmrc`。当前验证版本为
+Flutter `3.44.6`。
+
+使用 FVM 的同学：
+
+```bash
+fvm install
+fvm flutter pub get
+fvm flutter run --dart-define-from-file=config/baidu_map.local.json
+```
+
+不使用 FVM 的同学，需要先保证本机 `flutter --version` 与 `.fvmrc` 一致或兼容，
+然后把命令里的 `fvm flutter` 换成 `flutter`：
+
+```bash
+flutter pub get
+flutter run --dart-define-from-file=config/baidu_map.local.json
+```
+
+百度地图和定位依赖本地 AK 配置。复制示例文件后填写真实 AK，真实文件已被 Git 忽略：
+
+```bash
+cp config/baidu_map.example.json config/baidu_map.local.json
+```
+
+Android debug 包：
+
+```bash
+fvm flutter build apk --debug \
+  --dart-define-from-file=config/baidu_map.local.json
+```
+
+Android release 包：
+
+```bash
+fvm flutter build apk --release \
+  --dart-define-from-file=config/baidu_map.local.json
+```
+
+iOS debug 构建校验：
+
+```bash
+fvm flutter build ios --debug --no-codesign \
+  --dart-define-from-file=config/baidu_map.local.json
+```
+
+iOS 正式签名包需要在 Xcode 中配置 Apple Developer Team、Bundle ID、证书和
+provisioning profile。未配置签名时，可先使用无签名构建产物进行后续重签或内部验证。
+
+打包注意事项：
+
+- `config/baidu_map.local.json` 不能提交 Git；提交前执行 `git check-ignore -v config/baidu_map.local.json`。
+- Android 百度 AK 会校验 applicationId 和签名 SHA1，release 签名变化后必须同步百度控制台。
+- iOS 百度 AK 会校验 Bundle Identifier，Xcode 工程和百度控制台必须一致。
+- 当前 Android release 暂用 debug signingConfig，生产发布前必须改成正式签名。
+- iOS 必须打开 `ios/Runner.xcworkspace`，不要单独打开 `Runner.xcodeproj`。
+- 修改百度插件、Gradle、Pod、权限、启动图或图标后，必须双端真机验证地图加载和点击定位。
+
 ## 目录结构
 
 ```text
@@ -229,15 +289,15 @@ flutter run \
   --dart-define=LEGACY_VUE_BASE_URL=https://erp.example.com/mobile
 ```
 
-百度地图当前接入 iOS 基础地图与按需精确定位，不包含 Search SDK。真实 AK 放在 Git 忽略的
+百度地图当前接入 Android/iOS 基础地图与按需精确定位，不包含 Search SDK。真实 AK 放在 Git 忽略的
 `config/baidu_map.local.json`，启动时使用：
 
 ```bash
 flutter run --dart-define-from-file=config/baidu_map.local.json
 ```
 
-隐私初始化、Bundle Identifier、CocoaPods、后端权限结构和故障排查见
-[百度地图 iOS 接入说明](docs/baidu_map_ios_integration.md)。
+隐私初始化、Android/iOS 配置、CocoaPods、后端权限结构和故障排查见
+[百度地图跨平台接入与调试复盘](docs/baidu_map_cross_platform_debugging.md)。
 
 ## 验证命令
 
@@ -247,7 +307,8 @@ flutter gen-l10n
 dart format lib test
 flutter analyze
 flutter test
-flutter build apk --debug
+flutter build apk --debug --dart-define-from-file=config/baidu_map.local.json
+flutter build ios --debug --no-codesign --dart-define-from-file=config/baidu_map.local.json
 ```
 
 提交前必须保证格式化、静态分析和自动化测试通过；涉及 Android 权限、启动图、WebView 或插件升级时，还需构建 APK 并在 API 24 设备验证。

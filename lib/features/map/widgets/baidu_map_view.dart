@@ -5,6 +5,8 @@
 // 维护说明：搜索和定位能力不得堆入此组件，应分别通过应用设备服务接入
 // -----------------------------------------------------------------------------
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_baidu_mapapi_base/flutter_baidu_mapapi_base.dart';
 import 'package:flutter_baidu_mapapi_map/flutter_baidu_mapapi_map.dart';
@@ -32,12 +34,10 @@ class BaiduMapViewController {
 
     await _controller.showUserLocation(true);
     await _controller.updateLocationData(userLocation);
-    await _controller.setCenterCoordinate(
-      coordinate,
-      true,
+    await _controller.setNewMapStatus(
+      mapStatus: BMFMapStatus(fLevel: 18, targetGeoPt: coordinate),
       animateDurationMs: 500,
     );
-    await _controller.setZoomTo(18, animateDurationMs: 500);
   }
 }
 
@@ -67,11 +67,38 @@ class BaiduMapView extends StatelessWidget {
         compassEnabled: true,
         showMapScaleBar: true,
         gesturesEnabled: true,
-        mapPadding: BMFEdgeInsets(top: 16, left: 16, right: 16, bottom: 16),
       ),
       onBMFMapCreated: (controller) {
+        var didReportLoaded = false;
+        void markLoaded() {
+          if (didReportLoaded) {
+            return;
+          }
+          didReportLoaded = true;
+          onMapLoaded();
+        }
+
         onMapCreated(BaiduMapViewController(controller));
-        controller.setMapDidLoadCallback(callback: onMapLoaded);
+        controller.setMapDidLoadCallback(callback: markLoaded);
+        controller.setMapDidFinishedRenderCallback(
+          callback: (success) {
+            if (success) {
+              markLoaded();
+            }
+          },
+        );
+        controller.setMapRenderValidDataCallback(
+          callback: (isValid, _, _) {
+            if (isValid) {
+              markLoaded();
+            }
+          },
+        );
+        controller.setMapStatusDidChangedCallback(callback: markLoaded);
+
+        // iOS 端偶发在 Dart 回调注册前完成首次加载；原生视图已创建后给一个短
+        // 兜底，避免页面误判为底图超时而卡在遮罩层。
+        unawaited(Future<void>.delayed(const Duration(seconds: 3), markLoaded));
       },
     );
   }

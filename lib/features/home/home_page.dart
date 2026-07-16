@@ -6,9 +6,9 @@
 // -----------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../app/app_scope.dart';
+import '../../routing/app_navigator.dart';
 import '../../routing/app_routes.dart';
 import 'widgets/home_assistant_button.dart';
 import 'widgets/home_banner_carousel.dart';
@@ -51,7 +51,10 @@ class HomePage extends StatelessWidget {
                       SliverToBoxAdapter(
                         child: HomeHeader(
                           brandColor: manifest.brandColor,
-                          onProfile: () => context.go(AppRoute.profile),
+                          onProfile: () => AppNavigator.openSecondary(
+                            context,
+                            AppRoute.profile,
+                          ),
                         ),
                       ),
                       SliverToBoxAdapter(

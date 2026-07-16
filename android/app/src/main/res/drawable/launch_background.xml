@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 冷启动时显示的原生启动页，避免 Flutter 首帧前出现白屏。 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/merp_splash_background" />
-
-    <item
-        android:width="132dp"
-        android:height="132dp"
-        android:gravity="center"
-        android:drawable="@drawable/merp_launch_logo" />
+    <item>
+        <bitmap android:gravity="fill" android:src="@drawable/background"/>
+    </item>
+    <item>
+        <bitmap android:gravity="center" android:src="@drawable/splash"/>
+    </item>
 </layer-list>

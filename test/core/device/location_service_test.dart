@@ -22,7 +22,10 @@ void main() {
     () async {
       final adapter = _FakeLocationAdapter();
       final service = LocationService(
-        config: const AppConfig(iosMapApiKey: 'test-ios-ak'),
+        config: const AppConfig(
+          androidMapApiKey: 'test-android-ak',
+          iosMapApiKey: 'test-ios-ak',
+        ),
         logger: AppLogger(),
         adapter: adapter,
       );
@@ -50,7 +53,10 @@ void main() {
     () async {
       final adapter = _FakeLocationAdapter();
       final service = LocationService(
-        config: const AppConfig(iosMapApiKey: 'test-ios-ak'),
+        config: const AppConfig(
+          androidMapApiKey: 'test-android-ak',
+          iosMapApiKey: 'test-ios-ak',
+        ),
         logger: AppLogger(),
         adapter: adapter,
       );
@@ -72,7 +78,10 @@ void main() {
       permissionState: LocationPermissionState.permanentlyDenied,
     );
     final service = LocationService(
-      config: const AppConfig(iosMapApiKey: 'test-ios-ak'),
+      config: const AppConfig(
+        androidMapApiKey: 'test-android-ak',
+        iosMapApiKey: 'test-ios-ak',
+      ),
       logger: AppLogger(),
       adapter: adapter,
     );

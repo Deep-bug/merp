@@ -6,12 +6,11 @@
 // -----------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/auth/auth_models.dart';
 import '../../l10n/l10n.dart';
-import '../../routing/app_routes.dart';
+import '../../routing/app_navigator.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -79,7 +78,7 @@ class _ProfileHeader extends StatelessWidget {
             left: 8,
             child: IconButton(
               tooltip: context.l10n.back,
-              onPressed: () => context.go(AppRoute.home),
+              onPressed: () => AppNavigator.backToHome(context),
               icon: const Icon(Icons.chevron_left, size: 36),
               color: ProfilePage._brandBlue,
             ),

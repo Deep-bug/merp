@@ -1,0 +1,51 @@
+PODS:
+  - BaiduMapKit/Base (7.1.0)
+  - BaiduMapKit/Map (7.1.0):
+    - BaiduMapKit/Base
+  - BaiduMapKit/Utils (7.1.0):
+    - BaiduMapKit/Base
+  - BMKLocationKit (2.1.4)
+  - Flutter (1.0.0)
+  - flutter_baidu_mapapi_base (4.0.1):
+    - BaiduMapKit/Utils (= 7.1.0)
+    - Flutter
+  - flutter_baidu_mapapi_map (4.0.1):
+    - BaiduMapKit/Map (= 7.1.0)
+    - Flutter
+    - flutter_baidu_mapapi_base
+  - flutter_bmflocation (3.7.0):
+    - BMKLocationKit (~> 2.1.4)
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - flutter_baidu_mapapi_base (from `.symlinks/plugins/flutter_baidu_mapapi_base/ios`)
+  - flutter_baidu_mapapi_map (from `.symlinks/plugins/flutter_baidu_mapapi_map/ios`)
+  - flutter_bmflocation (from `.symlinks/plugins/flutter_bmflocation/ios`)
+
+SPEC REPOS:
+  trunk:
+    - BaiduMapKit
+    - BMKLocationKit
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  flutter_baidu_mapapi_base:
+    :path: ".symlinks/plugins/flutter_baidu_mapapi_base/ios"
+  flutter_baidu_mapapi_map:
+    :path: ".symlinks/plugins/flutter_baidu_mapapi_map/ios"
+  flutter_bmflocation:
+    :path: ".symlinks/plugins/flutter_bmflocation/ios"
+
+SPEC CHECKSUMS:
+  BaiduMapKit: 464555167d441b8e2f64c6a654505bd5dbc41e26
+  BMKLocationKit: e4dfa3690b325ea0ca0c6211d91f5784d4486c60
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  flutter_baidu_mapapi_base: e5d7ca4a38f7f04231f1c0a48686ccfd8c7504fb
+  flutter_baidu_mapapi_map: 446492d11696be46cf4b1a49222b4b116033a53c
+  flutter_bmflocation: cba076b59d7ea08b8d88c7e1980204cf909b374a
+
+PODFILE CHECKSUM: 282bbcaa818664fb14bc9cabd663f9a4efd31c98
+
+COCOAPODS: 1.16.2

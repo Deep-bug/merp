@@ -186,8 +186,9 @@ class AppLogger extends ChangeNotifier {
   }
 
   void _emit(AppLogEntry entry) {
+    debugPrint(entry.toText());
     developer.log(
-      entry.message,
+      entry.toText(),
       name: 'MERP.${entry.category}',
       level: _developerLevel(entry.level),
       error: entry.error,

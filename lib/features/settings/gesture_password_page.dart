@@ -6,10 +6,10 @@
 // -----------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../app/app_scope.dart';
 import '../../l10n/l10n.dart';
+import '../../routing/app_navigator.dart';
 import '../../routing/app_routes.dart';
 import 'pattern_lock_pad.dart';
 
@@ -66,7 +66,7 @@ class _GesturePasswordPageState extends State<GesturePasswordPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(context.l10n.gestureUpdated)));
-    context.go(AppRoute.settings);
+    AppNavigator.backTo(context, AppRoute.settings);
   }
 
   bool _samePattern(List<int> left, List<int> right) {
@@ -142,7 +142,7 @@ class _GestureHeader extends StatelessWidget {
             left: -10,
             child: IconButton(
               tooltip: context.l10n.back,
-              onPressed: () => context.go(AppRoute.settings),
+              onPressed: () => AppNavigator.backTo(context, AppRoute.settings),
               icon: const Icon(Icons.chevron_left, size: 42),
               color: GesturePasswordPage.brandBlue,
             ),

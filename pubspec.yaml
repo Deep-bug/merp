@@ -50,6 +50,7 @@ dependencies:
   flutter_bmflocation: 3.8.4
 
 dev_dependencies:
+  flutter_native_splash: ^2.4.8
   flutter_test:
     sdk: flutter
 
@@ -102,3 +103,13 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_native_splash:
+  color: "#EAF4FF"
+  image: docs/assets/merp_app_icon.png
+  android: true
+  ios: true
+  web: false
+  android_12:
+    color: "#EAF4FF"
+    image: docs/assets/merp_app_icon.png
