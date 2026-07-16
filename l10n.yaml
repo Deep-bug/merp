@@ -1,0 +1,13 @@
+arb-dir: lib/l10n/arb
+template-arb-file: app_zh.arb
+output-dir: lib/l10n/generated
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+nullable-getter: false
+header: |
+  // -----------------------------------------------------------------------------
+  // 文件：Flutter 官方 gen_l10n 自动生成的国际化代码
+  // 作用：为 MERP 提供强类型多语言文案访问接口
+  // 编写时间：2026-07-10
+  // 维护说明：请修改 lib/l10n/arb/*.arb，禁止直接编辑本文件
+  // -----------------------------------------------------------------------------

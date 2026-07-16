@@ -1,0 +1,105 @@
+// -----------------------------------------------------------------------------
+// 文件：api_response.dart
+// 作用：解析统一响应壳并兼容迁移期旧接口直接返回的数据
+// 编写时间：2026-07-10
+// 维护说明：响应兼容策略集中维护，Repository 不重复解析 code/message/data
+// -----------------------------------------------------------------------------
+
+import 'api_exception.dart';
+import 'app_error_code.dart';
+
+/// 统一响应壳解析器。
+///
+/// 当前后端允许一层或两层 data 包装：
+/// `{ "code": 0, "message": "success", "data": { "data": {} } }`。
+/// 兼容旧接口直接返回数组或对象，便于 Cordova/Vue2 迁移期逐步改造。
+class ApiResponse<T> {
+  const ApiResponse({
+    required this.code,
+    required this.message,
+    required this.data,
+    this.success = true,
+    this.traceId,
+    this.raw,
+  });
+
+  final String code;
+  final String message;
+  final T data;
+  final bool success;
+  final String? traceId;
+  final Object? raw;
+
+  static bool isSuccessCode(String? code) {
+    return code == null ||
+        code.isEmpty ||
+        code == AppErrorCode.success.code ||
+        code == '000000' ||
+        code == '0' ||
+        code == '200';
+  }
+
+  static T unwrap<T>(Object? raw, {required String path}) {
+    if (raw is Map<String, dynamic>) {
+      final traceId = _readString(raw, ['traceId', 'requestId', 'request_id']);
+      final code = _readString(raw, ['code', 'errorCode', 'error_code']);
+      final message = _readString(raw, ['message', 'msg', 'errorMessage']);
+      final success = raw['success'] as bool?;
+      final hasEnvelope =
+          raw.containsKey('data') ||
+          raw.containsKey('code') ||
+          raw.containsKey('success') ||
+          raw.containsKey('message') ||
+          raw.containsKey('msg');
+
+      if (hasEnvelope) {
+        // success 字段优先；没有 success 时，再按 code 判断是否成功。
+        final ok = success ?? isSuccessCode(code);
+        if (!ok) {
+          final mapped = AppErrorCode.fromCode(code);
+          throw ApiException(
+            errorCode: mapped,
+            message: message ?? mapped.defaultMessage,
+            traceId: traceId,
+            path: path,
+            raw: raw,
+          );
+        }
+        Object? payload = raw['data'];
+        if (payload is Map<String, dynamic> && payload.containsKey('data')) {
+          payload = payload['data'];
+        }
+        return _cast<T>(payload, path: path, raw: raw);
+      }
+    }
+
+    // Some legacy endpoints return a raw list/object without an envelope.
+    return _cast<T>(raw, path: path, raw: raw);
+  }
+
+  static T _cast<T>(Object? value, {required String path, Object? raw}) {
+    try {
+      return value as T;
+    } catch (_) {
+      throw ApiException(
+        errorCode: AppErrorCode.clientUnknown,
+        message: '接口响应数据结构与客户端约定不一致',
+        path: path,
+        raw: raw,
+      );
+    }
+  }
+
+  static String? _readString(Map<String, dynamic> raw, List<String> keys) {
+    for (final key in keys) {
+      final value = raw[key];
+      if (value is String && value.isNotEmpty) {
+        return value;
+      }
+      if (value is num) {
+        return value.toString();
+      }
+    }
+    return null;
+  }
+}

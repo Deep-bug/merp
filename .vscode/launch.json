@@ -1,0 +1,53 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "MERP Android Debug",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main.dart",
+      "deviceId": "android",
+      "presentation": {
+        "group": "mobile",
+        "order": 1
+      }
+    },
+    {
+      "name": "MERP Android Profile",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "program": "lib/main.dart",
+      "deviceId": "android",
+      "presentation": {
+        "group": "mobile",
+        "order": 2
+      }
+    },
+    {
+      "name": "MERP Web Chrome",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "presentation": {
+        "group": "web",
+        "order": 3
+      }
+    },
+    {
+      "name": "MERP Windows Debug",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main.dart",
+      "deviceId": "windows",
+      "presentation": {
+        "group": "desktop",
+        "order": 4
+      }
+    }
+  ]
+}
