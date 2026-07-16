@@ -861,7 +861,7 @@ abstract class AppLocalizations {
   /// No description provided for @mapIosOnly.
   ///
   /// In zh, this message translates to:
-  /// **'当前演示仅配置了 iOS 百度地图。Android 和 Web 需要分别申请并配置对应平台的 AK 后再启用。'**
+  /// **'当前演示已配置 Android/iOS 百度地图。Web 需要单独接入 JS SDK 后再启用。'**
   String get mapIosOnly;
 
   /// No description provided for @mapConfigMissing.
@@ -873,7 +873,7 @@ abstract class AppLocalizations {
   /// No description provided for @mapKeyMissing.
   ///
   /// In zh, this message translates to:
-  /// **'未读取到百度地图 iOS AK，请使用本地配置文件启动应用。'**
+  /// **'未读取到当前平台的百度地图 AK，请使用本地配置文件启动应用。'**
   String get mapKeyMissing;
 
   /// No description provided for @mapLoadFailed.

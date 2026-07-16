@@ -6,13 +6,12 @@
 // -----------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../app/app_scope.dart';
-import '../../shared/app_error_view.dart';
 import '../../l10n/l10n.dart';
-import '../../routing/app_routes.dart';
+import '../../routing/app_navigator.dart';
 import '../../shared/adaptive_feature_grid.dart';
+import '../../shared/app_error_view.dart';
 import '../home/domain/feature_item.dart';
 
 class AllFeaturesPage extends StatelessWidget {
@@ -100,7 +99,7 @@ class _AllFeaturesHeader extends StatelessWidget {
             left: 14,
             child: IconButton(
               tooltip: context.l10n.back,
-              onPressed: () => context.go(AppRoute.home),
+              onPressed: () => AppNavigator.backToHome(context),
               icon: const Icon(Icons.chevron_left, size: 42),
               color: AllFeaturesPage._brandBlue,
             ),
@@ -149,7 +148,7 @@ class _AllFeatureTile extends StatelessWidget {
       return;
     }
 
-    context.go(item.route);
+    AppNavigator.openFeature(context, item.route);
   }
 
   @override

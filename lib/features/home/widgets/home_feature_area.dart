@@ -6,10 +6,10 @@
 // -----------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../app/app_scope.dart';
 import '../../../l10n/l10n.dart';
+import '../../../routing/app_navigator.dart';
 import '../../../routing/app_routes.dart';
 import '../../../shared/adaptive_feature_grid.dart';
 import '../../../shared/app_error_view.dart';
@@ -90,14 +90,14 @@ class _FeatureTile extends StatelessWidget {
   void _open(BuildContext context) {
     final permissions = AppScope.of(context).permissionRepository;
     if (!permissions.canOpen(item)) {
-      context.go(AppRoute.forbidden);
+      AppNavigator.openSecondary(context, AppRoute.forbidden);
       return;
     }
     if (item.route.trim().isEmpty) {
       _showMissingRouteDialog(context, item.title);
       return;
     }
-    context.go(item.route);
+    AppNavigator.openFeature(context, item.route);
   }
 
   @override
@@ -122,7 +122,7 @@ class _MoreFeatureTile extends StatelessWidget {
       icon: Icons.grid_view_rounded,
       label: context.l10n.more,
       iconColor: iconColor,
-      onTap: () => context.go(AppRoute.features),
+      onTap: () => AppNavigator.openSecondary(context, AppRoute.features),
     );
   }
 }

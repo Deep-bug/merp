@@ -6,12 +6,12 @@
 // -----------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/resources/resource_update_controller.dart';
 import '../../core/resources/runtime_resource_manifest.dart';
 import '../../l10n/l10n.dart';
+import '../../routing/app_navigator.dart';
 import '../../routing/app_routes.dart';
 
 class ResourceUpdateDemoPage extends StatefulWidget {
@@ -70,7 +70,7 @@ class _ResourceUpdateDemoPageState extends State<ResourceUpdateDemoPage> {
           backgroundColor: Colors.white,
           appBar: AppBar(
             leading: IconButton(
-              onPressed: () => context.go(AppRoute.settings),
+              onPressed: () => AppNavigator.backTo(context, AppRoute.settings),
               icon: const Icon(Icons.chevron_left),
             ),
             title: Text(context.l10n.resourceUpdate),
@@ -158,7 +158,7 @@ class _ResourceUpdateDemoPageState extends State<ResourceUpdateDemoPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => context.go(AppRoute.home),
+                      onPressed: () => AppNavigator.goHome(context),
                       icon: const Icon(Icons.home_outlined),
                       label: Text(context.l10n.viewHome),
                     ),

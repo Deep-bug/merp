@@ -11,6 +11,18 @@ MERP 是原 Cordova 6.5 外壳的 Flutter 升级版本。Flutter 统一负责启
 - 可兼容：Android 最低版本固定为 API 24，即 Android 7.0。
 - 可迁移：Vue 与 Flutter 原生模块共用登录态、权限模型、路由和设备能力边界。
 
+## 开发环境与打包
+
+项目使用 FVM 固定 Flutter 版本，版本配置见 `.fvmrc`。
+
+```bash
+fvm install
+fvm flutter pub get
+fvm flutter build ios --release --no-codesign
+```
+
+iOS 正式签名包需要在 Xcode 中配置 Apple Developer Team、Bundle ID、证书和 provisioning profile。未配置签名时，可先使用无签名构建产物进行后续重签或内部验证。
+
 ## 目录结构
 
 ```text

@@ -6,13 +6,13 @@
 // -----------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/bridge/merp_native_bridge.dart';
 import '../../core/platform/webview_support.dart';
 import '../../l10n/l10n.dart';
+import '../../routing/app_navigator.dart';
 import '../../routing/app_routes.dart';
 import '../../shared/app_error_view.dart';
 
@@ -148,7 +148,7 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          onPressed: () => context.go(AppRoute.settings),
+          onPressed: () => AppNavigator.backTo(context, AppRoute.settings),
           icon: const Icon(Icons.chevron_left),
         ),
         title: Text(context.l10n.bridgeTest),
@@ -172,7 +172,8 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
               primaryLabel: context.l10n.reload,
               onPrimary: _reload,
               secondaryLabel: context.l10n.backToSettings,
-              onSecondary: () => context.go(AppRoute.settings),
+              onSecondary: () =>
+                  AppNavigator.backTo(context, AppRoute.settings),
             )
           : controller == null
           ? const Center(child: CircularProgressIndicator())

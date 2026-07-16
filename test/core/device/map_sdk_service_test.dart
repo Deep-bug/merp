@@ -30,6 +30,24 @@ void main() {
     );
 
     expect(configured.isIosSupported, isTrue);
+    expect(configured.isSupportedPlatform, isTrue);
+    expect(configured.isConfigured, isTrue);
+    expect(missing.isConfigured, isFalse);
+  });
+
+  test('Android map reads the Android AK for configuration', () {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+    final configured = MapSdkService(
+      config: const AppConfig(androidMapApiKey: 'test-android-ak'),
+      logger: AppLogger(),
+    );
+    final missing = MapSdkService(
+      config: const AppConfig(androidMapApiKey: ''),
+      logger: AppLogger(),
+    );
+
+    expect(configured.isSupportedPlatform, isTrue);
     expect(configured.isConfigured, isTrue);
     expect(missing.isConfigured, isFalse);
   });

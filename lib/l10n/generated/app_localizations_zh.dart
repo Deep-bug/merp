@@ -408,14 +408,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mapLoading => '正在加载地图';
 
   @override
-  String get mapIosOnly =>
-      '当前演示仅配置了 iOS 百度地图。Android 和 Web 需要分别申请并配置对应平台的 AK 后再启用。';
+  String get mapIosOnly => '当前演示已配置 Android/iOS 百度地图。Web 需要单独接入 JS SDK 后再启用。';
 
   @override
   String get mapConfigMissing => '地图配置缺失';
 
   @override
-  String get mapKeyMissing => '未读取到百度地图 iOS AK，请使用本地配置文件启动应用。';
+  String get mapKeyMissing => '未读取到当前平台的百度地图 AK，请使用本地配置文件启动应用。';
 
   @override
   String get mapLoadFailed => '地图加载失败';
@@ -917,14 +916,13 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get mapLoading => '正在載入地圖';
 
   @override
-  String get mapIosOnly =>
-      '目前示範僅設定 iOS 百度地圖。Android 和 Web 需分別申請並設定對應平臺的 AK 後再啟用。';
+  String get mapIosOnly => '目前示範已設定 Android/iOS 百度地圖。Web 需單獨接入 JS SDK 後再啟用。';
 
   @override
   String get mapConfigMissing => '地圖設定缺失';
 
   @override
-  String get mapKeyMissing => '未讀取到百度地圖 iOS AK，請使用本機設定檔啟動應用程式。';
+  String get mapKeyMissing => '未讀取到目前平臺的百度地圖 AK，請使用本機設定檔啟動應用程式。';
 
   @override
   String get mapLoadFailed => '地圖載入失敗';

@@ -30,12 +30,17 @@ class MapSdkService {
   final BaiduPrivacyConsentStore _privacyConsentStore;
   bool _activated = false;
 
-  /// 当前版本只启用 iOS 百度基础地图，Android/Web 留待单独配置 AK 后接入。
-  bool get isIosSupported =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  /// 当前版本启用 Android/iOS 百度基础地图；Web 留待单独接入 JS SDK。
+  bool get isSupportedPlatform =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.android);
+
+  bool get isIosSupported => isSupportedPlatform;
 
   bool get isConfigured =>
-      _config.mapProvider == 'baidu' && _config.iosMapApiKey.trim().isNotEmpty;
+      _config.mapProvider == 'baidu' &&
+      _currentPlatformApiKey.trim().isNotEmpty;
 
   bool get isActivated => _activated;
 
@@ -44,7 +49,7 @@ class MapSdkService {
     _logger.info(
       'map',
       '地图适配服务已装配',
-      fields: {'provider': _config.mapProvider, 'iosConfigured': isConfigured},
+      fields: {'provider': _config.mapProvider, 'configured': isConfigured},
     );
   }
 
@@ -68,17 +73,17 @@ class MapSdkService {
     if (_activated) {
       return;
     }
-    if (!isIosSupported) {
-      throw UnsupportedError('Baidu map is enabled for iOS only.');
+    if (!isSupportedPlatform) {
+      throw UnsupportedError('Baidu map is enabled for Android/iOS only.');
     }
     if (!isConfigured) {
-      throw StateError('Baidu iOS map key is not configured.');
+      throw StateError('Baidu map key is not configured.');
     }
 
     // 百度官方要求：任何 SDK API 调用前必须先设置隐私同意状态。
     BMFMapSDK.setAgreePrivacy(true);
     BMFMapSDK.setApiKeyAndCoordType(
-      _config.iosMapApiKey.trim(),
+      _currentPlatformApiKey.trim(),
       BMF_COORD_TYPE.BD09LL,
     );
 
@@ -86,6 +91,20 @@ class MapSdkService {
     // 有机会完成初始化。最终可用性由地图页面的加载回调和超时状态判断。
     await Future<void>.delayed(Duration.zero);
     _activated = true;
-    _logger.info('map', '百度 iOS 基础地图 SDK 已激活');
+    _logger.info('map', '百度基础地图 SDK 已激活');
+  }
+
+  String get _currentPlatformApiKey {
+    if (kIsWeb) {
+      return _config.webMapApiKey;
+    }
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => _config.androidMapApiKey,
+      TargetPlatform.iOS => _config.iosMapApiKey,
+      _ =>
+        _config.iosMapApiKey.trim().isNotEmpty
+            ? _config.iosMapApiKey
+            : _config.androidMapApiKey,
+    };
   }
 }

@@ -5,6 +5,16 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+fun readLocalBaiduMapAk(): String {
+    val file = rootProject.file("../config/baidu_map.local.json")
+    if (!file.exists()) {
+        return ""
+    }
+    val match = Regex("\"BAIDU_MAP_ANDROID_AK\"\\s*:\\s*\"([^\"]*)\"")
+        .find(file.readText())
+    return match?.groupValues?.get(1).orEmpty()
+}
+
 configurations.configureEach {
     // 百度地图 Flutter 插件 4.0.1+1 的 Android 工程仍传递依赖旧版
     // android.arch.lifecycle:extensions:1.1.1，但插件源码已经使用 AndroidX。
@@ -34,6 +44,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["BAIDU_MAP_ANDROID_AK"] = readLocalBaiduMapAk()
     }
 
     buildTypes {

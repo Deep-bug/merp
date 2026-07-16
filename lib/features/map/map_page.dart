@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // 文件：map_page.dart
-// 作用：承载百度 iOS 基础地图、隐私确认、配置校验与加载失败恢复流程
+// 作用：承载百度基础地图、隐私确认、配置校验与加载失败恢复流程
 // 编写时间：2026-07-15
 // 维护说明：当前仅显示地图；检索与真实定位应通过独立服务按需接入
 // -----------------------------------------------------------------------------
@@ -36,6 +36,7 @@ class MapPage extends StatefulWidget {
 
 class _MapPageState extends State<MapPage> {
   static const _mapLoadTimeout = Duration(seconds: 15);
+  static const _locateOperationTimeout = Duration(seconds: 30);
   static const _privacyPolicyUrl =
       'https://lbsyun.baidu.com/index.php?title=openprivacy';
 
@@ -69,7 +70,7 @@ class _MapPageState extends State<MapPage> {
 
   Future<void> _prepareMap() async {
     final service = _mapSdkService!;
-    if (!service.isIosSupported) {
+    if (!service.isSupportedPlatform) {
       _setStatus(_MapPageStatus.unsupported);
       return;
     }
@@ -122,23 +123,85 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _locateUser() async {
+    final logger = AppScope.of(context).logger;
+    logger.info(
+      'location',
+      '定位按钮点击',
+      fields: {
+        'mapLoaded': _mapLoaded,
+        'hasMapController': _mapController != null,
+        'alreadyLocating': _locating,
+      },
+    );
     if (_locating || !_mapLoaded || _mapController == null) {
+      logger.warning(
+        'location',
+        '定位按钮点击被忽略',
+        fields: {
+          'mapLoaded': _mapLoaded,
+          'hasMapController': _mapController != null,
+          'alreadyLocating': _locating,
+        },
+      );
       return;
     }
     setState(() => _locating = true);
+    logger.info('location', '定位 UI 进入 loading 状态');
     final locationService = AppScope.of(context).locationService;
+    final stopwatch = Stopwatch()..start();
     try {
       // 地图按钮要求 50 米以内的结果；达不到时明确提示，避免把粗略位置
       // 当成签到、外勤等企业业务中的精确位置使用。
-      final location = await locationService.locateOnce(
-        maximumAccuracyMeters: 50,
+      logger.info(
+        'location',
+        '开始调用定位服务',
+        fields: {
+          'timeoutSeconds': 20,
+          'operationTimeoutSeconds': _locateOperationTimeout.inSeconds,
+          'maximumAccuracyMeters': 50,
+        },
+      );
+      final location = await locationService
+          .locateOnce(
+            maximumAccuracyMeters: 50,
+            timeout: const Duration(seconds: 20),
+          )
+          .timeout(
+            _locateOperationTimeout,
+            onTimeout: () => throw const AppLocationException(
+              LocationFailureCode.timeout,
+              '定位超时，请检查网络和定位服务后重试',
+            ),
+          );
+      logger.info(
+        'location',
+        '定位服务返回结果，准备更新地图',
+        fields: {
+          'elapsedMs': stopwatch.elapsedMilliseconds,
+          'accuracyMeters': location.accuracyMeters,
+        },
       );
       await _mapController!.showLocation(location);
+      logger.info(
+        'location',
+        '地图已显示定位结果',
+        fields: {'elapsedMs': stopwatch.elapsedMilliseconds},
+      );
       if (!mounted) {
         return;
       }
       setState(() => _currentLocation = location);
     } on AppLocationException catch (error) {
+      logger.warning(
+        'location',
+        '地图页定位失败',
+        error: error,
+        fields: {
+          'elapsedMs': stopwatch.elapsedMilliseconds,
+          'code': error.code.name,
+          'canOpenSettings': error.canOpenSettings,
+        },
+      );
       if (!mounted) {
         return;
       }
@@ -153,15 +216,34 @@ class _MapPageState extends State<MapPage> {
               : null,
         ),
       );
+    } catch (error, stackTrace) {
+      logger.error(
+        'location',
+        '地图页定位出现未预期异常',
+        error: error,
+        stackTrace: stackTrace,
+        fields: {'elapsedMs': stopwatch.elapsedMilliseconds},
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('定位失败，请稍后重试')));
     } finally {
       if (mounted) {
+        logger.info(
+          'location',
+          '定位 UI 退出 loading 状态',
+          fields: {'elapsedMs': stopwatch.elapsedMilliseconds},
+        );
         setState(() => _locating = false);
       }
     }
   }
 
   void _onMapLoaded() {
-    if (!mounted) {
+    if (!mounted || _mapLoaded) {
       return;
     }
     _loadTimer?.cancel();
@@ -202,7 +284,9 @@ class _MapPageState extends State<MapPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.mapLocation)),
+      appBar: _status == _MapPageStatus.ready
+          ? null
+          : AppBar(title: Text(context.l10n.mapLocation)),
       floatingActionButton: _status == _MapPageStatus.ready
           ? FloatingActionButton(
               onPressed: _mapLoaded && !_locating ? _locateUser : null,
@@ -316,6 +400,7 @@ class _MapPageState extends State<MapPage> {
             ).colorScheme.surface.withValues(alpha: 0.86),
             child: _buildLoading(context),
           ),
+        _buildMapTopBar(context),
         if (_mapLoaded && _currentLocation != null)
           Align(
             alignment: Alignment.bottomCenter,
@@ -360,6 +445,49 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
+  Widget _buildMapTopBar(BuildContext context) {
+    final theme = Theme.of(context);
+    return Align(
+      alignment: Alignment.topCenter,
+      child: SafeArea(
+        bottom: false,
+        child: Material(
+          color: theme.colorScheme.surface,
+          elevation: 2,
+          child: SizedBox(
+            height: kToolbarHeight,
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: _returnFromMap,
+                ),
+                Expanded(
+                  child: Text(
+                    context.l10n.mapLocation,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleLarge,
+                  ),
+                ),
+                const SizedBox(width: 48),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _returnFromMap() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoute.home);
+    }
+  }
+
   Widget _buildUnsupported(BuildContext context) {
     return AppErrorView(
       icon: Icons.phone_iphone_outlined,
@@ -378,6 +506,7 @@ class _MapPageState extends State<MapPage> {
       message: context.l10n.mapKeyMissing,
       detail:
           'config/baidu_map.local.json\nBAIDU_MAP_IOS_AK\n'
+          'BAIDU_MAP_ANDROID_AK\n'
           '--dart-define-from-file=config/baidu_map.local.json',
       tone: AppErrorTone.warning,
       primaryLabel: context.l10n.returnWorkbench,

@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/app_scope.dart';
 import '../../../core/auth/auth_models.dart';
 import '../../../l10n/l10n.dart';
+import '../../../routing/app_navigator.dart';
 import '../../../routing/app_routes.dart';
 
 class HomeDrawer extends StatelessWidget {
@@ -66,7 +67,7 @@ class HomeDrawer extends StatelessWidget {
                 icon: Icons.settings_outlined,
                 onTap: () {
                   Navigator.of(context).pop();
-                  context.go(AppRoute.settings);
+                  AppNavigator.openSecondary(context, AppRoute.settings);
                 },
               ),
               const SizedBox(height: 26),

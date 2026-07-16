@@ -6,10 +6,10 @@
 // -----------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../app/app_scope.dart';
 import '../../l10n/l10n.dart';
+import '../../routing/app_navigator.dart';
 import '../../routing/app_routes.dart';
 import 'settings_controller.dart';
 
@@ -71,7 +71,8 @@ class SettingsPage extends StatelessWidget {
                             : context.l10n.gestureNotConfigured,
                       ),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.go(AppRoute.gesture),
+                      onTap: () =>
+                          AppNavigator.openSecondary(context, AppRoute.gesture),
                     ),
                   ],
                 ),
@@ -107,7 +108,10 @@ class SettingsPage extends StatelessWidget {
                       title: Text(context.l10n.resourceUpdate),
                       subtitle: Text(context.l10n.resourceUpdateSubtitle),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.go(AppRoute.resourceUpdate),
+                      onTap: () => AppNavigator.openSecondary(
+                        context,
+                        AppRoute.resourceUpdate,
+                      ),
                     ),
                     ListTile(
                       leading: const Icon(
@@ -116,14 +120,18 @@ class SettingsPage extends StatelessWidget {
                       title: Text(context.l10n.bridgeTest),
                       subtitle: Text(context.l10n.bridgeTestSubtitle),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.go(AppRoute.bridgeTest),
+                      onTap: () => AppNavigator.openSecondary(
+                        context,
+                        AppRoute.bridgeTest,
+                      ),
                     ),
                     ListTile(
                       leading: const Icon(Icons.receipt_long_outlined),
                       title: Text(context.l10n.diagnosticLogs),
                       subtitle: Text(context.l10n.diagnosticLogsSubtitle),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.go(AppRoute.logs),
+                      onTap: () =>
+                          AppNavigator.openSecondary(context, AppRoute.logs),
                     ),
                     ListTile(
                       leading: const Icon(Icons.system_update_alt_outlined),
@@ -195,7 +203,7 @@ class _SettingsHeader extends StatelessWidget {
             left: 14,
             child: IconButton(
               tooltip: context.l10n.back,
-              onPressed: () => context.go(AppRoute.home),
+              onPressed: () => AppNavigator.backToHome(context),
               icon: const Icon(Icons.chevron_left, size: 42),
               color: SettingsPage._brandBlue,
             ),
