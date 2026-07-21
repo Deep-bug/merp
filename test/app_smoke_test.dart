@@ -13,6 +13,8 @@ import 'package:merp/core/auth/auth_repository.dart';
 import 'package:merp/core/auth/secure_token_store.dart';
 import 'package:merp/core/config/app_config.dart';
 import 'package:merp/core/device/camera_service.dart';
+import 'package:merp/core/device/device_info_service.dart';
+import 'package:merp/core/device/file_service.dart';
 import 'package:merp/core/device/location_service.dart';
 import 'package:merp/core/device/map_sdk_service.dart';
 import 'package:merp/core/logging/app_logger.dart';
@@ -66,6 +68,8 @@ void main() {
       settingsController: settings,
       resourceUpdateController: resources,
       cameraService: CameraService(),
+      fileService: FileService(),
+      deviceInfoService: DeviceInfoService(),
       locationService: LocationService(config: config, logger: logger),
       mapSdkService: MapSdkService(config: config, logger: logger),
       logger: logger,

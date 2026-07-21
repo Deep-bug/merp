@@ -7,7 +7,10 @@
 
 import 'package:flutter/material.dart';
 
+import '../app/app_scope.dart';
+import '../core/auth/auth_controller.dart';
 import '../l10n/l10n.dart';
+import '../shared/app_error_view.dart';
 
 class SplashPage extends StatelessWidget {
   const SplashPage({super.key, this.isBootstrapping = false});
@@ -16,6 +19,33 @@ class SplashPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!isBootstrapping) {
+      final auth = AppScope.of(context).authController;
+      return AnimatedBuilder(
+        animation: auth,
+        builder: (context, _) {
+          if (auth.status == AuthStatus.restoreFailed) {
+            return Scaffold(
+              backgroundColor: const Color(0xFFEAF4FF),
+              body: SafeArea(
+                child: AppErrorView(
+                  icon: Icons.wifi_off_outlined,
+                  title: context.l10n.startupFailed,
+                  message: context.l10n.startupFailedMessage,
+                  primaryLabel: context.l10n.retry,
+                  onPrimary: auth.retryRestoreSession,
+                ),
+              ),
+            );
+          }
+          return _buildLoadingPage(context);
+        },
+      );
+    }
+    return _buildLoadingPage(context);
+  }
+
+  Widget _buildLoadingPage(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFEAF4FF),
       body: SafeArea(

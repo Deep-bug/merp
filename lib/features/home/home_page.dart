@@ -41,10 +41,7 @@ class HomePage extends StatelessWidget {
               children: [
                 RefreshIndicator(
                   onRefresh: () async {
-                    final session = auth.session;
-                    if (session != null) {
-                      await permissions.loadForSession(session);
-                    }
+                    await auth.reloadSessionData();
                   },
                   child: CustomScrollView(
                     slivers: [
@@ -66,6 +63,8 @@ class HomePage extends StatelessWidget {
                           child: HomeFeatureArea(
                             features: permissions.features,
                             hasAnyFeature: permissions.allFeatures.isNotEmpty,
+                            loadStatus: permissions.status,
+                            onRetry: auth.reloadSessionData,
                             iconColor: manifest.iconColor,
                           ),
                         ),

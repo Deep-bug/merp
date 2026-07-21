@@ -137,15 +137,74 @@ merp/
 ## 启动流程
 
 ```text
-Android 原生 Splash
+Android/iOS 原生启动图
+    -> Flutter Engine 启动并进入 main.dart
     -> main 安装 Zone / Flutter / Platform 异常捕获
-    -> 立即渲染 MerpBootstrapApp 品牌加载页
-    -> AppDependencies 并行读取设置、资源缓存和地图占位初始化
-    -> 恢复 Token、会话和菜单权限
+    -> 立即 runApp(MerpBootstrapApp)，渲染 Flutter 品牌加载页
+    -> AppDependencies 并行读取设置、资源缓存和地图占位服务
+    -> 使用 refresh token 换取新 Token 并恢复会话
     -> MerpApp 装配语言、路由、主题和自动锁屏
+    -> 根据登录态进入登录页或首页
+    -> 首页后台并行加载用户资料和权限菜单
 ```
 
 `main.dart` 不等待磁盘或网络后再 `runApp`，可以缩短中低端手机冷启动空白时间。具体业务权限和定位仍按需加载，避免首屏一次初始化全部插件。
+
+### Android 启动时序
+
+1. 系统点击桌面图标后，先显示 Android 原生 `LaunchTheme`。Android 12 及以上使用系统 SplashScreen 图标和背景，Android 12 以下使用 `launch_background.xml`。
+2. Flutter Engine 启动，进入 `main.dart`。此时只安装全局异常捕获和结构化日志，不读取网络接口，也不申请系统权限。
+3. `runApp(MerpBootstrapApp)` 立即输出 Flutter 首帧，展示 MERP 品牌加载页，避免原生启动图和 Flutter 页面之间出现白屏。
+4. `AppDependencies.bootstrap()` 在 Flutter 品牌加载页背后并行执行：
+   - 读取本地设置和语言。
+   - 读取运行时静态资源缓存。
+   - 创建百度地图适配服务并校验地图配置是否存在。
+   - 使用安全存储中的 refresh token 换取新 Token；成功后立即恢复会话。
+5. 这个阶段不会调用百度地图原生视图，不会启动百度定位 SDK，也不会弹定位权限框。
+6. 用户进入“地图定位”页面后，页面先检查百度地图配置和隐私同意状态。未同意时显示说明页，用户点击同意后才调用百度地图 SDK 隐私同意和 AK 初始化。
+7. 地图基础 SDK 激活后才创建百度原生地图视图，并等待底图加载、渲染或有效数据回调。
+8. 用户点击定位按钮后，才配置百度定位 SDK、检查系统定位服务、申请前台定位权限，并发起单次精确定位。
+9. Android 百度 AK 同时通过 `--dart-define-from-file` 做 Flutter 配置校验，并通过 Manifest placeholder 写入 `com.baidu.lbsapi.API_KEY` 供百度原生定位 SDK 读取。
+
+### iOS 启动时序
+
+1. 系统点击桌面图标后，先显示 iOS `LaunchScreen.storyboard` 和 `Assets.xcassets` 中的启动图资源。
+2. Flutter Engine 启动，进入 `main.dart`。与 Android 一样，此时只安装异常捕获和日志，不申请定位权限。
+3. `MerpBootstrapApp` 立即渲染 Flutter 品牌加载页，并在后台装配应用依赖。
+4. 启动加载页期间只做配置、设置、资源缓存和 refresh token 刷新。刷新成功后立即进入首页，用户资料和权限菜单在首页后台并行加载。
+5. 用户进入“地图定位”页面并同意百度隐私说明后，才调用 `BMFMapSDK.setAgreePrivacy(true)` 和 iOS AK 初始化。
+6. iOS 的 `mapapi.bundle` 由 CocoaPods 的 `[CP] Copy Pods Resources` 自动复制进 `Runner.app`，不要手动再加到 Xcode target，避免出现重复复制。
+7. 百度原生地图视图创建后，Flutter 同时监听地图加载、渲染完成、有效数据和状态变化回调，避免 iOS 首次回调过早导致页面误判超时。
+8. 用户点击定位按钮后，才配置百度定位 SDK、检查系统定位服务、读取或申请 `When In Use` 前台定位权限，并请求单次精确定位。
+9. iOS 更新地图定位点时使用跨平台 `setNewMapStatus`，不要调用 Android 独有的 `setZoomTo`。
+
+### Splash 阶段 Flutter 在做什么
+
+原生 Splash 只负责覆盖 Flutter Engine 冷启动的短暂空窗；Flutter 首帧出现后，页面切到 `SplashPage(isBootstrapping: true)`。这个 Flutter 品牌加载页期间，应用主要做这些事：
+
+- 安装后的首次 UI 渲染和主题、本地化 delegate 装配。
+- 创建 `AppConfig`、`ApiClient`、`SecureTokenStore`、`SettingsController` 等应用级依赖。
+- 读取本地语言、自动锁屏、生物识别等设置。
+- 读取静态资源热更新缓存和 manifest。
+- 检查地图 provider 和平台 AK 是否存在，但不激活百度 SDK。
+- 尝试恢复登录态；refresh token 失效时清理本地会话并进入登录页。
+- refresh token 刷新成功后解除 Splash，进入首页。
+
+Splash 阶段明确不做这些事：
+
+- 不申请定位、相机、相册等系统权限。
+- 不启动百度定位。
+- 不创建百度地图原生视图。
+- 不读取或上传真实经纬度。
+- 不执行耗时业务数据预加载。
+
+进入首页后，用户资料与权限菜单并行加载，只保存在当前进程内存中。用户资料读取真实接口；权限菜单根据 `MOCK_MENUS` 选择本地 Mock 或真实接口。功能区加载期间显示骨架状态，真实接口网络失败时显示重试入口，且不会清除仍然有效的 refresh token。
+
+如果冷启动刷新 Token 时遇到断网、超时或服务端 `5xx`，应用会保留 refresh token 并停留在启动恢复页供用户重试；只有服务端明确返回 `400/401/403` 表示 refresh token 无效时，才清理本地 Token 并进入登录页。
+
+当前菜单接口处于 Mock 阶段，`MOCK_MENUS` 默认是 `true`：应用不请求 `/auth/menus`，直接加载本地完整功能清单并授予全部权限。后端菜单接口接通后，在启动命令中增加 `--dart-define=MOCK_MENUS=false` 即可切换到真实接口。
+
+这样的分层能保证启动体验稳定，也能满足隐私合规：地图展示在进入地图页后才初始化，精确定位在用户点击定位按钮后才触发。
 
 ## 模块协作规范
 
@@ -280,14 +339,29 @@ final incidentId = logger.error(
 
 ## 环境配置
 
-当前 API 默认地址是 `http://10.146.152.51:31234`。生产环境建议使用
-`--dart-define` 注入 API、Vue 地址和地图配置，真实密钥不得提交 Git：
+应用环境只允许 `qas` 和 `prd`。`APP_ENV` 用于选择部署环境并隔离两套环境的
+安全 Token；`AUTH_ENVIRONMENT` 是认证接口业务参数，默认固定为 `merp`。
+
+QAS 使用已提交的非密钥配置，地图 AK 继续从 Git 忽略的本地文件注入：
 
 ```bash
-flutter run \
-  --dart-define=API_BASE_URL=http://10.146.152.51:31234 \
-  --dart-define=LEGACY_VUE_BASE_URL=https://erp.example.com/mobile
+fvm flutter run \
+  --dart-define-from-file=config/environment.qas.json \
+  --dart-define-from-file=config/baidu_map.local.json
 ```
+
+PRD 首次使用时复制模板并填写真实生产地址：
+
+```bash
+cp config/environment.prd.example.json config/environment.prd.local.json
+
+fvm flutter run \
+  --dart-define-from-file=config/environment.prd.local.json \
+  --dart-define-from-file=config/baidu_map.local.json
+```
+
+`config/environment.*.local.json` 已加入 Git 忽略。切换 QAS/PRD 后不会互相读取
+refresh token；首次进入某个环境需要在该环境登录一次。
 
 百度地图当前接入 Android/iOS 基础地图与按需精确定位，不包含 Search SDK。真实 AK 放在 Git 忽略的
 `config/baidu_map.local.json`，启动时使用：

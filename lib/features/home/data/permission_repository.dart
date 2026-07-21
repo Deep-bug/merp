@@ -32,6 +32,12 @@ class PermissionRepository extends ChangeNotifier {
   final AppLogger _logger;
   final List<FeatureItem> _allFeatures = [];
   final Set<String> _allowedCodes = {};
+  PermissionLoadStatus _status = PermissionLoadStatus.idle;
+  String? _loadError;
+  int _requestGeneration = 0;
+
+  PermissionLoadStatus get status => _status;
+  String? get loadError => _loadError;
 
   /// 全部功能：用于“更多/全部功能”页，未授权功能也会展示为灰色。
   List<FeatureItem> get allFeatures => List.unmodifiable(_allFeatures);
@@ -45,47 +51,68 @@ class PermissionRepository extends ChangeNotifier {
   bool canOpen(FeatureItem item) => _allowedCodes.contains(item.permissionCode);
 
   Future<void> loadForSession(AuthSession session) async {
-    final snapshot = await _loadPermissionSnapshotFromBackend(session);
-    _allFeatures
-      ..clear()
-      ..addAll(snapshot.features);
-    _allowedCodes
-      ..clear()
-      ..addAll(snapshot.permissionCodes);
-    _logger.info(
-      'permission',
-      '功能权限加载完成',
-      fields: {
-        'featureCount': _allFeatures.length,
-        'allowedCount': _allowedCodes.length,
-      },
-    );
+    final generation = ++_requestGeneration;
+    _status = PermissionLoadStatus.loading;
+    _loadError = null;
     notifyListeners();
+    try {
+      final snapshot = await _loadPermissionSnapshotFromBackend(session);
+      if (generation != _requestGeneration) {
+        return;
+      }
+      _allFeatures
+        ..clear()
+        ..addAll(snapshot.features);
+      _allowedCodes
+        ..clear()
+        ..addAll(snapshot.permissionCodes);
+      _status = PermissionLoadStatus.loaded;
+      _logger.info(
+        'permission',
+        '功能权限加载完成',
+        fields: {
+          'featureCount': _allFeatures.length,
+          'allowedCount': _allowedCodes.length,
+        },
+      );
+    } catch (error, stackTrace) {
+      if (generation != _requestGeneration) {
+        return;
+      }
+      _status = PermissionLoadStatus.failed;
+      _loadError = error.toString();
+      _logger.warning(
+        'permission',
+        '菜单权限加载失败，等待用户重试',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      if (generation == _requestGeneration) {
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> clear() async {
+    _requestGeneration += 1;
     _allFeatures.clear();
     _allowedCodes.clear();
+    _status = PermissionLoadStatus.idle;
+    _loadError = null;
     notifyListeners();
   }
 
   Future<_PermissionSnapshot> _loadPermissionSnapshotFromBackend(
     AuthSession session,
   ) async {
-    try {
-      // 真实请求建议返回“全部功能 + 当前用户权限码”。
-      // 迁移期如果后端仍直接返回数组，则兼容为“返回的功能全部有权限”。
-      final raw = await _apiClient.get<Object?>(_apiClient.config.menuPath);
-      return _snapshotFromRaw(raw);
-    } catch (error, stackTrace) {
-      _logger.warning(
-        'permission',
-        '菜单接口不可用，已加载本地演示权限',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return _demoSnapshot();
+    if (_apiClient.config.mockMenus) {
+      _logger.info('permission', '使用本地 Mock 菜单，默认授予全部应用权限');
+      return _mockSnapshot();
     }
+    // 迁移期如果后端仍直接返回数组，则兼容为“返回的功能全部有权限”。
+    final raw = await _apiClient.get<Object?>(_apiClient.config.menuPath);
+    return _snapshotFromRaw(raw);
   }
 
   _PermissionSnapshot _snapshotFromRaw(Object? raw) {
@@ -118,7 +145,7 @@ class PermissionRepository extends ChangeNotifier {
       );
     }
 
-    return _demoSnapshot();
+    throw const FormatException('菜单权限响应格式不正确');
   }
 
   List<Map<String, dynamic>> _readFeatureRows(Map<String, dynamic> raw) {
@@ -185,10 +212,8 @@ class PermissionRepository extends ChangeNotifier {
     };
   }
 
-  _PermissionSnapshot _demoSnapshot() {
-    // Demo 模拟真实后端：系统返回全部功能，但只授权其中一部分。
-    // “全部功能”页会显示灰色未授权入口，方便验证企业权限控制效果。
-    const features = [
+  _PermissionSnapshot _mockSnapshot() {
+    final features = [
       FeatureItem(
         id: 'e-form',
         title: '电子表单',
@@ -197,7 +222,7 @@ class PermissionRepository extends ChangeNotifier {
         permissionCode: 'form.electronic.view',
         launchMode: FeatureLaunchMode.legacyWeb,
         route: '/legacy/e-form',
-        legacyPath: '/forms/electronic',
+        legacyPath: _apiClient.config.electronicFormUrl,
       ),
       FeatureItem(
         id: 'field-work',
@@ -320,23 +345,14 @@ class PermissionRepository extends ChangeNotifier {
       ),
     ];
 
-    return const _PermissionSnapshot(
+    return _PermissionSnapshot(
       features: features,
-      permissionCodes: [
-        'form.electronic.view',
-        'field.work.view',
-        'task.mine.view',
-        'map.location.view',
-        'service.dispatch.view',
-        'customer.view',
-        'customer.360.view',
-        'device.history.view',
-        'faq.view',
-        'ai.search.view',
-      ],
+      permissionCodes: features.map((feature) => feature.permissionCode),
     );
   }
 }
+
+enum PermissionLoadStatus { idle, loading, loaded, failed }
 
 class _PermissionSnapshot {
   const _PermissionSnapshot({

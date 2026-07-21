@@ -8,6 +8,8 @@
 | 配置 | 当前值 | 代码位置 |
 | --- | --- | --- |
 | API Base URL | `http://10.146.152.51:31234` | `lib/core/config/app_config.dart` |
+| 部署环境 | `APP_ENV=qas/prd` | `config/environment.*.json` |
+| 认证环境 | `AUTH_ENVIRONMENT=merp` | 登录与刷新请求体 |
 | 连接超时 | 30 秒 | `lib/core/network/api_client.dart` |
 | 接收/发送超时 | 60 秒 | `lib/core/network/api_client.dart` |
 | 客户端请求头 | `X-Client: merp-flutter` | ApiClient 请求拦截器 |
@@ -18,7 +20,9 @@
 可以在运行或构建时覆盖地址：
 
 ```bash
-flutter run --dart-define=API_BASE_URL=http://10.146.152.51:31234
+flutter run \
+  --dart-define-from-file=config/environment.qas.json \
+  --dart-define-from-file=config/baidu_map.local.json
 ```
 
 当前地址是 HTTP，因此 Android `usesCleartextTraffic` 和 iOS ATS 暂时允许明文
@@ -76,7 +80,8 @@ AuthSession
   "username": "admin",
   "password": "123456",
   "appId": "merp",
-  "source": 1
+  "source": 1,
+  "environment": "merp"
 }
 ```
 
@@ -93,7 +98,10 @@ AuthSession
 `POST /api/v1/auth/refresh`，设置 `skipAuth: true`：
 
 ```json
-{"refreshToken": "8b7c1a9f..."}
+{
+  "refresh_token": "8b7c1a9f...",
+  "environment": "merp"
+}
 ```
 
 收到 401 后，ApiClient 执行以下流程：
@@ -109,6 +117,9 @@ AuthSession
 
 刷新响应未返回新 `refresh_token` 时继续使用旧值。应用启动恢复会话时也会主动
 刷新一次，不直接信任磁盘中的旧 access token。
+
+QAS 与 PRD 使用不同的安全存储命名空间，禁止把一个环境签发的 refresh token
+发送到另一个环境。切换环境后第一次启动需要重新登录。
 
 ### 登出
 

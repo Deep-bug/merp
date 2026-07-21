@@ -5,6 +5,10 @@ PODS:
   - BaiduMapKit/Utils (7.1.0):
     - BaiduMapKit/Base
   - BMKLocationKit (2.1.4)
+  - device_info_plus (0.0.1):
+    - Flutter
+  - file_picker (0.0.1):
+    - Flutter
   - Flutter (1.0.0)
   - flutter_baidu_mapapi_base (4.0.1):
     - BaiduMapKit/Utils (= 7.1.0)
@@ -16,12 +20,43 @@ PODS:
   - flutter_bmflocation (3.7.0):
     - BMKLocationKit (~> 2.1.4)
     - Flutter
+  - flutter_secure_storage_darwin (10.0.0):
+    - Flutter
+    - FlutterMacOS
+  - image_picker_ios (0.0.1):
+    - Flutter
+  - local_auth_darwin (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - package_info_plus (0.4.5):
+    - Flutter
+  - path_provider_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - permission_handler_apple (9.4.8):
+    - Flutter
+  - shared_preferences_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - webview_flutter_wkwebview (0.0.1):
+    - Flutter
+    - FlutterMacOS
 
 DEPENDENCIES:
+  - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
+  - file_picker (from `.symlinks/plugins/file_picker/ios`)
   - Flutter (from `Flutter`)
   - flutter_baidu_mapapi_base (from `.symlinks/plugins/flutter_baidu_mapapi_base/ios`)
   - flutter_baidu_mapapi_map (from `.symlinks/plugins/flutter_baidu_mapapi_map/ios`)
   - flutter_bmflocation (from `.symlinks/plugins/flutter_bmflocation/ios`)
+  - flutter_secure_storage_darwin (from `.symlinks/plugins/flutter_secure_storage_darwin/darwin`)
+  - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
+  - local_auth_darwin (from `.symlinks/plugins/local_auth_darwin/darwin`)
+  - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
+  - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
+  - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
+  - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - webview_flutter_wkwebview (from `.symlinks/plugins/webview_flutter_wkwebview/darwin`)
 
 SPEC REPOS:
   trunk:
@@ -29,6 +64,10 @@ SPEC REPOS:
     - BMKLocationKit
 
 EXTERNAL SOURCES:
+  device_info_plus:
+    :path: ".symlinks/plugins/device_info_plus/ios"
+  file_picker:
+    :path: ".symlinks/plugins/file_picker/ios"
   Flutter:
     :path: Flutter
   flutter_baidu_mapapi_base:
@@ -37,15 +76,41 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_baidu_mapapi_map/ios"
   flutter_bmflocation:
     :path: ".symlinks/plugins/flutter_bmflocation/ios"
+  flutter_secure_storage_darwin:
+    :path: ".symlinks/plugins/flutter_secure_storage_darwin/darwin"
+  image_picker_ios:
+    :path: ".symlinks/plugins/image_picker_ios/ios"
+  local_auth_darwin:
+    :path: ".symlinks/plugins/local_auth_darwin/darwin"
+  package_info_plus:
+    :path: ".symlinks/plugins/package_info_plus/ios"
+  path_provider_foundation:
+    :path: ".symlinks/plugins/path_provider_foundation/darwin"
+  permission_handler_apple:
+    :path: ".symlinks/plugins/permission_handler_apple/ios"
+  shared_preferences_foundation:
+    :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  webview_flutter_wkwebview:
+    :path: ".symlinks/plugins/webview_flutter_wkwebview/darwin"
 
 SPEC CHECKSUMS:
   BaiduMapKit: 464555167d441b8e2f64c6a654505bd5dbc41e26
   BMKLocationKit: e4dfa3690b325ea0ca0c6211d91f5784d4486c60
+  device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
+  file_picker: 8fc6fe5e42585a217d44d22f79ec046cb8d81140
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_baidu_mapapi_base: e5d7ca4a38f7f04231f1c0a48686ccfd8c7504fb
   flutter_baidu_mapapi_map: 446492d11696be46cf4b1a49222b4b116033a53c
   flutter_bmflocation: cba076b59d7ea08b8d88c7e1980204cf909b374a
+  flutter_secure_storage_darwin: acdb3f316ed05a3e68f856e0353b133eec373a23
+  image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
+  local_auth_darwin: c3ee6cce0a8d56be34c8ccb66ba31f7f180aaebb
+  package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
+  path_provider_foundation: bb55f6dbba17d0dccd6737fe6f7f34fbd0376880
+  permission_handler_apple: 92d754bbaa7361d436db2d6c3c1c2a0fdcec462e
+  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 
-PODFILE CHECKSUM: 282bbcaa818664fb14bc9cabd663f9a4efd31c98
+PODFILE CHECKSUM: c3616b3dc2993e7e4268a144ab9a1ca87bfc5a20
 
 COCOAPODS: 1.16.2

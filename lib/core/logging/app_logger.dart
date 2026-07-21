@@ -10,6 +10,8 @@ import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
 
+import 'platform_log_sink.dart';
+
 /// 日志级别按严重程度递增，便于终端和后续日志平台筛选。
 enum AppLogLevel { debug, info, warning, error, fatal }
 
@@ -186,9 +188,10 @@ class AppLogger extends ChangeNotifier {
   }
 
   void _emit(AppLogEntry entry) {
-    debugPrint(entry.toText());
+    final text = entry.toText();
+    debugPrint(text);
     developer.log(
-      entry.toText(),
+      text,
       name: 'MERP.${entry.category}',
       level: _developerLevel(entry.level),
       error: entry.error,
@@ -196,6 +199,7 @@ class AppLogger extends ChangeNotifier {
       time: entry.timestamp,
       sequenceNumber: _incidentSequence,
     );
+    writePlatformLog(text);
   }
 
   int _developerLevel(AppLogLevel level) => switch (level) {

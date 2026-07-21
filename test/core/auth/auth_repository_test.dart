@@ -80,6 +80,7 @@ void main() {
       'password': '123456',
       'appId': 'merp',
       'source': 1,
+      'environment': 'merp',
     });
     expect(loginRequest?.headers.containsKey('Authorization'), isFalse);
     expect(userInfoRequest?.headers['Authorization'], 'Bearer access-1');
@@ -121,5 +122,56 @@ void main() {
     expect(logoutRequest?.data, {'refreshToken': 'refresh-1'});
     expect(logoutRequest?.headers.containsKey('Authorization'), isFalse);
     expect(store.tokens, isNull);
+  });
+
+  test('restore refreshes tokens without loading user profile', () async {
+    RequestOptions? refreshRequest;
+    var userInfoCalls = 0;
+    final dio = Dio()
+      ..httpClientAdapter = FakeHttpAdapter((options) {
+        if (options.path == '/api/v1/auth/refresh') {
+          refreshRequest = options;
+          return jsonResponse({
+            'code': 0,
+            'message': 'success',
+            'data': {
+              'data': {'access_token': 'access-2'},
+            },
+          });
+        }
+        if (options.path == '/api/v1/user/userInfo') {
+          userInfoCalls += 1;
+        }
+        return jsonResponse({}, statusCode: 404);
+      });
+    final store = MemoryTokenStore(
+      const AuthTokens(accessToken: 'access-1', refreshToken: 'refresh-1'),
+    );
+    final logger = AppLogger();
+    final client = ApiClient(
+      config: const AppConfig(),
+      tokenStore: store,
+      logger: logger,
+      dio: dio,
+    );
+    final repository = AuthRepository(
+      apiClient: client,
+      tokenStore: store,
+      logger: logger,
+    );
+
+    final session = await repository.restore();
+
+    expect(refreshRequest?.path, '/api/v1/auth/refresh');
+    expect(refreshRequest?.data, {
+      'refresh_token': 'refresh-1',
+      'environment': 'merp',
+    });
+    expect(userInfoCalls, 0);
+    expect(session?.accessToken, 'access-2');
+    expect(session?.tokens.refreshToken, 'refresh-1');
+    expect(session?.profile.displayName, '当前用户');
+    expect(store.tokens?.accessToken, 'access-2');
+    expect(store.tokens?.refreshToken, 'refresh-1');
   });
 }

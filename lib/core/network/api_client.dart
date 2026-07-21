@@ -219,6 +219,15 @@ class ApiClient {
     });
   }
 
+  /// App 冷启动恢复会话时专用的刷新入口。
+  ///
+  /// 与业务请求遇到 401 后的自动刷新不同，启动恢复需要区分“refresh_token
+  /// 明确失效”和“网络/服务端临时不可用”。前者会清理本地令牌并返回 null，
+  /// 后者保留 refresh_token 并抛出异常，便于启动页展示可重试状态。
+  Future<AuthTokens?> refreshTokensForRestore() {
+    return _performTokenRefresh(throwOnRetainedFailure: true);
+  }
+
   Future<void> _completeTokenRefresh(Completer<AuthTokens?> completer) async {
     AuthTokens? result;
     try {
@@ -237,7 +246,9 @@ class ApiClient {
     }
   }
 
-  Future<AuthTokens?> _performTokenRefresh() async {
+  Future<AuthTokens?> _performTokenRefresh({
+    bool throwOnRetainedFailure = false,
+  }) async {
     try {
       final currentTokens = await _tokenStore.readTokens();
       final refreshToken = currentTokens?.refreshToken;
@@ -248,7 +259,10 @@ class ApiClient {
 
       final response = await _dio.post<Object?>(
         config.refreshTokenPath,
-        data: {'refreshToken': refreshToken},
+        data: {
+          'refresh_token': refreshToken,
+          'environment': config.normalizedAuthEnvironment,
+        },
         options: _withAuthOption(null, skipAuth: true),
       );
       final data = ApiResponse.unwrap<Map<String, dynamic>>(
@@ -262,16 +276,79 @@ class ApiClient {
       await _tokenStore.saveTokens(refreshed);
       _logger.info('auth', '访问令牌刷新成功');
       return refreshed;
+    } on DioException catch (error) {
+      final mapped = _fromDioException(error, config.refreshTokenPath);
+      return _handleRefreshFailure(
+        mapped,
+        error.stackTrace,
+        expireSession: _isRefreshTokenRejected(mapped),
+        throwOnRetainedFailure: throwOnRetainedFailure,
+      );
+    } on ApiException catch (error, stackTrace) {
+      return _handleRefreshFailure(
+        error,
+        stackTrace,
+        expireSession: _isRefreshTokenRejected(error),
+        throwOnRetainedFailure: throwOnRetainedFailure,
+      );
     } catch (error, stackTrace) {
+      final exception = ApiException(
+        errorCode: AppErrorCode.clientUnknown,
+        message: error is FormatException ? error.message : '刷新令牌响应解析失败',
+        path: config.refreshTokenPath,
+        raw: error,
+      );
+      return _handleRefreshFailure(
+        exception,
+        stackTrace,
+        expireSession: false,
+        throwOnRetainedFailure: throwOnRetainedFailure,
+      );
+    }
+  }
+
+  Future<AuthTokens?> _handleRefreshFailure(
+    ApiException error,
+    StackTrace? stackTrace, {
+    required bool expireSession,
+    required bool throwOnRetainedFailure,
+  }) async {
+    if (expireSession) {
       _logger.warning(
         'auth',
-        '刷新令牌失败，登录态已失效',
+        'refresh_token 已失效，登录态将清理',
         error: error,
         stackTrace: stackTrace,
+        fields: {'httpStatusCode': error.httpStatusCode},
       );
-      await _expireSession('refresh_token 无效或刷新接口不可用');
+      await _expireSession('refresh_token 无效或已过期');
       return null;
     }
+
+    _logger.warning(
+      'auth',
+      '刷新令牌失败，保留本地 refresh_token 等待重试',
+      error: error,
+      stackTrace: stackTrace,
+      fields: {'httpStatusCode': error.httpStatusCode},
+    );
+    if (throwOnRetainedFailure) {
+      throw error;
+    }
+    return null;
+  }
+
+  bool _isRefreshTokenRejected(ApiException error) {
+    return switch (error.httpStatusCode) {
+      401 || 403 => true,
+      400 => RegExp(
+        r'(invalid|expired|无效|失效|过期)',
+        caseSensitive: false,
+      ).hasMatch(error.message),
+      _ =>
+        error.errorCode == AppErrorCode.serverUnauthorized ||
+            error.errorCode == AppErrorCode.serverForbidden,
+    };
   }
 
   Future<void> _expireSession(String reason) async {

@@ -36,9 +36,11 @@ class AppRouter {
         observers: [AppRouteObserver(logger)],
         redirect: (context, state) {
           final isLoggingIn = state.uri.path == AppRoute.login;
-          final isBooting = authController.status == AuthStatus.booting;
+          final shouldStayOnSplash =
+              authController.status == AuthStatus.booting ||
+              authController.status == AuthStatus.restoreFailed;
 
-          if (isBooting) {
+          if (shouldStayOnSplash) {
             return state.uri.path == AppRoute.splash ? null : AppRoute.splash;
           }
           if (!authController.isAuthenticated) {

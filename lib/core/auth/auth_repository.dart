@@ -27,7 +27,10 @@ class AuthRepository {
   final TokenStore _tokenStore;
   final AppLogger _logger;
 
-  /// 启动恢复不直接信任旧 access_token，而是主动刷新一次验证长期会话。
+  /// 启动恢复不直接信任旧 access_token，而是只用 refresh_token 换新令牌。
+  ///
+  /// 恢复阶段不拉用户资料和权限菜单，避免启动路径被非认证接口阻塞。只要
+  /// refresh_token 未失效且刷新成功，就允许进入首页。
   Future<AuthSession?> restore() async {
     final storedTokens = await _tokenStore.readTokens();
     if (storedTokens?.refreshToken == null ||
@@ -36,18 +39,15 @@ class AuthRepository {
       return null;
     }
 
-    final refreshedTokens = await _apiClient.refreshTokens();
+    final refreshedTokens = await _apiClient.refreshTokensForRestore();
     if (refreshedTokens == null) {
       return null;
     }
-
-    final profile = await _loadUserProfile(
-      fallback: const UserProfile(
-        id: '',
-        accountName: '',
-        displayName: '当前用户',
-        department: '',
-      ),
+    const profile = UserProfile(
+      id: '',
+      accountName: '',
+      displayName: '当前用户',
+      department: '',
     );
     return AuthSession(tokens: refreshedTokens, profile: profile);
   }
@@ -55,8 +55,12 @@ class AuthRepository {
   Future<AuthSession> login({
     required String account,
     required String password,
+    String? environment,
   }) async {
     final username = account.trim();
+    final loginEnvironment = environment?.trim().isNotEmpty == true
+        ? environment!.trim()
+        : _apiClient.config.normalizedAuthEnvironment;
     if (username.isEmpty || password.isEmpty) {
       throw const AuthException('请输入账号和密码');
     }
@@ -69,6 +73,7 @@ class AuthRepository {
           'password': password,
           'appId': 'merp',
           'source': 1,
+          'environment': loginEnvironment,
         },
         skipAuth: true,
       );
@@ -80,7 +85,7 @@ class AuthRepository {
 
       // 用户信息接口依赖刚取得的 Bearer Token，因此必须先安全保存令牌。
       await _tokenStore.saveTokens(tokens);
-      final profile = await _loadUserProfile(fallback: loginProfile);
+      final profile = await _loadUserProfileForLogin(fallback: loginProfile);
       return AuthSession(tokens: tokens, profile: profile);
     } on AuthException {
       rethrow;
@@ -94,16 +99,24 @@ class AuthRepository {
   }
 
   /// 用户信息失败不阻塞登录，使用登录响应里的账号与显示名作为降级资料。
-  Future<UserProfile> _loadUserProfile({required UserProfile fallback}) async {
+  Future<UserProfile> loadCurrentUserProfile({
+    required UserProfile fallback,
+  }) async {
+    final data = await _apiClient.get<Map<String, dynamic>>(
+      _apiClient.config.userInfoPath,
+    );
+    return UserProfile.fromJson(
+      data,
+      fallbackAccountName: fallback.accountName,
+      fallbackDisplayName: fallback.displayName,
+    );
+  }
+
+  Future<UserProfile> _loadUserProfileForLogin({
+    required UserProfile fallback,
+  }) async {
     try {
-      final data = await _apiClient.get<Map<String, dynamic>>(
-        _apiClient.config.userInfoPath,
-      );
-      return UserProfile.fromJson(
-        data,
-        fallbackAccountName: fallback.accountName,
-        fallbackDisplayName: fallback.displayName,
-      );
+      return await loadCurrentUserProfile(fallback: fallback);
     } catch (error, stackTrace) {
       _logger.warning(
         'auth',

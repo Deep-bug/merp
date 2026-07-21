@@ -10,6 +10,8 @@ import 'package:flutter/widgets.dart';
 import '../core/auth/auth_controller.dart';
 import '../core/config/app_config.dart';
 import '../core/device/camera_service.dart';
+import '../core/device/device_info_service.dart';
+import '../core/device/file_service.dart';
 import '../core/device/location_service.dart';
 import '../core/device/map_sdk_service.dart';
 import '../core/logging/app_logger.dart';
@@ -30,6 +32,8 @@ class AppScope extends InheritedWidget {
     required this.settingsController,
     required this.resourceUpdateController,
     required this.cameraService,
+    required this.fileService,
+    required this.deviceInfoService,
     required this.locationService,
     required this.mapSdkService,
     required this.logger,
@@ -42,6 +46,8 @@ class AppScope extends InheritedWidget {
   final SettingsController settingsController;
   final ResourceUpdateController resourceUpdateController;
   final CameraService cameraService;
+  final FileService fileService;
+  final DeviceInfoService deviceInfoService;
   final LocationService locationService;
   final MapSdkService mapSdkService;
   final AppLogger logger;
@@ -60,6 +66,8 @@ class AppScope extends InheritedWidget {
         settingsController != oldWidget.settingsController ||
         resourceUpdateController != oldWidget.resourceUpdateController ||
         cameraService != oldWidget.cameraService ||
+        fileService != oldWidget.fileService ||
+        deviceInfoService != oldWidget.deviceInfoService ||
         locationService != oldWidget.locationService ||
         mapSdkService != oldWidget.mapSdkService ||
         logger != oldWidget.logger;

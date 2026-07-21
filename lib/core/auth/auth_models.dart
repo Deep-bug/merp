@@ -107,6 +107,13 @@ class AuthSession {
 
   String get accessToken => tokens.accessToken;
   String get userName => profile.displayName;
+
+  AuthSession copyWith({AuthTokens? tokens, UserProfile? profile}) {
+    return AuthSession(
+      tokens: tokens ?? this.tokens,
+      profile: profile ?? this.profile,
+    );
+  }
 }
 
 String? _readString(Map<String, dynamic> json, List<String> keys) {

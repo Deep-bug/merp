@@ -11,6 +11,7 @@ import 'package:merp/core/auth/auth_models.dart';
 import 'package:merp/core/config/app_config.dart';
 import 'package:merp/core/logging/app_logger.dart';
 import 'package:merp/core/network/api_client.dart';
+import 'package:merp/core/network/api_exception.dart';
 
 import '../../helpers/fake_http_adapter.dart';
 import '../../helpers/memory_token_store.dart';
@@ -80,11 +81,13 @@ void main() {
 
   test('concurrent 401 responses share one refresh and retry', () async {
     var refreshCalls = 0;
+    RequestOptions? refreshRequest;
     final protectedAttempts = <String, int>{};
     final dio = Dio()
       ..httpClientAdapter = FakeHttpAdapter((options) async {
         if (options.path == '/api/v1/auth/refresh') {
           refreshCalls += 1;
+          refreshRequest = options;
           await Future<void>.delayed(const Duration(milliseconds: 20));
           return jsonResponse({
             'code': 0,
@@ -139,9 +142,102 @@ void main() {
       '/protected/two',
     ]);
     expect(refreshCalls, 1);
+    expect(refreshRequest?.data, {
+      'refresh_token': 'refresh-1',
+      'environment': 'merp',
+    });
     expect(protectedAttempts['/protected/one'], 2);
     expect(protectedAttempts['/protected/two'], 2);
     expect(store.tokens?.accessToken, 'new-access');
     expect(store.tokens?.refreshToken, 'new-refresh');
+  });
+
+  test(
+    'restore refresh keeps refresh token on temporary server failure',
+    () async {
+      final dio = Dio()
+        ..httpClientAdapter = FakeHttpAdapter((options) {
+          return jsonResponse({
+            'code': 500,
+            'message': 'temporary unavailable',
+            'data': null,
+          }, statusCode: 500);
+        });
+      final store = MemoryTokenStore(
+        const AuthTokens(accessToken: 'old-access', refreshToken: 'refresh-1'),
+      );
+      final client = ApiClient(
+        config: const AppConfig(),
+        tokenStore: store,
+        logger: AppLogger(),
+        dio: dio,
+      );
+
+      await expectLater(
+        client.refreshTokensForRestore(),
+        throwsA(isA<Object>()),
+      );
+
+      expect(store.tokens?.accessToken, 'old-access');
+      expect(store.tokens?.refreshToken, 'refresh-1');
+      expect(store.clearCount, 0);
+    },
+  );
+
+  test(
+    'restore refresh clears tokens when refresh token is rejected',
+    () async {
+      final dio = Dio()
+        ..httpClientAdapter = FakeHttpAdapter((options) {
+          return jsonResponse({
+            'code': 400,
+            'message': 'refresh token invalid',
+            'data': null,
+          }, statusCode: 400);
+        });
+      final store = MemoryTokenStore(
+        const AuthTokens(accessToken: 'old-access', refreshToken: 'refresh-1'),
+      );
+      final client = ApiClient(
+        config: const AppConfig(),
+        tokenStore: store,
+        logger: AppLogger(),
+        dio: dio,
+      );
+
+      final tokens = await client.refreshTokensForRestore();
+
+      expect(tokens, isNull);
+      expect(store.tokens, isNull);
+      expect(store.clearCount, 1);
+    },
+  );
+
+  test('restore refresh keeps tokens on malformed refresh request', () async {
+    final dio = Dio()
+      ..httpClientAdapter = FakeHttpAdapter((options) {
+        return jsonResponse({
+          'code': 400,
+          'message': 'refresh_token 不能为空',
+          'data': null,
+        }, statusCode: 400);
+      });
+    final store = MemoryTokenStore(
+      const AuthTokens(accessToken: 'old-access', refreshToken: 'refresh-1'),
+    );
+    final client = ApiClient(
+      config: const AppConfig(),
+      tokenStore: store,
+      logger: AppLogger(),
+      dio: dio,
+    );
+
+    await expectLater(
+      client.refreshTokensForRestore(),
+      throwsA(isA<ApiException>()),
+    );
+
+    expect(store.tokens?.refreshToken, 'refresh-1');
+    expect(store.clearCount, 0);
   });
 }

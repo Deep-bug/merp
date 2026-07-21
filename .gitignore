@@ -34,9 +34,12 @@ migrate_working_dir/
 /build/
 /android/build/
 /coverage/
+/.artifacts/
 
 # Local vendor credentials. Commit only the matching *.example.json template.
 /config/baidu_map.local.json
+/config/environment.*.local.json
+/config/webview.local.json
 
 # Symbolication related
 app.*.symbols

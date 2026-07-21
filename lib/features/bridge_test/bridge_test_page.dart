@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // 文件：bridge_test_page.dart
-// 作用：加载 Vue3 测试页并验证 WebView 到 Flutter 原生能力通信
+// 作用：加载 Vue2 测试页并验证 WebView 到 Flutter 原生能力通信
 // 编写时间：2026-07-10
 // 维护说明：测试地址与生产业务 WebView 分离，便于独立排查 Bridge 协议
 // -----------------------------------------------------------------------------
@@ -19,10 +19,6 @@ import '../../shared/app_error_view.dart';
 class BridgeTestPage extends StatefulWidget {
   const BridgeTestPage({super.key});
 
-  static final testUri = Uri.parse(
-    'http://42.192.127.131:8088/merp-bridge-test',
-  );
-
   @override
   State<BridgeTestPage> createState() => _BridgeTestPageState();
 }
@@ -32,6 +28,9 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
   MerpNativeBridge? _bridge;
   _BridgePageError? _error;
   var _progress = 0;
+
+  Uri get _testUri =>
+      Uri.parse(AppScope.of(context).config.bridgeTestUrl.trim());
 
   @override
   void didChangeDependencies() {
@@ -81,7 +80,7 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
                 title: context.l10n.bridgeLoadFailed,
                 message: context.l10n.bridgeLoadFailedMessage,
                 detail:
-                    'URL: ${BridgeTestPage.testUri}\n错误码: ${error.errorCode}\n原因: ${error.description}',
+                    'URL: $_testUri\n错误码: ${error.errorCode}\n原因: ${error.description}',
               ),
             );
           },
@@ -92,8 +91,7 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
                 _BridgePageError(
                   title: context.l10n.bridgeHttpError,
                   message: context.l10n.bridgeHttpErrorMessage,
-                  detail:
-                      'URL: ${BridgeTestPage.testUri}\nHTTP 状态码: $statusCode',
+                  detail: 'URL: $_testUri\nHTTP 状态码: $statusCode',
                 ),
               );
             }
@@ -107,7 +105,7 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
         MerpNativeBridge.channelName,
         onMessageReceived: (message) => bridge.handleMessage(message.message),
       )
-      ..loadRequest(BridgeTestPage.testUri);
+      ..loadRequest(_testUri);
 
     _bridge = bridge;
     _controller = controller;
@@ -137,7 +135,7 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
       _createController();
       return;
     }
-    _controller?.loadRequest(BridgeTestPage.testUri);
+    _controller?.loadRequest(_testUri);
   }
 
   @override

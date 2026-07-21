@@ -51,6 +51,10 @@ android {
         release {
             // Demo 暂用 debug 签名；生产流水线必须改用受控的 release signingConfig。
             signingConfig = signingConfigs.getByName("debug")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }

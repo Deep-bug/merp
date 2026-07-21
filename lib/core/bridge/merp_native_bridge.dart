@@ -13,6 +13,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/app_scope.dart';
 import '../../l10n/l10n.dart';
+import '../device/camera_service.dart';
+import '../device/file_service.dart';
 import '../device/location_service.dart';
 
 /// MERP WebView 原生能力 Bridge。
@@ -91,8 +93,16 @@ class MerpNativeBridge {
           await _showToast(requestId, payload);
         case 'camera.takePhoto':
           await _takePhoto(requestId, payload);
+        case 'file.pick':
+          await _pickFiles(requestId, payload);
+        case 'device.getInfo':
+          await _getDeviceInfo(requestId);
         case 'location.getCurrentPosition':
           await _getCurrentPosition(requestId, payload);
+        case 'system.showMessage':
+          await _showSystemMessage(requestId, payload);
+        case 'system.confirm':
+          await _showSystemConfirm(requestId, payload);
         case 'device.openAppSettings':
           await _openAppSettings(requestId);
         default:
@@ -140,9 +150,17 @@ class MerpNativeBridge {
   Map<String, Object?> _pingPayload() {
     return {
       'message': 'pong',
-      'bridgeVersion': '1.1.0',
+      'bridgeVersion': '2.0.0',
       'platform': defaultTargetPlatform.name,
       'timestamp': DateTime.now().toIso8601String(),
+      'capabilities': [
+        'location.getCurrentPosition',
+        'camera.takePhoto',
+        'file.pick',
+        'device.getInfo',
+        'system.showMessage',
+        'system.confirm',
+      ],
     };
   }
 
@@ -195,17 +213,147 @@ class MerpNativeBridge {
     ).clamp(1, 100);
     final maxWidth = _readDouble(options['maxWidth'], fallback: 1920);
 
-    final capture = await cameraService.takePhoto(
-      includeBase64: includeBase64,
-      imageQuality: imageQuality,
-      maxWidth: maxWidth,
-    );
+    try {
+      final capture = await cameraService.takePhoto(
+        includeBase64: includeBase64,
+        imageQuality: imageQuality,
+        maxWidth: maxWidth,
+      );
 
-    if (capture == null) {
-      await _reject(requestId, 'CAMERA_CANCELLED', '用户取消拍照');
+      if (capture == null) {
+        await _reject(requestId, 'CAMERA_CANCELLED', '用户取消拍照');
+        return;
+      }
+      await _resolve(requestId, capture.toJson());
+    } on DevicePermissionException catch (error) {
+      await _reject(
+        requestId,
+        'CAMERA_PERMISSION_DENIED',
+        error.message,
+        details: {'canOpenSettings': true},
+      );
+    }
+  }
+
+  Future<void> _pickFiles(String requestId, Object? payload) async {
+    final options = payload is Map<String, dynamic>
+        ? payload
+        : const <String, dynamic>{};
+    final allowMultiple = options['allowMultiple'] == true;
+    final includeBase64 = options['includeBase64'] == true;
+    final maximumFileBytes = _readInt(
+      options['maximumFileBytes'],
+      fallback: 10 * 1024 * 1024,
+    ).clamp(1024, 20 * 1024 * 1024).toInt();
+    final allowedExtensions = options['allowedExtensions'] is List
+        ? (options['allowedExtensions'] as List)
+              .map((item) => item.toString())
+              .toList(growable: false)
+        : const <String>[];
+
+    try {
+      final files = await AppScope.of(context).fileService.pickFiles(
+        allowMultiple: allowMultiple,
+        includeBase64: includeBase64,
+        allowedExtensions: allowedExtensions,
+        maximumFileBytes: maximumFileBytes,
+      );
+      if (files == null) {
+        await _reject(requestId, 'FILE_CANCELLED', '用户取消选择文件');
+        return;
+      }
+      await _resolve(requestId, {
+        'count': files.length,
+        'files': files.map((file) => file.toJson()).toList(growable: false),
+      });
+    } on FileSelectionException catch (error) {
+      await _reject(
+        requestId,
+        'FILE_INVALID',
+        error.message,
+        details: error.details,
+      );
+    }
+  }
+
+  Future<void> _getDeviceInfo(String requestId) async {
+    final info = await AppScope.of(context).deviceInfoService.getInfo();
+    await _resolve(requestId, info);
+  }
+
+  Future<void> _showSystemMessage(String requestId, Object? payload) async {
+    final options = payload is Map<String, dynamic>
+        ? payload
+        : const <String, dynamic>{};
+    final title = options['title']?.toString().trim();
+    final message = options['message']?.toString().trim();
+    final mode = options['mode']?.toString() ?? 'toast';
+    if (message == null || message.isEmpty) {
+      throw const _BridgeException('SYSTEM_MESSAGE_REQUIRED', '系统消息内容不能为空');
+    }
+
+    if (mode == 'dialog') {
+      if (!context.mounted) {
+        await _reject(requestId, 'BRIDGE_CONTEXT_UNAVAILABLE', '当前页面不可用');
+        return;
+      }
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(title?.isNotEmpty == true ? title! : '系统消息'),
+          content: Text(message),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(context.l10n.acknowledge),
+            ),
+          ],
+        ),
+      );
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      }
+    }
+    await _resolve(requestId, {'shown': true, 'mode': mode});
+  }
+
+  Future<void> _showSystemConfirm(String requestId, Object? payload) async {
+    final options = payload is Map<String, dynamic>
+        ? payload
+        : const <String, dynamic>{};
+    final title = options['title']?.toString().trim();
+    final message = options['message']?.toString().trim();
+    if (message == null || message.isEmpty) {
+      throw const _BridgeException('SYSTEM_MESSAGE_REQUIRED', '确认消息内容不能为空');
+    }
+    if (!context.mounted) {
+      await _reject(requestId, 'BRIDGE_CONTEXT_UNAVAILABLE', '当前页面不可用');
       return;
     }
-    await _resolve(requestId, capture.toJson());
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(title?.isNotEmpty == true ? title! : '请确认'),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    await _resolve(requestId, {'confirmed': confirmed});
   }
 
   Future<void> _getCurrentPosition(String requestId, Object? payload) async {
@@ -369,18 +517,28 @@ const _bridgeScript = r'''
   }
 
   window.MERPBridge = {
-    version: '1.1.0',
+    version: '2.0.0',
 
     call: function (action, payload) {
       var id = createId();
-      MerpNative.postMessage(JSON.stringify({
-        id: id,
-        action: action,
-        payload: payload || {}
-      }));
-
       return new Promise(function (resolve, reject) {
-        pending[id] = { resolve: resolve, reject: reject };
+        var timer = setTimeout(function () {
+          if (!pending[id]) {
+            return;
+          }
+          delete pending[id];
+          reject({
+            code: 'BRIDGE_TIMEOUT',
+            message: '原生能力调用超时',
+            details: { action: action }
+          });
+        }, 90000);
+        pending[id] = { resolve: resolve, reject: reject, timer: timer };
+        MerpNative.postMessage(JSON.stringify({
+          id: id,
+          action: action,
+          payload: payload || {}
+        }));
       });
     },
 
@@ -408,8 +566,24 @@ const _bridgeScript = r'''
       return this.call('camera.takePhoto', options || {});
     },
 
+    pickFiles: function (options) {
+      return this.call('file.pick', options || {});
+    },
+
+    getDeviceInfo: function () {
+      return this.call('device.getInfo', {});
+    },
+
     getCurrentPosition: function (options) {
       return this.call('location.getCurrentPosition', options || {});
+    },
+
+    showSystemMessage: function (options) {
+      return this.call('system.showMessage', options || {});
+    },
+
+    confirm: function (options) {
+      return this.call('system.confirm', options || {});
     },
 
     openAppSettings: function () {
@@ -420,6 +594,7 @@ const _bridgeScript = r'''
       if (!pending[id]) {
         return;
       }
+      clearTimeout(pending[id].timer);
       pending[id].resolve(data);
       delete pending[id];
     },
@@ -428,6 +603,7 @@ const _bridgeScript = r'''
       if (!pending[id]) {
         return;
       }
+      clearTimeout(pending[id].timer);
       pending[id].reject(error);
       delete pending[id];
     }

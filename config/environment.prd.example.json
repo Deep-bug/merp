@@ -1,0 +1,6 @@
+{
+  "APP_ENV": "prd",
+  "AUTH_ENVIRONMENT": "merp",
+  "API_BASE_URL": "https://请替换为生产环境接口地址",
+  "MOCK_MENUS": false
+}

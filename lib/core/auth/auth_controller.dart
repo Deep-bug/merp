@@ -5,13 +5,15 @@
 // 维护说明：路由只监听 AuthStatus，页面不得自行判断或保存 Token
 // -----------------------------------------------------------------------------
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../features/home/data/permission_repository.dart';
 import '../logging/app_logger.dart';
 import 'auth_repository.dart';
 
-enum AuthStatus { booting, unauthenticated, authenticated }
+enum AuthStatus { booting, restoreFailed, unauthenticated, authenticated }
 
 class AuthController extends ChangeNotifier {
   AuthController({
@@ -29,11 +31,15 @@ class AuthController extends ChangeNotifier {
   AuthStatus status = AuthStatus.booting;
   AuthSession? session;
   String? lastError;
+  bool isProfileLoading = false;
+  String? profileLoadError;
+  int _sessionGeneration = 0;
 
   bool get isAuthenticated =>
       status == AuthStatus.authenticated && session != null;
 
   Future<void> restoreSession() async {
+    lastError = null;
     try {
       session = await _authRepository.restore();
       if (session == null) {
@@ -41,20 +47,32 @@ class AuthController extends ChangeNotifier {
         _logger.info('auth', '本地无可恢复会话');
       } else {
         status = AuthStatus.authenticated;
-        await _permissionRepository.loadForSession(session!);
-        _logger.info('auth', '登录会话恢复成功');
+        _sessionGeneration += 1;
+        _logger.info('auth', '登录会话刷新恢复成功，开始后台加载会话数据');
       }
     } catch (error, stackTrace) {
       session = null;
-      status = AuthStatus.unauthenticated;
+      status = AuthStatus.restoreFailed;
+      lastError = error.toString();
       _logger.error('auth', '恢复登录会话失败', error: error, stackTrace: stackTrace);
     }
     notifyListeners();
+    if (isAuthenticated) {
+      unawaited(reloadSessionData());
+    }
+  }
+
+  Future<void> retryRestoreSession() async {
+    status = AuthStatus.booting;
+    lastError = null;
+    notifyListeners();
+    await restoreSession();
   }
 
   Future<bool> login({
     required String account,
     required String password,
+    String? environment,
   }) async {
     lastError = null;
     notifyListeners();
@@ -63,11 +81,13 @@ class AuthController extends ChangeNotifier {
       session = await _authRepository.login(
         account: account,
         password: password,
+        environment: environment,
       );
       status = AuthStatus.authenticated;
-      await _permissionRepository.loadForSession(session!);
+      _sessionGeneration += 1;
       _logger.info('auth', '用户登录成功', fields: {'account': account.trim()});
       notifyListeners();
+      unawaited(reloadSessionData());
       return true;
     } catch (error, stackTrace) {
       lastError = error.toString();
@@ -84,7 +104,57 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// 登录恢复后异步刷新用户资料和权限菜单；两者均只保存在当前进程内存中。
+  Future<void> reloadSessionData() async {
+    final currentSession = session;
+    if (status != AuthStatus.authenticated || currentSession == null) {
+      return;
+    }
+    await Future.wait([
+      _loadProfileForCurrentSession(),
+      _permissionRepository.loadForSession(currentSession),
+    ]);
+  }
+
+  Future<void> _loadProfileForCurrentSession() async {
+    final currentSession = session;
+    if (currentSession == null) {
+      return;
+    }
+    final generation = _sessionGeneration;
+    isProfileLoading = true;
+    profileLoadError = null;
+    notifyListeners();
+    try {
+      final profile = await _authRepository.loadCurrentUserProfile(
+        fallback: currentSession.profile,
+      );
+      if (generation != _sessionGeneration || session == null) {
+        return;
+      }
+      session = session!.copyWith(profile: profile);
+      _logger.info('auth', '用户资料后台加载完成');
+    } catch (error, stackTrace) {
+      if (generation != _sessionGeneration || session == null) {
+        return;
+      }
+      profileLoadError = error.toString();
+      _logger.warning(
+        'auth',
+        '用户资料后台加载失败，保留当前会话资料',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      if (generation == _sessionGeneration) {
+        isProfileLoading = false;
+        notifyListeners();
+      }
+    }
+  }
+
   Future<void> logout() async {
+    _sessionGeneration += 1;
     await _authRepository.logout();
     await _permissionRepository.clear();
     session = null;
@@ -95,6 +165,7 @@ class AuthController extends ChangeNotifier {
 
   /// ApiClient 在 refresh_token 失效后调用，确保内存会话与路由立即同步。
   Future<void> handleSessionExpired() async {
+    _sessionGeneration += 1;
     await _permissionRepository.clear();
     session = null;
     status = AuthStatus.unauthenticated;

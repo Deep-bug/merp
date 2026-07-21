@@ -11,6 +11,8 @@ import '../core/auth/secure_token_store.dart';
 import '../core/config/app_config.dart';
 import '../core/device/camera_service.dart';
 import '../core/device/baidu_privacy_consent_store.dart';
+import '../core/device/device_info_service.dart';
+import '../core/device/file_service.dart';
 import '../core/device/location_service.dart';
 import '../core/device/map_sdk_service.dart';
 import '../core/logging/app_logger.dart';
@@ -34,6 +36,8 @@ class AppDependencies {
     required this.settingsController,
     required this.resourceUpdateController,
     required this.cameraService,
+    required this.fileService,
+    required this.deviceInfoService,
     required this.locationService,
     required this.mapSdkService,
     required this.logger,
@@ -47,6 +51,8 @@ class AppDependencies {
   final SettingsController settingsController;
   final ResourceUpdateController resourceUpdateController;
   final CameraService cameraService;
+  final FileService fileService;
+  final DeviceInfoService deviceInfoService;
   final LocationService locationService;
   final MapSdkService mapSdkService;
   final AppLogger logger;
@@ -55,13 +61,26 @@ class AppDependencies {
   /// 1. 创建配置和基础服务。
   /// 2. 初始化原生 SDK 占位能力。
   /// 3. 加载本地设置。
-  /// 4. 恢复登录态并拉取菜单权限。
+  /// 4. 使用 refresh_token 恢复登录态，资料和权限随后在后台并行加载。
   static Future<AppDependencies> bootstrap({
     AppConfig config = const AppConfig(),
     required AppLogger logger,
   }) async {
-    logger.info('bootstrap', '开始创建应用依赖');
-    final tokenStore = SecureTokenStore();
+    final appEnvironment = config.normalizedAppEnvironment;
+    final authEnvironment = config.normalizedAuthEnvironment;
+    logger.info(
+      'bootstrap',
+      '开始创建应用依赖',
+      fields: {
+        'appEnvironment': appEnvironment,
+        'authEnvironment': authEnvironment,
+        'apiBaseUrl': config.apiBaseUrl,
+      },
+    );
+    final tokenStore = SecureTokenStore(
+      logger: logger,
+      environment: appEnvironment,
+    );
     final settingsController = SettingsController(logger: logger);
     final apiClient = ApiClient(
       config: config,
@@ -113,6 +132,8 @@ class AppDependencies {
       settingsController: settingsController,
       resourceUpdateController: resourceUpdateController,
       cameraService: CameraService(),
+      fileService: FileService(),
+      deviceInfoService: DeviceInfoService(),
       locationService: LocationService(
         config: config,
         logger: logger,

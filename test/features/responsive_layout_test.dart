@@ -7,6 +7,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merp/features/home/data/permission_repository.dart';
 import 'package:merp/features/home/domain/feature_item.dart';
 import 'package:merp/features/home/widgets/home_feature_area.dart';
 import 'package:merp/features/login/login_page.dart';
@@ -64,6 +65,8 @@ void main() {
                 ),
               ],
               hasAnyFeature: true,
+              loadStatus: PermissionLoadStatus.loaded,
+              onRetry: _noopRetry,
               iconColor: Color(0xFF16A3DE),
             ),
           ),
@@ -81,6 +84,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 }
+
+Future<void> _noopRetry() async {}
 
 Widget _testShell(
   Widget home, {

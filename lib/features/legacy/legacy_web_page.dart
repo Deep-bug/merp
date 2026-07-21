@@ -112,8 +112,15 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
       return;
     }
 
+    final parsedLegacyPath = Uri.tryParse(legacyPath);
+    final usesAbsoluteUrl =
+        parsedLegacyPath != null &&
+        parsedLegacyPath.hasScheme &&
+        (parsedLegacyPath.scheme == 'http' ||
+            parsedLegacyPath.scheme == 'https');
     final legacyBaseUrl = scope.config.legacyVueBaseUrl.trim();
-    if (legacyBaseUrl.isEmpty || legacyBaseUrl.contains('example.com')) {
+    if (!usesAbsoluteUrl &&
+        (legacyBaseUrl.isEmpty || legacyBaseUrl.contains('example.com'))) {
       _showError(
         _LegacyError(
           title: context.l10n.featureNotIntegrated,

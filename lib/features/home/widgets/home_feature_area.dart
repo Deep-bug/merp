@@ -14,21 +14,41 @@ import '../../../routing/app_routes.dart';
 import '../../../shared/adaptive_feature_grid.dart';
 import '../../../shared/app_error_view.dart';
 import '../domain/feature_item.dart';
+import '../data/permission_repository.dart';
 
 class HomeFeatureArea extends StatelessWidget {
   const HomeFeatureArea({
     super.key,
     required this.features,
     required this.hasAnyFeature,
+    required this.loadStatus,
+    required this.onRetry,
     required this.iconColor,
   });
 
   final List<FeatureItem> features;
   final bool hasAnyFeature;
+  final PermissionLoadStatus loadStatus;
+  final Future<void> Function() onRetry;
   final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
+    if (loadStatus == PermissionLoadStatus.idle ||
+        loadStatus == PermissionLoadStatus.loading) {
+      return const _FeatureLoadingSkeleton();
+    }
+
+    if (loadStatus == PermissionLoadStatus.failed) {
+      return AppErrorView(
+        icon: Icons.cloud_off_outlined,
+        title: context.l10n.pageLoadFailed,
+        message: context.l10n.pageLoadFailedMessage,
+        primaryLabel: context.l10n.retry,
+        onPrimary: onRetry,
+      );
+    }
+
     if (features.isEmpty && !hasAnyFeature) {
       return AppErrorView(
         icon: Icons.apps_outlined,
@@ -77,6 +97,39 @@ class HomeFeatureArea extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _FeatureLoadingSkeleton extends StatelessWidget {
+  const _FeatureLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final metrics = AdaptiveFeatureGridMetrics.home(
+          context,
+          constraints.maxWidth,
+        );
+        return GridView.builder(
+          itemCount: metrics.crossAxisCount * 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: metrics.crossAxisCount,
+            mainAxisSpacing: metrics.spacing,
+            crossAxisSpacing: metrics.spacing,
+            mainAxisExtent: metrics.mainAxisExtent,
+          ),
+          itemBuilder: (context, index) => const DecoratedBox(
+            decoration: BoxDecoration(
+              color: Color(0xFFF0F3F7),
+              borderRadius: BorderRadius.all(Radius.circular(8)),
+            ),
+          ),
+        );
+      },
     );
   }
 }
