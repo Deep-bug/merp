@@ -92,6 +92,10 @@ export const merpBridge = {
     return this.call('location.getCurrentPosition', options)
   },
 
+  scanCode(options) {
+    return this.call('scanner.scanCode', options)
+  },
+
   takePhoto(options) {
     return this.call('camera.takePhoto', options)
   },
@@ -102,6 +106,10 @@ export const merpBridge = {
 
   getDeviceInfo() {
     return this.call('device.getInfo', {})
+  },
+
+  logout() {
+    return this.call('auth.logout', {})
   },
 
   showSystemMessage(options) {

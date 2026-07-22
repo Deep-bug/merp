@@ -34,7 +34,7 @@
 			<true/>
 		</dict>
 		<key>NSCameraUsageDescription</key>
-		<string>用于拍照上传业务凭证、单据和现场资料。</string>
+		<string>用于扫码，以及拍照上传业务凭证、单据和现场资料。</string>
 		<key>NSFaceIDUsageDescription</key>
 		<string>用于启用指纹或面容解锁，保护企业移动工作台数据安全。</string>
 		<key>NSLocalNetworkUsageDescription</key>

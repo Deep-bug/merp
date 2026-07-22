@@ -5,17 +5,21 @@
 // 维护说明：新增 action 必须校验参数、定义错误码并同步 Bridge 文档
 // -----------------------------------------------------------------------------
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/app_scope.dart';
+import '../../features/scanner/barcode_scanner_page.dart';
 import '../../l10n/l10n.dart';
 import '../device/camera_service.dart';
 import '../device/file_service.dart';
 import '../device/location_service.dart';
+import '../device/scanner_models.dart';
 
 /// MERP WebView 原生能力 Bridge。
 ///
@@ -29,6 +33,7 @@ class MerpNativeBridge {
 
   final BuildContext context;
   final WebViewController controller;
+  bool _logoutInProgress = false;
 
   /// 注入 JS 端 Promise 风格 API。
   ///
@@ -85,6 +90,8 @@ class MerpNativeBridge {
           await _resolve(requestId, _pingPayload());
         case 'auth.getSession':
           await _resolve(requestId, _sessionPayload());
+        case 'auth.logout':
+          await _logout(requestId);
         case 'resource.getManifest':
           await _resolve(requestId, _resourceManifestPayload());
         case 'app.getLocale':
@@ -99,6 +106,8 @@ class MerpNativeBridge {
           await _getDeviceInfo(requestId);
         case 'location.getCurrentPosition':
           await _getCurrentPosition(requestId, payload);
+        case 'scanner.scanCode':
+          await _scanCode(requestId, payload);
         case 'system.showMessage':
           await _showSystemMessage(requestId, payload);
         case 'system.confirm':
@@ -150,16 +159,18 @@ class MerpNativeBridge {
   Map<String, Object?> _pingPayload() {
     return {
       'message': 'pong',
-      'bridgeVersion': '2.0.0',
+      'bridgeVersion': '2.2.0',
       'platform': defaultTargetPlatform.name,
       'timestamp': DateTime.now().toIso8601String(),
       'capabilities': [
         'location.getCurrentPosition',
+        'scanner.scanCode',
         'camera.takePhoto',
         'file.pick',
         'device.getInfo',
         'system.showMessage',
         'system.confirm',
+        'auth.logout',
       ],
     };
   }
@@ -175,6 +186,65 @@ class MerpNativeBridge {
       'access_token': session?.accessToken,
       'token': session?.accessToken,
     };
+  }
+
+  Future<void> _logout(String requestId) async {
+    final scope = AppScope.of(context);
+    if (!scope.authController.isAuthenticated) {
+      await _reject(requestId, 'AUTH_NOT_AUTHENTICATED', '当前用户未登录');
+      return;
+    }
+    if (_logoutInProgress) {
+      await _reject(requestId, 'AUTH_LOGOUT_IN_PROGRESS', '正在退出登录，请勿重复操作');
+      return;
+    }
+    if (!context.mounted) {
+      await _reject(requestId, 'BRIDGE_CONTEXT_UNAVAILABLE', '当前页面不可用');
+      return;
+    }
+
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('退出登录'),
+            content: const Text('确定要退出当前账号吗？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('退出'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) {
+      await _resolve(requestId, {'accepted': false, 'cancelled': true});
+      return;
+    }
+
+    _logoutInProgress = true;
+    await _resolve(requestId, {'accepted': true, 'cancelled': false});
+    unawaited(_completeLogout(scope));
+  }
+
+  Future<void> _completeLogout(AppScope scope) async {
+    try {
+      await scope.authController.logout();
+    } catch (error, stackTrace) {
+      _logoutInProgress = false;
+      scope.logger.error(
+        'bridge',
+        'WebView 发起的退出登录失败',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   Map<String, Object?> _resourceManifestPayload() {
@@ -274,6 +344,35 @@ class MerpNativeBridge {
         details: error.details,
       );
     }
+  }
+
+  Future<void> _scanCode(String requestId, Object? payload) async {
+    final options = payload is Map<String, dynamic>
+        ? payload
+        : const <String, dynamic>{};
+    late final List<BarcodeFormat> formats;
+    try {
+      formats = parseScannerFormats(options['formats']);
+    } on ScannerFormatException catch (error) {
+      await _reject(requestId, 'SCANNER_INVALID_FORMATS', error.message);
+      return;
+    }
+    if (!context.mounted) {
+      await _reject(requestId, 'BRIDGE_CONTEXT_UNAVAILABLE', '当前页面不可用');
+      return;
+    }
+
+    final result = await Navigator.of(context).push<ScanCodeResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => BarcodeScannerPage(formats: formats),
+      ),
+    );
+    if (result == null) {
+      await _reject(requestId, 'SCANNER_CANCELLED', '用户取消扫码');
+      return;
+    }
+    await _resolve(requestId, result.toJson());
   }
 
   Future<void> _getDeviceInfo(String requestId) async {
@@ -517,7 +616,7 @@ const _bridgeScript = r'''
   }
 
   window.MERPBridge = {
-    version: '2.0.0',
+    version: '2.2.0',
 
     call: function (action, payload) {
       var id = createId();
@@ -550,6 +649,10 @@ const _bridgeScript = r'''
       return this.call('auth.getSession', {});
     },
 
+    logout: function () {
+      return this.call('auth.logout', {});
+    },
+
     getResourceManifest: function () {
       return this.call('resource.getManifest', {});
     },
@@ -576,6 +679,10 @@ const _bridgeScript = r'''
 
     getCurrentPosition: function (options) {
       return this.call('location.getCurrentPosition', options || {});
+    },
+
+    scanCode: function (options) {
+      return this.call('scanner.scanCode', options || {});
     },
 
     showSystemMessage: function (options) {

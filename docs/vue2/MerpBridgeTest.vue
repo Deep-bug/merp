@@ -12,7 +12,7 @@
         <button
           v-for="action in actions"
           :key="action.key"
-          class="action-button"
+          :class="['action-button', { danger: action.danger }]"
           :disabled="!bridgeReady || loadingKey !== ''"
           @click="action.run"
         >
@@ -79,6 +79,12 @@ export default {
           run: this.testCamera
         },
         {
+          key: 'scanner',
+          title: '扫码',
+          note: '扫描二维码或常见条码',
+          run: this.testScanner
+        },
+        {
           key: 'file',
           title: '文件',
           note: '打开系统文件选择器',
@@ -101,6 +107,13 @@ export default {
           title: '系统确认',
           note: '验证原生确认交互',
           run: this.testConfirm
+        },
+        {
+          key: 'logout',
+          title: '退出登录',
+          note: '清理手机端会话并返回登录页',
+          danger: true,
+          run: this.testLogout
         }
       ]
     }
@@ -157,6 +170,12 @@ export default {
       this.photoPreview = result && result.dataUrl ? result.dataUrl : ''
     },
 
+    testScanner() {
+      return this.invoke('scanner', '扫码', 'scanner.scanCode', {
+        formats: ['qrCode', 'barCode']
+      })
+    },
+
     testFile() {
       return this.invoke('file', '文件', 'file.pick', {
         allowMultiple: false,
@@ -193,6 +212,10 @@ export default {
         title: '确认测试结果',
         message: '是否确认原生 Confirm 能力工作正常？'
       })
+    },
+
+    testLogout() {
+      return this.invoke('logout', '退出登录', 'auth.logout')
     },
 
     safeResult(value) {
@@ -282,6 +305,12 @@ export default {
 
 .action-button:disabled {
   opacity: 0.55;
+}
+
+.action-button.danger {
+  color: #9b2525;
+  background: #fff7f7;
+  border-color: #e3a7a7;
 }
 
 .action-button strong,
