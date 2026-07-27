@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -15,6 +18,13 @@ fun readLocalBaiduMapAk(): String {
     return match?.groupValues?.get(1).orEmpty()
 }
 
+val releaseSigningProperties = Properties()
+val releaseSigningFile = rootProject.file("key.properties")
+val hasReleaseSigning = releaseSigningFile.exists()
+if (hasReleaseSigning) {
+    FileInputStream(releaseSigningFile).use(releaseSigningProperties::load)
+}
+
 configurations.configureEach {
     // 百度地图 Flutter 插件 4.0.1+1 的 Android 工程仍传递依赖旧版
     // android.arch.lifecycle:extensions:1.1.1，但插件源码已经使用 AndroidX。
@@ -23,7 +33,7 @@ configurations.configureEach {
 }
 
 android {
-    namespace = "com.example.merp"
+    namespace = "com.delta.merpdelta"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -37,8 +47,8 @@ android {
     }
 
     defaultConfig {
-        // 发布前替换为公司正式 applicationId，并与签名、推送和地图平台保持一致。
-        applicationId = "com.example.merp"
+        // 现有包标识作为 PRD Application ID 保留；QAS 在 flavor 中追加后缀。
+        applicationId = "com.delta.merpdelta"
         // 明确锁定 API 24，即 Android 7.0。不要跟随 Flutter 默认值静默上升。
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
@@ -47,15 +57,53 @@ android {
         manifestPlaceholders["BAIDU_MAP_ANDROID_AK"] = readLocalBaiduMapAk()
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                keyAlias = releaseSigningProperties.getProperty("keyAlias")
+                keyPassword = releaseSigningProperties.getProperty("keyPassword")
+                storeFile = file(releaseSigningProperties.getProperty("storeFile"))
+                storePassword = releaseSigningProperties.getProperty("storePassword")
+            }
+        }
+    }
+
+    flavorDimensions += "environment"
+    productFlavors {
+        create("qas") {
+            dimension = "environment"
+            applicationIdSuffix = ".qas"
+            manifestPlaceholders["appName"] = "MERP QAS"
+            signingConfig = signingConfigs.getByName("debug")
+        }
+        create("prd") {
+            dimension = "environment"
+            manifestPlaceholders["appName"] = "MERP"
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // Demo 暂用 debug 签名；生产流水线必须改用受控的 release signingConfig。
-            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
         }
+    }
+}
+
+gradle.taskGraph.whenReady {
+    val buildsPrdRelease = gradle.startParameter.taskNames.any {
+        it.contains("PrdRelease", ignoreCase = true)
+    }
+    if (buildsPrdRelease && !hasReleaseSigning) {
+        throw GradleException(
+            "PRD release signing is not configured. Create android/key.properties " +
+                "and reference a protected production keystore. Debug signing is never used for PRD.",
+        )
     }
 }
 

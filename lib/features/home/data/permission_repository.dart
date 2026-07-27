@@ -301,7 +301,7 @@ class PermissionRepository extends ChangeNotifier {
         permissionCode: 'asset.inventory.view',
         launchMode: FeatureLaunchMode.legacyWeb,
         route: '/legacy/asset-inventory',
-        legacyPath: '/assets/inventory',
+        legacyPath: _apiClient.config.assetInventoryUrl,
       ),
       FeatureItem(
         id: 'device-history',

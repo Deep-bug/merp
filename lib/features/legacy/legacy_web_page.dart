@@ -11,6 +11,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/bridge/merp_native_bridge.dart';
+import '../../core/platform/webview_diagnostics.dart';
 import '../../core/platform/webview_support.dart';
 import '../../l10n/l10n.dart';
 import '../../routing/app_routes.dart';
@@ -31,7 +32,6 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
   Uri? _currentUri;
   _LegacyError? _error;
   var _progress = 0;
-  var _title = '';
   var _configured = false;
 
   @override
@@ -84,8 +84,6 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
       );
       return;
     }
-
-    _title = feature.title;
 
     if (!scope.permissionRepository.canOpen(feature)) {
       _showError(
@@ -149,7 +147,8 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     _progress = 0;
     _error = null;
 
-    final controller = WebViewController()
+    late final WebViewController controller;
+    controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
@@ -158,10 +157,27 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
               setState(() => _progress = progress);
             }
           },
-          onPageFinished: (_) {
+          onPageFinished: (_) async {
             _bridge?.inject();
+            await WebViewDiagnostics.inspect(
+              controller: controller,
+              logger: scope.logger,
+              page: 'legacy:$moduleId',
+            );
           },
           onWebResourceError: (error) {
+            if (WebViewDiagnostics.enabled) {
+              scope.logger.warning(
+                'webview',
+                'WebView resource load failed',
+                fields: {
+                  'page': 'legacy:$moduleId',
+                  'resourceType': WebViewDiagnostics.resourceType(error),
+                  'errorCode': error.errorCode,
+                  'description': error.description,
+                },
+              );
+            }
             if (error.isForMainFrame == false) {
               return;
             }
@@ -188,6 +204,12 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
           },
         ),
       );
+
+    WebViewDiagnostics.attach(
+      controller: controller,
+      logger: scope.logger,
+      page: 'legacy:$moduleId',
+    );
 
     final bridge = MerpNativeBridge(context: context, controller: controller);
     controller
@@ -249,31 +271,30 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     final controller = _controller;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_title.isEmpty ? context.l10n.legacyPage : _title),
+      body: SafeArea(
+        child: error != null
+            ? AppErrorView(
+                icon: Icons.cloud_off_outlined,
+                tone: error.tone,
+                title: error.title,
+                message: error.message,
+                detail: error.detail,
+                referenceId: error.incidentId,
+                primaryLabel: context.l10n.retry,
+                onPrimary: _retry,
+                secondaryLabel: context.l10n.returnWorkbench,
+                onSecondary: () => context.go(AppRoute.home),
+              )
+            : controller == null
+            ? const Center(child: CircularProgressIndicator())
+            : Stack(
+                children: [
+                  WebViewWidget(controller: controller),
+                  if (_progress < 100)
+                    LinearProgressIndicator(value: _progress / 100),
+                ],
+              ),
       ),
-      body: error != null
-          ? AppErrorView(
-              icon: Icons.cloud_off_outlined,
-              tone: error.tone,
-              title: error.title,
-              message: error.message,
-              detail: error.detail,
-              referenceId: error.incidentId,
-              primaryLabel: context.l10n.retry,
-              onPrimary: _retry,
-              secondaryLabel: context.l10n.returnWorkbench,
-              onSecondary: () => context.go(AppRoute.home),
-            )
-          : controller == null
-          ? const Center(child: CircularProgressIndicator())
-          : Stack(
-              children: [
-                WebViewWidget(controller: controller),
-                if (_progress < 100)
-                  LinearProgressIndicator(value: _progress / 100),
-              ],
-            ),
     );
   }
 }

@@ -100,6 +100,12 @@ void main() {
             .legacyPath,
         startsWith('https://mcrmapi.deltaww.com.cn/'),
       );
+      expect(
+        repository.allFeatures
+            .singleWhere((item) => item.id == 'asset-inventory')
+            .legacyPath,
+        contains('FixedAssetInventory.html#/home'),
+      );
     },
   );
 }

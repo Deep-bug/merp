@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+TOOL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$TOOL_DIR/.." && pwd)"
+# shellcheck source=tool/versions
+source "$TOOL_DIR/versions"
+
+fail() {
+  printf '错误：%s\n' "$*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "$2"
+}
+
+require_command git "请先安装 Git（可执行 xcode-select --install）。"
+require_command curl "请先安装 curl。"
+require_command tar "请先安装 tar。"
+require_command shasum "系统缺少 shasum，无法校验 FVM 下载文件。"
+
+OS_NAME="$(uname -s)"
+CPU_NAME="$(uname -m)"
+if [[ "$OS_NAME" != "Darwin" ]]; then
+  fail "当前 bootstrap 完整支持 macOS；检测到 $OS_NAME。"
+fi
+
+case "$CPU_NAME" in
+  arm64)
+    PLATFORM_KEY="macos-arm64"
+    FVM_URL="$FVM_MACOS_ARM64_URL"
+    FVM_SHA256="$FVM_MACOS_ARM64_SHA256"
+    ;;
+  x86_64)
+    PLATFORM_KEY="macos-x64"
+    FVM_URL="$FVM_MACOS_X64_URL"
+    FVM_SHA256="$FVM_MACOS_X64_SHA256"
+    ;;
+  *)
+    fail "不支持的 macOS CPU 架构：$CPU_NAME"
+    ;;
+esac
+
+FVM_HOME="$ROOT_DIR/.tool-cache/fvm/$FVM_VERSION/$PLATFORM_KEY"
+FVM_BIN="$FVM_HOME/fvm"
+DOWNLOAD_DIR="$ROOT_DIR/.tool-cache/downloads"
+ARCHIVE="$DOWNLOAD_DIR/fvm-$FVM_VERSION-$PLATFORM_KEY.tar.gz"
+
+mkdir -p "$FVM_HOME" "$DOWNLOAD_DIR"
+
+if [[ ! -x "$FVM_BIN" ]]; then
+  if [[ ! -f "$ARCHIVE" ]]; then
+    printf '下载项目固定版本 FVM %s（%s）...\n' "$FVM_VERSION" "$PLATFORM_KEY"
+    curl --fail --location --retry 3 --output "$ARCHIVE" "$FVM_URL"
+  else
+    printf '复用已下载的 FVM 压缩包：%s\n' "$ARCHIVE"
+  fi
+
+  ACTUAL_SHA256="$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')"
+  if [[ "$ACTUAL_SHA256" != "$FVM_SHA256" ]]; then
+    rm -f "$ARCHIVE"
+    fail "FVM 文件校验失败，已删除缓存，请重新执行。"
+  fi
+
+  EXTRACT_DIR="$FVM_HOME/extracted"
+  rm -rf "$EXTRACT_DIR"
+  mkdir -p "$EXTRACT_DIR"
+  tar -xzf "$ARCHIVE" -C "$EXTRACT_DIR"
+  EXTRACTED_BIN="$(find "$EXTRACT_DIR" -type f -name fvm -perm +111 -print -quit)"
+  if [[ -z "$EXTRACTED_BIN" ]]; then
+    EXTRACTED_BIN="$(find "$EXTRACT_DIR" -type f -name fvm -print -quit)"
+  fi
+  [[ -n "$EXTRACTED_BIN" ]] || fail "FVM 压缩包内未找到可执行文件。"
+  cp "$EXTRACTED_BIN" "$FVM_BIN"
+  chmod +x "$FVM_BIN"
+fi
+
+FVMRC_VERSION="$(sed -n 's/.*"flutter"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$ROOT_DIR/.fvmrc")"
+[[ -n "$FVMRC_VERSION" ]] || fail ".fvmrc 中没有可识别的 Flutter 版本。"
+if [[ "$FVMRC_VERSION" != "$FLUTTER_VERSION" ]]; then
+  fail ".fvmrc ($FVMRC_VERSION) 与 tool/versions ($FLUTTER_VERSION) 不一致。"
+fi
+
+printf 'FVM：%s\nFlutter：%s\n' "$FVM_VERSION" "$FLUTTER_VERSION"
+cd "$ROOT_DIR"
+FVM_NO_ANALYTICS=1 "$FVM_BIN" install "$FLUTTER_VERSION"
+FVM_NO_ANALYTICS=1 "$FVM_BIN" use "$FLUTTER_VERSION" --force
+FVM_NO_ANALYTICS=1 "$FVM_BIN" flutter pub get
+
+printf '\n系统工具检查：\n'
+JAVA_BIN="$(command -v java 2>/dev/null || true)"
+ANDROID_STUDIO_JAVA="/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java"
+if [[ -x "$ANDROID_STUDIO_JAVA" ]]; then
+  JAVA_BIN="$ANDROID_STUDIO_JAVA"
+fi
+
+if [[ -n "$JAVA_BIN" ]]; then
+  JAVA_VERSION_LINE="$("$JAVA_BIN" -version 2>&1 | head -n 1)"
+  if [[ "$JAVA_VERSION_LINE" == *'version "1.'* ]]; then
+    JAVA_MAJOR="$(printf '%s' "$JAVA_VERSION_LINE" | sed -E 's/.*version "1\.([0-9]+).*/\1/')"
+  else
+    JAVA_MAJOR="$(printf '%s' "$JAVA_VERSION_LINE" | sed -E 's/.*version "([0-9]+).*/\1/')"
+  fi
+  if [[ "$JAVA_MAJOR" =~ ^[0-9]+$ && "$JAVA_MAJOR" -ge 17 ]]; then
+    printf '  [OK] Android Java：%s\n' "$JAVA_VERSION_LINE"
+  else
+    printf '  [需修复] Java：%s；Android 构建需要 JDK 17。\n' "$JAVA_VERSION_LINE"
+    printf '           可在 Android Studio 设置 Gradle JDK，或配置 JAVA_HOME。\n'
+  fi
+else
+  printf '  [缺失] Java：安装 JDK 17，或让 Android Studio 使用内置 JDK。\n'
+fi
+
+ANDROID_SDK_PATH="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+if [[ -z "$ANDROID_SDK_PATH" && -d "$HOME/Library/Android/sdk" ]]; then
+  ANDROID_SDK_PATH="$HOME/Library/Android/sdk"
+fi
+if [[ -n "$ANDROID_SDK_PATH" ]]; then
+  printf '  [OK] Android SDK：%s\n' "$ANDROID_SDK_PATH"
+else
+  printf '  [提示] 未设置 ANDROID_SDK_ROOT；可由 Android Studio 安装 SDK 后配置。\n'
+fi
+
+if command -v xcodebuild >/dev/null 2>&1; then
+  printf '  [OK] Xcode：%s\n' "$(xcodebuild -version | head -n 1)"
+else
+  printf '  [缺失] Xcode：从 App Store 安装，并执行 sudo xcode-select -s /Applications/Xcode.app。\n'
+fi
+
+if command -v pod >/dev/null 2>&1; then
+  printf '  [OK] CocoaPods：%s\n' "$(pod --version)"
+else
+  printf '  [缺失] CocoaPods：安装后才能构建 iOS（例如 brew install cocoapods）。\n'
+fi
+
+printf '\n初始化完成。后续统一使用 ./tool/app。\n'

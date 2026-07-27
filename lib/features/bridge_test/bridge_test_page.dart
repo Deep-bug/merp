@@ -10,6 +10,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/bridge/merp_native_bridge.dart';
+import '../../core/platform/webview_diagnostics.dart';
 import '../../core/platform/webview_support.dart';
 import '../../l10n/l10n.dart';
 import '../../routing/app_navigator.dart';
@@ -41,6 +42,7 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
   }
 
   void _createController() {
+    final scope = AppScope.of(context);
     if (!WebViewSupport.isSupported) {
       _showError(
         _BridgePageError(
@@ -53,7 +55,8 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
       return;
     }
 
-    final controller = WebViewController()
+    late final WebViewController controller;
+    controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
@@ -70,8 +73,27 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
               });
             }
           },
-          onPageFinished: (_) => _bridge?.inject(),
+          onPageFinished: (_) async {
+            _bridge?.inject();
+            await WebViewDiagnostics.inspect(
+              controller: controller,
+              logger: scope.logger,
+              page: 'bridge-test',
+            );
+          },
           onWebResourceError: (error) {
+            if (WebViewDiagnostics.enabled) {
+              scope.logger.warning(
+                'webview',
+                'WebView resource load failed',
+                fields: {
+                  'page': 'bridge-test',
+                  'resourceType': WebViewDiagnostics.resourceType(error),
+                  'errorCode': error.errorCode,
+                  'description': error.description,
+                },
+              );
+            }
             if (error.isForMainFrame == false) {
               return;
             }
@@ -98,6 +120,12 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
           },
         ),
       );
+
+    WebViewDiagnostics.attach(
+      controller: controller,
+      logger: scope.logger,
+      page: 'bridge-test',
+    );
 
     final bridge = MerpNativeBridge(context: context, controller: controller);
     controller

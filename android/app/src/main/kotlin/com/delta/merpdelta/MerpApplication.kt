@@ -1,4 +1,4 @@
-package com.example.merp
+package com.delta.merpdelta
 
 import com.baidu.mapapi.base.BmfMapApplication
 

@@ -109,6 +109,12 @@ export default {
           run: this.testConfirm
         },
         {
+          key: 'closePage',
+          title: '返回手机首页',
+          note: '关闭当前 WebView 页面',
+          run: this.testClosePage
+        },
+        {
           key: 'logout',
           title: '退出登录',
           note: '清理手机端会话并返回登录页',
@@ -212,6 +218,15 @@ export default {
         title: '确认测试结果',
         message: '是否确认原生 Confirm 能力工作正常？'
       })
+    },
+
+    testClosePage() {
+      return this.invoke(
+        'closePage',
+        '返回手机首页',
+        'navigation.closePage',
+        { reason: 'bridge_test_back' }
+      )
     },
 
     testLogout() {

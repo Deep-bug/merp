@@ -1,4 +1,4 @@
-package com.example.merp
+package com.delta.merpdelta
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

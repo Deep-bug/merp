@@ -27,12 +27,17 @@ class AppConfig {
     this.bridgeTestUrl = const String.fromEnvironment(
       'BRIDGE_TEST_URL',
       defaultValue:
-          'https://mcrmapi.deltaww.com.cn/mcom/webvue/1.0.beta/dist/my_task.html#/flutterTest',
+          'https://mcrmapi.deltaww.com.cn/mcom/webvue/1.0.beta/dist/flutter_test.html#/home',
     ),
     this.electronicFormUrl = const String.fromEnvironment(
       'ELECTRONIC_FORM_URL',
       defaultValue:
           'https://mcrmapi.deltaww.com.cn/mcom/webvue/1.0.beta/dist/eform.html#/home',
+    ),
+    this.assetInventoryUrl = const String.fromEnvironment(
+      'ASSET_INVENTORY_URL',
+      defaultValue:
+          'https://mcrmapi.deltaww.com.cn/mcom/webvue/1.0.beta/dist/FixedAssetInventory.html#/home',
     ),
     this.loginPath = '/api/v1/auth/login',
     this.refreshTokenPath = '/api/v1/auth/refresh',
@@ -95,6 +100,9 @@ class AppConfig {
 
   /// 电子表单 WebView 地址；带人员、表单和票据参数的值只允许本地注入。
   final String electronicFormUrl;
+
+  /// 固资盘点 WebView 地址；带人员和票据参数的值只允许本地注入。
+  final String assetInventoryUrl;
 
   final String loginPath;
 

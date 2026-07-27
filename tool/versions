@@ -1,0 +1,8 @@
+# Project toolchain versions. Keep these values fixed and review upgrades explicitly.
+FVM_VERSION="4.1.2"
+FLUTTER_VERSION="3.44.6"
+
+FVM_MACOS_ARM64_URL="https://github.com/conceptadev/fvm/releases/download/4.1.2/fvm-4.1.2-macos-arm64.tar.gz"
+FVM_MACOS_ARM64_SHA256="0b2a146986c51f06331f135f0bdf2a202eb57f55d7edd420c9078e8520e4c033"
+FVM_MACOS_X64_URL="https://github.com/conceptadev/fvm/releases/download/4.1.2/fvm-4.1.2-macos-x64.tar.gz"
+FVM_MACOS_X64_SHA256="7bbfcb6883ea67ce532163704f5625eba7ecf340084be707cde71a28fefff1d8"

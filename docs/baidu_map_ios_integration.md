@@ -31,8 +31,8 @@
 截图或业务接口中写入真实 AK。
 
 百度 Android AK 会校验包名与 SHA1，当前 Android applicationId 为
-`com.example.merp`；iOS AK 会校验 Bundle Identifier，当前 iOS 标识为
-`com.example.merp`。百度开放平台控制台中的应用配置必须与工程完全一致。
+`com.delta.merpdelta`；iOS AK 会校验 Bundle Identifier，当前 iOS 标识为
+`com.delta.merpdelta`。百度开放平台控制台中的应用配置必须与工程完全一致。
 如果公司正式包名不同，应先统一修改工程和百度控制台配置。
 
 ## macOS / iOS 启动步骤

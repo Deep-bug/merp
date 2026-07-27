@@ -9,8 +9,14 @@ Pod::PICKER_MEDIA = false
 
 project 'Runner', {
   'Debug' => :debug,
+  'Debug-qas' => :debug,
+  'Debug-prd' => :debug,
   'Profile' => :release,
+  'Profile-qas' => :release,
+  'Profile-prd' => :release,
   'Release' => :release,
+  'Release-qas' => :release,
+  'Release-prd' => :release,
 }
 
 def flutter_root

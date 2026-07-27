@@ -1,0 +1,5 @@
+# Copy to android/key.properties and keep the real file outside Git.
+storeFile=/absolute/path/to/production-upload-keystore.jks
+storePassword=replace-me
+keyAlias=replace-me
+keyPassword=replace-me

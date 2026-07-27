@@ -13,68 +13,97 @@ MERP 是原 Cordova 6.5 外壳的 Flutter 升级版本。Flutter 统一负责启
 
 ## 开发环境与打包
 
-项目推荐使用 FVM 固定 Flutter 版本，版本配置见 `.fvmrc`。当前验证版本为
-Flutter `3.44.6`。
+项目统一使用 Flutter `3.44.6` 和项目内固定版本的 FVM。新同事不需要全局安装
+FVM，也不要直接执行全局 `flutter`；首次拉取代码后运行：
 
-使用 FVM 的同学：
-
-```bash
-fvm install
-fvm flutter pub get
-fvm flutter run --dart-define-from-file=config/baidu_map.local.json
-```
-
-不使用 FVM 的同学，需要先保证本机 `flutter --version` 与 `.fvmrc` 一致或兼容，
-然后把命令里的 `fvm flutter` 换成 `flutter`：
+完整教程见
+[MERP Flutter 开发、运行与发布教程](docs/DEVELOPMENT_AND_RELEASE_GUIDE.md)。
 
 ```bash
-flutter pub get
-flutter run --dart-define-from-file=config/baidu_map.local.json
+./tool/bootstrap
+./tool/app doctor
 ```
 
-百度地图和定位依赖本地 AK 配置。复制示例文件后填写真实 AK，真实文件已被 Git 忽略：
+`bootstrap` 会识别 macOS CPU、下载并校验固定版本 FVM、安装 `.fvmrc` 指定的
+Flutter、获取依赖并检查 Java、Android SDK、Xcode 和 CocoaPods。重复执行会复用
+`.tool-cache` 缓存。
+
+日常只运行 QAS：
+
+```bash
+./tool/app run qas android
+./tool/app run qas ios
+
+# 指定设备
+./tool/app run qas android -d <device-id>
+```
+
+代码检查与测试：
+
+```bash
+./tool/app analyze
+./tool/app test
+```
+
+构建矩阵：
+
+```bash
+# QAS 测试包
+./tool/app build qas android  # release APK
+./tool/app build qas ios      # development IPA
+
+# PRD 正式包，本地需输入 prd 二次确认
+./tool/app build prd android  # release AAB
+./tool/app build prd ios      # App Store IPA
+
+# CI 无交互执行示例
+CI=true BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build prd android
+```
+
+命令会统一注入 Flavor、`config/<env>.json`、本地地图/WebView 配置、版本号和
+构建编号，并在成功后打印实际产物的完整路径、环境、版本和 Git 提交。PRD 不提供
+日常运行命令，也不会自动上传商店。
+
+环境配置：
+
+- QAS 使用 `config/qas.json`，现有 QAS API 地址已迁移，默认开启必要日志。
+- PRD 使用 `config/prd.json`，生产 API 尚不能从仓库确认，当前留空并在构建前拦截。
+- 本地或 CI 可生成被 Git 忽略的 `config/prd.local.json` 覆盖生产配置。
+- 百度地图 AK 放在 `config/baidu_map.local.json`；WebView 私有参数放在
+  `config/webview.local.json`。两者都不会进入 Git。
+
+百度地图本地配置可从示例创建：
 
 ```bash
 cp config/baidu_map.example.json config/baidu_map.local.json
 ```
-
-Android debug 包：
-
-```bash
-fvm flutter build apk --debug \
-  --dart-define-from-file=config/baidu_map.local.json
-```
-
-Android release 包：
-
-```bash
-fvm flutter build apk --release \
-  --dart-define-from-file=config/baidu_map.local.json
-```
-
-iOS debug 构建校验：
-
-```bash
-fvm flutter build ios --debug --no-codesign \
-  --dart-define-from-file=config/baidu_map.local.json
-```
-
-iOS 正式签名包需要在 Xcode 中配置 Apple Developer Team、Bundle ID、证书和
-provisioning profile。未配置签名时，可先使用无签名构建产物进行后续重签或内部验证。
 
 打包注意事项：
 
 - `config/baidu_map.local.json` 不能提交 Git；提交前执行 `git check-ignore -v config/baidu_map.local.json`。
 - Android 百度 AK 会校验 applicationId 和签名 SHA1，release 签名变化后必须同步百度控制台。
 - iOS 百度 AK 会校验 Bundle Identifier，Xcode 工程和百度控制台必须一致。
-- 当前 Android release 暂用 debug signingConfig，生产发布前必须改成正式签名。
+- Android PRD 使用 `com.delta.merpdelta`，QAS 使用 `com.delta.merpdelta.qas`，两者可同时安装。
+- Android QAS release 使用 debug 签名作为测试包。PRD 必须配置
+  `android/key.properties` 和生产 keystore，缺失时构建会失败，绝不回退到 debug 签名。
+- iOS PRD 使用 `com.delta.merpdelta`，QAS 使用 `com.delta.merpdelta.qas`，共享
+  Scheme 为 `prd` 和 `qas`。
+- iOS IPA 需要匹配两个 Bundle ID 的证书和 Provisioning Profile；PRD 发布还需要
+  Apple Distribution 证书和 App Store Connect 权限。
 - iOS 必须打开 `ios/Runner.xcworkspace`，不要单独打开 `Runner.xcodeproj`。
 - 修改百度插件、Gradle、Pod、权限、启动图或图标后，必须双端真机验证地图加载和点击定位。
+
+仓库当前未绑定 CI 供应商。后续流水线只调用 `./tool/bootstrap` 和
+`CI=true ./tool/app build prd <platform>`，不要在 CI 再维护一套 Flutter 参数。
+CI 密钥至少包括 Android keystore 与四项 `key.properties` 值、PRD 环境配置、
+百度平台 AK，以及 iOS Distribution 证书、私钥、Provisioning Profile 和
+App Store Connect 凭证。
 
 ## 目录结构
 
 ```text
 merp/
+├── tool/                                     # 固定工具链、首次初始化和统一构建入口
 ├── android/                                  # Android 工程、权限、启动图、图标和 Gradle 配置
 │   └── app/
 │       ├── build.gradle.kts                  # minSdk=24，明确兼容 Android 7.0
@@ -317,11 +346,18 @@ final incidentId = logger.error(
 
 - `bridge.ping`
 - `auth.getSession`
+- `auth.logout`
 - `resource.getManifest`
 - `app.getLocale`
 - `app.showToast`
 - `camera.takePhoto`
+- `file.pick`
+- `device.getInfo`
 - `location.getCurrentPosition`
+- `scanner.scanCode`
+- `system.showMessage`
+- `system.confirm`
+- `navigation.closePage`
 - `device.openAppSettings`
 
 新增 action 必须在 `MerpNativeBridge` 中完成参数校验、返回结构、错误码和日志，并同步 Bridge 文档。相机和定位都由用户在 Vue 页面主动操作触发，不在页面加载或 App 启动时申请权限。Vue2 精确定位接入见 [定位 Bridge 文档](docs/vue2_location_bridge.md)。

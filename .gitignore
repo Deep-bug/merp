@@ -28,6 +28,7 @@ migrate_working_dir/
 **/ios/Flutter/.last_build_id
 .dart_tool/
 .fvm/
+.tool-cache/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
@@ -40,6 +41,15 @@ migrate_working_dir/
 /config/baidu_map.local.json
 /config/environment.*.local.json
 /config/webview.local.json
+/config/qas.local.json
+/config/prd.local.json
+
+# Android production signing files must remain local or in the CI secret store.
+/android/key.properties
+/android/*.jks
+/android/*.keystore
+/android/app/*.jks
+/android/app/*.keystore
 
 # Symbolication related
 app.*.symbols

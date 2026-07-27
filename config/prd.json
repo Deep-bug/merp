@@ -1,0 +1,7 @@
+{
+  "APP_ENV": "prd",
+  "AUTH_ENVIRONMENT": "merp",
+  "API_BASE_URL": "",
+  "MOCK_MENUS": false,
+  "ENABLE_LOG": false
+}

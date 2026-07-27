@@ -112,6 +112,10 @@ export const merpBridge = {
     return this.call('auth.logout', {})
   },
 
+  closePage(options) {
+    return this.call('navigation.closePage', options || {})
+  },
+
   showSystemMessage(options) {
     return this.call('system.showMessage', options)
   },

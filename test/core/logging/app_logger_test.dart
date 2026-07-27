@@ -26,4 +26,15 @@ void main() {
     expect(logger.exportText(), isNot(contains('123456')));
     expect(logger.exportText(), contains('<redacted>'));
   });
+
+  test('disables debug and info logs for production builds', () {
+    final logger = AppLogger(enableDebugLogs: false);
+
+    logger.debug('test', 'debug');
+    logger.info('test', 'info');
+    logger.warning('test', 'warning');
+
+    expect(logger.entries, hasLength(1));
+    expect(logger.entries.single.level, AppLogLevel.warning);
+  });
 }

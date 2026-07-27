@@ -1,0 +1,251 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+TOOL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$TOOL_DIR/.." && pwd)"
+# shellcheck source=tool/versions
+source "$TOOL_DIR/versions"
+
+FVM_PLATFORM="macos-x64"
+[[ "$(uname -m)" == "arm64" ]] && FVM_PLATFORM="macos-arm64"
+FVM_BIN="$ROOT_DIR/.tool-cache/fvm/$FVM_VERSION/$FVM_PLATFORM/fvm"
+
+usage() {
+  cat <<'HELP'
+用法：
+  ./tool/app doctor
+  ./tool/app analyze
+  ./tool/app test
+  ./tool/app run qas android [Flutter 额外参数]
+  ./tool/app run qas ios [Flutter 额外参数]
+  ./tool/app build qas android [Flutter 额外参数]
+  ./tool/app build qas ios [Flutter 额外参数]
+  ./tool/app build prd android [Flutter 额外参数]
+  ./tool/app build prd ios [Flutter 额外参数]
+
+版本覆盖：
+  BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build qas android
+HELP
+}
+
+fail() {
+  printf '错误：%s\n\n' "$*" >&2
+  usage >&2
+  exit 1
+}
+
+ensure_fvm() {
+  if [[ ! -x "$FVM_BIN" ]]; then
+    printf '尚未初始化项目工具链，正在执行 bootstrap...\n'
+    "$TOOL_DIR/bootstrap"
+  fi
+}
+
+flutter() {
+  FVM_NO_ANALYTICS=1 "$FVM_BIN" flutter "$@"
+}
+
+project_version() {
+  sed -n 's/^version:[[:space:]]*\([^+[:space:]]*\).*/\1/p' "$ROOT_DIR/pubspec.yaml"
+}
+
+project_build_number() {
+  sed -n 's/^version:[[:space:]]*[^+[:space:]]*+\([0-9][0-9]*\).*/\1/p' "$ROOT_DIR/pubspec.yaml"
+}
+
+config_args() {
+  local environment="$1"
+  local base_file="$ROOT_DIR/config/$environment.json"
+  local override_file="$ROOT_DIR/config/$environment.local.json"
+
+  [[ -f "$base_file" ]] || fail "缺少环境配置：$base_file"
+  CONFIG_ARGUMENTS=("--dart-define-from-file=$base_file")
+  [[ -f "$override_file" ]] && CONFIG_ARGUMENTS+=("--dart-define-from-file=$override_file")
+  [[ -f "$ROOT_DIR/config/baidu_map.local.json" ]] &&
+    CONFIG_ARGUMENTS+=("--dart-define-from-file=$ROOT_DIR/config/baidu_map.local.json")
+  [[ -f "$ROOT_DIR/config/webview.local.json" ]] &&
+    CONFIG_ARGUMENTS+=("--dart-define-from-file=$ROOT_DIR/config/webview.local.json")
+}
+
+validate_prd_config() {
+  local source_file="$ROOT_DIR/config/prd.json"
+  [[ -f "$ROOT_DIR/config/prd.local.json" ]] &&
+    source_file="$ROOT_DIR/config/prd.local.json"
+  local api_url
+  api_url="$(sed -n 's/.*"API_BASE_URL"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$source_file")"
+  if [[ -z "$api_url" || "$api_url" == *"替换"* || "$api_url" == *"placeholder"* ]]; then
+    fail "PRD API_BASE_URL 尚未配置。请创建被 Git 忽略的 config/prd.local.json，或由 CI 安全生成。"
+  fi
+}
+
+confirm_prd() {
+  if [[ "${CI:-}" == "true" || "${CI:-}" == "1" ]]; then
+    return
+  fi
+  printf '\n警告：即将构建 PRD 正式包，不会自动上传应用商店。\n'
+  printf '请输入 prd 继续：'
+  read -r confirmation
+  [[ "$confirmation" == "prd" ]] || {
+    printf '已取消 PRD 构建。\n'
+    exit 1
+  }
+}
+
+has_device_argument() {
+  local argument
+  for argument in "$@"; do
+    [[ "$argument" == "-d" || "$argument" == "--device-id" ||
+      "$argument" == --device-id=* ]] && return 0
+  done
+  return 1
+}
+
+select_device() {
+  local platform="$1"
+  command -v ruby >/dev/null 2>&1 ||
+    fail "自动选择设备需要 Ruby；也可以直接传入 -d <device-id>。"
+  local devices_json
+  devices_json="$(flutter devices --machine)"
+  ruby -rjson -e '
+    platform = ARGV.fetch(0)
+    devices = JSON.parse(STDIN.read)
+    device = devices.find do |item|
+      target = item.fetch("targetPlatform", "")
+      platform == "android" ? target.start_with?("android") : target.start_with?("ios")
+    end
+    puts device["id"] if device
+  ' "$platform" <<<"$devices_json"
+}
+
+print_artifact() {
+  local environment="$1"
+  local platform="$2"
+  local version_name="$3"
+  local build_number="$4"
+  local marker="$5"
+  local extension="$6"
+  local artifact
+
+  artifact="$(find "$ROOT_DIR/build" -type f -name "*.$extension" -newer "$marker" -print 2>/dev/null | head -n 1)"
+  [[ -n "$artifact" ]] || fail "构建命令结束，但没有找到本次生成的 .$extension 产物。"
+  artifact="$(cd "$(dirname "$artifact")" && pwd)/$(basename "$artifact")"
+
+  printf '\n✓ 构建成功\n'
+  printf '环境：%s\n' "$environment"
+  printf '平台：%s\n' "$platform"
+  printf '版本：%s+%s\n' "$version_name" "$build_number"
+  printf '提交：%s\n' "$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || printf unknown)"
+  printf '产物：%s\n' "$artifact"
+}
+
+COMMAND="${1:-}"
+case "$COMMAND" in
+  doctor)
+    [[ $# -eq 1 ]] || fail "doctor 不接受额外的位置参数。"
+    "$TOOL_DIR/bootstrap"
+    flutter doctor -v
+    printf '\n项目环境检查：\n'
+    printf '  Flutter 固定版本：%s\n' "$FLUTTER_VERSION"
+    printf '  Android flavors：qas / prd\n'
+    printf '  iOS shared schemes：qas / prd\n'
+    [[ -f "$ROOT_DIR/config/baidu_map.local.json" ]] ||
+      printf '  [提示] 缺少 config/baidu_map.local.json，地图功能将没有本地 AK。\n'
+    [[ -f "$ROOT_DIR/android/key.properties" ]] ||
+      printf '  [提示] 缺少 android/key.properties，PRD Android 构建会被安全拦截。\n'
+    exit 0
+    ;;
+  analyze)
+    [[ $# -eq 1 ]] || fail "analyze 不接受额外的位置参数。"
+    ensure_fvm
+    cd "$ROOT_DIR"
+    flutter analyze
+    exit 0
+    ;;
+  test)
+    [[ $# -eq 1 ]] || fail "test 不接受额外的位置参数。"
+    ensure_fvm
+    cd "$ROOT_DIR"
+    flutter test
+    exit 0
+    ;;
+  run | build)
+    ;;
+  *)
+    fail "未知命令：${COMMAND:-<空>}"
+    ;;
+esac
+
+ENVIRONMENT="${2:-}"
+PLATFORM="${3:-}"
+[[ "$ENVIRONMENT" == "qas" || "$ENVIRONMENT" == "prd" ]] ||
+  fail "环境只能是 qas 或 prd。"
+[[ "$PLATFORM" == "android" || "$PLATFORM" == "ios" ]] ||
+  fail "平台只能是 android 或 ios。"
+if [[ "$COMMAND" == "run" && "$ENVIRONMENT" == "prd" ]]; then
+  fail "不提供 run prd；本地日常运行固定使用 QAS。"
+fi
+
+shift 3
+EXTRA_ARGUMENTS=("$@")
+ensure_fvm
+config_args "$ENVIRONMENT"
+
+VERSION_NAME="${BUILD_NAME:-$(project_version)}"
+BUILD_NUMBER="${BUILD_NUMBER:-$(project_build_number)}"
+[[ -n "$VERSION_NAME" && -n "$BUILD_NUMBER" ]] ||
+  fail "无法从 pubspec.yaml 读取版本号或构建编号。"
+
+cd "$ROOT_DIR"
+
+if [[ "$COMMAND" == "run" ]]; then
+  if ! has_device_argument "${EXTRA_ARGUMENTS[@]}"; then
+    DEVICE_ID="$(select_device "$PLATFORM")"
+    [[ -n "$DEVICE_ID" ]] ||
+      fail "没有发现可用的 $PLATFORM 设备；请连接设备或传入 -d <device-id>。"
+    EXTRA_ARGUMENTS=("-d" "$DEVICE_ID" "${EXTRA_ARGUMENTS[@]}")
+    printf '使用 %s 设备：%s\n' "$PLATFORM" "$DEVICE_ID"
+  fi
+  flutter run \
+    --flavor qas \
+    --debug \
+    --target lib/main.dart \
+    "${CONFIG_ARGUMENTS[@]}" \
+    --build-name "$VERSION_NAME" \
+    --build-number "$BUILD_NUMBER" \
+    "${EXTRA_ARGUMENTS[@]}"
+  exit 0
+fi
+
+if [[ "$ENVIRONMENT" == "prd" ]]; then
+  validate_prd_config
+  confirm_prd
+fi
+
+mkdir -p "$ROOT_DIR/.tool-cache"
+MARKER="$ROOT_DIR/.tool-cache/build-start"
+touch "$MARKER"
+
+if [[ "$PLATFORM" == "android" && "$ENVIRONMENT" == "qas" ]]; then
+  flutter build apk --flavor qas --release --target lib/main.dart \
+    "${CONFIG_ARGUMENTS[@]}" --build-name "$VERSION_NAME" \
+    --build-number "$BUILD_NUMBER" "${EXTRA_ARGUMENTS[@]}"
+  print_artifact qas android "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" apk
+elif [[ "$PLATFORM" == "android" ]]; then
+  flutter build appbundle --flavor prd --release --target lib/main.dart \
+    "${CONFIG_ARGUMENTS[@]}" --build-name "$VERSION_NAME" \
+    --build-number "$BUILD_NUMBER" "${EXTRA_ARGUMENTS[@]}"
+  print_artifact prd android "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" aab
+elif [[ "$ENVIRONMENT" == "qas" ]]; then
+  flutter build ipa --flavor qas --release --target lib/main.dart \
+    --export-method development "${CONFIG_ARGUMENTS[@]}" \
+    --build-name "$VERSION_NAME" --build-number "$BUILD_NUMBER" \
+    "${EXTRA_ARGUMENTS[@]}"
+  print_artifact qas ios "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" ipa
+else
+  flutter build ipa --flavor prd --release --target lib/main.dart \
+    --export-method app-store "${CONFIG_ARGUMENTS[@]}" \
+    --build-name "$VERSION_NAME" --build-number "$BUILD_NUMBER" \
+    "${EXTRA_ARGUMENTS[@]}"
+  print_artifact prd ios "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" ipa
+fi

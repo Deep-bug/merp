@@ -122,6 +122,10 @@ export const merpBridge = {
     return this.call('auth.logout', {})
   },
 
+  closePage(options = {}) {
+    return this.call('navigation.closePage', options)
+  },
+
   showSystemMessage(options = {}) {
     return this.call('system.showMessage', options)
   },
@@ -204,7 +208,11 @@ window.addEventListener('MERPBridgeReady', function () {
 | 设备信息 | `device.getInfo` | 无 |
 | 系统消息 | `system.showMessage` | `mode: toast/dialog`, `title`, `message` |
 | 系统确认 | `system.confirm` | `title`, `message` |
+| 返回手机页面 | `navigation.closePage` | `reason`，用于记录返回来源 |
 | 退出登录 | `auth.logout` | 无，手机端固定二次确认 |
+
+手机端同时兼容旧页面使用的 `closePage` Action；新页面统一使用
+`navigation.closePage`，避免后续导航能力扩展时命名冲突。
 
 扫码示例：
 
@@ -387,6 +395,47 @@ Future<void> _handleDetection(BarcodeCapture capture) async {
 内置扫码模型，首次引入会增加大约 3-10MB 的 APK 体积，但无需依赖 Google Play
 Services 下载模型，适合企业设备和无 Google 服务的机型。
 
+## Vue2 顶部栏返回手机首页
+
+Vue2 内部还有上一页时继续使用 Vue Router；当前页面已经是该业务的根页面时，
+调用手机端关闭当前 WebView。Flutter 只关闭当前页面，不清理 Token，也不退出应用，
+下层首页会自然显示。
+
+```js
+async handleHeaderBack() {
+  // 请把 home 替换成当前 Vue2 业务的真实根路由名称。
+  if (this.$route.name !== 'home') {
+    this.$router.back()
+    return
+  }
+
+  try {
+    await this.$merpBridge.closePage({
+      reason: 'header_back'
+    })
+  } catch (error) {
+    console.error('返回手机首页失败', error)
+  }
+}
+```
+
+顶部栏按钮绑定：
+
+```html
+<button type="button" @click="handleHeaderBack">
+  返回
+</button>
+```
+
+手机端会先返回：
+
+```js
+{ accepted: true, reason: 'header_back' }
+```
+
+随后关闭当前 WebView。快速重复点击返回 `NAVIGATION_CLOSE_IN_PROGRESS`。手机端
+优先返回上一层路由；路由栈不可返回时兜底进入 Flutter 首页。
+
 ## Vue2 驱动手机端退出登录
 
 远端页面不要自行删除 Web 缓存来模拟登出，应调用手机端统一认证流程：
@@ -441,7 +490,7 @@ Vue2 完整测试组件见 `docs/vue2/MerpBridgeTest.vue`。部署后通过以�
 当前远程测试页为：
 
 ```text
-https://mcrmapi.deltaww.com.cn/mcom/webvue/1.0.beta/dist/my_task.html#/flutterTest
+https://mcrmapi.deltaww.com.cn/mcom/webvue/1.0.beta/dist/flutter_test.html#/home
 ```
 
 带临时 `quake-ticket` 的完整地址存放在 Git 忽略的

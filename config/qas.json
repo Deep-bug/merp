@@ -1,0 +1,7 @@
+{
+  "APP_ENV": "qas",
+  "AUTH_ENVIRONMENT": "merp",
+  "API_BASE_URL": "http://10.146.152.51:31234",
+  "MOCK_MENUS": true,
+  "ENABLE_LOG": true
+}

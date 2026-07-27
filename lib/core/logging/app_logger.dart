@@ -66,9 +66,16 @@ class AppLogEntry {
 /// 200 条，能够在中低端设备上控制内存占用；未来接入远程日志平台时，只需在
 /// [_emit] 增加上报适配器，业务模块无需修改。
 class AppLogger extends ChangeNotifier {
-  AppLogger({this.maxEntries = 200}) : assert(maxEntries > 0);
+  AppLogger({
+    this.maxEntries = 200,
+    this.enableDebugLogs = const bool.fromEnvironment(
+      'ENABLE_LOG',
+      defaultValue: true,
+    ),
+  }) : assert(maxEntries > 0);
 
   final int maxEntries;
+  final bool enableDebugLogs;
   final List<AppLogEntry> _entries = <AppLogEntry>[];
   var _incidentSequence = 0;
 
@@ -161,6 +168,10 @@ class AppLogger extends ChangeNotifier {
     Map<String, Object?> fields = const {},
     bool createIncident = false,
   }) {
+    if (!enableDebugLogs &&
+        (level == AppLogLevel.debug || level == AppLogLevel.info)) {
+      return null;
+    }
     final now = DateTime.now();
     final incidentId = createIncident ? _nextIncidentId(now) : null;
     final entry = AppLogEntry(

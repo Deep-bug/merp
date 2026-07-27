@@ -16,6 +16,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../app/app_scope.dart';
 import '../../features/scanner/barcode_scanner_page.dart';
 import '../../l10n/l10n.dart';
+import '../../routing/app_navigator.dart';
 import '../device/camera_service.dart';
 import '../device/file_service.dart';
 import '../device/location_service.dart';
@@ -33,6 +34,7 @@ class MerpNativeBridge {
 
   final BuildContext context;
   final WebViewController controller;
+  bool _closePageInProgress = false;
   bool _logoutInProgress = false;
 
   /// 注入 JS 端 Promise 风格 API。
@@ -92,6 +94,9 @@ class MerpNativeBridge {
           await _resolve(requestId, _sessionPayload());
         case 'auth.logout':
           await _logout(requestId);
+        case 'closePage':
+        case 'navigation.closePage':
+          await _closePage(requestId, payload);
         case 'resource.getManifest':
           await _resolve(requestId, _resourceManifestPayload());
         case 'app.getLocale':
@@ -159,7 +164,7 @@ class MerpNativeBridge {
   Map<String, Object?> _pingPayload() {
     return {
       'message': 'pong',
-      'bridgeVersion': '2.2.0',
+      'bridgeVersion': '2.3.0',
       'platform': defaultTargetPlatform.name,
       'timestamp': DateTime.now().toIso8601String(),
       'capabilities': [
@@ -171,6 +176,7 @@ class MerpNativeBridge {
         'system.showMessage',
         'system.confirm',
         'auth.logout',
+        'navigation.closePage',
       ],
     };
   }
@@ -186,6 +192,59 @@ class MerpNativeBridge {
       'access_token': session?.accessToken,
       'token': session?.accessToken,
     };
+  }
+
+  Future<void> _closePage(String requestId, Object? payload) async {
+    if (!context.mounted) {
+      await _reject(requestId, 'BRIDGE_CONTEXT_UNAVAILABLE', '当前页面不可用');
+      return;
+    }
+    if (_closePageInProgress) {
+      await _reject(
+        requestId,
+        'NAVIGATION_CLOSE_IN_PROGRESS',
+        '正在返回手机端页面，请勿重复操作',
+      );
+      return;
+    }
+
+    final options = payload is Map<String, dynamic>
+        ? payload
+        : const <String, dynamic>{};
+    final reason = options['reason']?.toString().trim();
+    _closePageInProgress = true;
+    final scope = AppScope.of(context);
+    unawaited(
+      _resolve(requestId, {
+        'accepted': true,
+        'reason': reason == null || reason.isEmpty ? 'web_back' : reason,
+      }).catchError((Object error, StackTrace stackTrace) {
+        scope.logger.warning(
+          'bridge',
+          '关闭 WebView 前回传结果失败',
+          error: error,
+          stackTrace: stackTrace,
+          fields: {'requestId': requestId},
+        );
+      }),
+    );
+
+    scope.logger.info(
+      'bridge',
+      '已安排关闭 WebView 并返回手机首页',
+      fields: {'requestId': requestId},
+    );
+    Timer(const Duration(milliseconds: 100), () {
+      if (!context.mounted) {
+        return;
+      }
+      scope.logger.info(
+        'bridge',
+        '开始关闭 WebView 并返回手机首页',
+        fields: {'requestId': requestId},
+      );
+      AppNavigator.backToHome(context);
+    });
   }
 
   Future<void> _logout(String requestId) async {
@@ -616,7 +675,7 @@ const _bridgeScript = r'''
   }
 
   window.MERPBridge = {
-    version: '2.2.0',
+    version: '2.3.0',
 
     call: function (action, payload) {
       var id = createId();
@@ -651,6 +710,10 @@ const _bridgeScript = r'''
 
     logout: function () {
       return this.call('auth.logout', {});
+    },
+
+    closePage: function (options) {
+      return this.call('navigation.closePage', options || {});
     },
 
     getResourceManifest: function () {
