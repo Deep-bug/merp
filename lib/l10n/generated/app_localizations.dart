@@ -311,13 +311,13 @@ abstract class AppLocalizations {
   /// No description provided for @favoriteFeatureOrder.
   ///
   /// In zh, this message translates to:
-  /// **'首页收藏排序'**
+  /// **'首页应用'**
   String get favoriteFeatureOrder;
 
   /// No description provided for @favoriteFeatureOrderHint.
   ///
   /// In zh, this message translates to:
-  /// **'长按拖动右侧排序按钮，调整首页功能图标的展示顺序。'**
+  /// **'拖动图标调整显示排序'**
   String get favoriteFeatureOrderHint;
 
   /// No description provided for @more.
@@ -581,6 +581,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'全部功能'**
   String get allFeatures;
+
+  /// No description provided for @manageMyApps.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理我的应用'**
+  String get manageMyApps;
 
   /// No description provided for @noFeatureList.
   ///

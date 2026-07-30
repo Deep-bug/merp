@@ -26,7 +26,12 @@ FVM，也不要直接执行全局 `flutter`；首次拉取代码后运行：
 
 `bootstrap` 会识别 macOS CPU、下载并校验固定版本 FVM、安装 `.fvmrc` 指定的
 Flutter、获取依赖并检查 Java、Android SDK、Xcode 和 CocoaPods。重复执行会复用
-`.tool-cache` 缓存。
+`.tool-cache` 缓存。初始化同时会生成本机 QAS 配置和 IDE 运行配置；本地配置变化后
+可以单独执行：
+
+```bash
+./tool/app ide
+```
 
 日常只运行 QAS：
 
@@ -37,6 +42,50 @@ Flutter、获取依赖并检查 Java、Android SDK、Xcode 和 CocoaPods。重�
 # 指定设备
 ./tool/app run qas android -d <device-id>
 ```
+
+Android Studio 打开项目根目录后，可直接选择共享的 `MERP QAS Android`；执行过
+`bootstrap` 后还会出现加载本机地图/WebView配置的
+`MERP QAS Android (Local)`。VS Code 同样提供 QAS Android/iOS 的共享与 Local
+启动项。共享配置不依赖密钥，保证新电脑可以启动；Local 配置文件均被 Git 忽略。
+
+### 新电脑与 IDE 启动
+
+新电脑必须打开 Flutter 项目根目录 `merp/`，不能只打开 `merp/android/`。
+`build/` 是本机构建产物，不提交 Git，也不需要从其他电脑复制。
+
+`android/local.properties` 仍是本机文件，不提交 Git。Gradle 会优先使用其中有效的
+`flutter.sdk`；文件缺失或路径已经失效时，会自动回退到项目固定的
+`.fvm/flutter_sdk`，并在本机生成或修复 `local.properties`。macOS 上缺少有效
+`sdk.dir` 时也会尝试使用 `ANDROID_SDK_ROOT`、`ANDROID_HOME` 或默认的
+`$HOME/Library/Android/sdk`。如果仍找不到 Flutter SDK，按错误提示在项目根目录
+执行 `./tool/bootstrap` 即可。
+
+Android Studio运行配置：
+
+| 配置 | 用途 | 配置来源 |
+| --- | --- | --- |
+| `MERP QAS Android` | 无本地密钥也能启动的共享 QAS Debug | 仓库 `.run/` |
+| `MERP QAS Android (Local)` | 加载本机地图、WebView和 QAS 覆盖值 | `./tool/app ide` 自动生成 |
+
+不要使用 Android Studio自动产生的无 Flavor `app` 配置。项目启用
+`qas/prd` Flavor 后不会生成 `app-debug.apk`，QAS Debug 的正确产物是：
+
+```text
+build/app/outputs/flutter-apk/app-qas-debug.apk
+```
+
+VS Code运行配置：
+
+| 配置 | Flavor | 本地覆盖 |
+| --- | --- | --- |
+| `MERP QAS Android Debug` | `qas` | 否 |
+| `MERP QAS Android Profile` | `qas` | 否 |
+| `MERP QAS Android Debug (Local)` | `qas` | 是 |
+| `MERP QAS iOS Debug` | `qas` | 否 |
+| `MERP QAS iOS Debug (Local)` | `qas` | 是 |
+
+`.vscode/settings.json` 只保存 `.fvm/flutter_sdk` 相对路径，不得提交某位开发者的
+Android SDK、Flutter SDK、Pub Cache 或 Gradle Cache 绝对路径。
 
 代码检查与测试：
 
@@ -103,6 +152,9 @@ App Store Connect 凭证。
 
 ```text
 merp/
+├── .run/                                    # Android Studio共享 Flutter运行配置
+├── .vscode/                                 # VS Code QAS Flavor启动配置
+├── config/                                  # QAS/PRD公共配置与本地覆盖模板
 ├── tool/                                     # 固定工具链、首次初始化和统一构建入口
 ├── android/                                  # Android 工程、权限、启动图、图标和 Gradle 配置
 │   └── app/
@@ -157,7 +209,6 @@ merp/
 │   └── shared/
 │       └── app_error_view.dart               # 统一错误、空状态、故障编号和恢复操作
 ├── test/                                     # 冒烟、国际化和日志安全测试
-├── tools/                                    # E 盘环境配置和图标生成工具
 ├── l10n.yaml                                 # Flutter 官方多语言生成配置
 ├── pubspec.yaml                              # Flutter 版本、依赖和资源配置
 └── README.md                                 # 当前架构与团队协作约定
@@ -378,33 +429,40 @@ final incidentId = logger.error(
 应用环境只允许 `qas` 和 `prd`。`APP_ENV` 用于选择部署环境并隔离两套环境的
 安全 Token；`AUTH_ENVIRONMENT` 是认证接口业务参数，默认固定为 `merp`。
 
-QAS 使用已提交的非密钥配置，地图 AK 继续从 Git 忽略的本地文件注入：
+QAS 使用已提交的 `config/qas.json`。日常运行统一使用：
 
 ```bash
-fvm flutter run \
-  --dart-define-from-file=config/environment.qas.json \
-  --dart-define-from-file=config/baidu_map.local.json
+./tool/app run qas android
+./tool/app run qas ios
 ```
 
-PRD 首次使用时复制模板并填写真实生产地址：
+`./tool/bootstrap` 会自动生成以下 Git 忽略文件，不存在本机密钥时内容为安全空值：
+
+```text
+config/qas.local.json
+config/baidu_map.local.json
+config/webview.local.json
+```
+
+填写或修改本地配置后重新生成 IDE配置：
 
 ```bash
-cp config/environment.prd.example.json config/environment.prd.local.json
-
-fvm flutter run \
-  --dart-define-from-file=config/environment.prd.local.json \
-  --dart-define-from-file=config/baidu_map.local.json
+./tool/app ide
 ```
 
-`config/environment.*.local.json` 已加入 Git 忽略。切换 QAS/PRD 后不会互相读取
-refresh token；首次进入某个环境需要在该环境登录一次。
+PRD 首次构建时创建 `config/prd.local.json` 并填写真实生产地址；PRD 不提供本地
+日常运行命令，只允许通过统一脚本构建：
+
+```bash
+./tool/app build prd android
+./tool/app build prd ios
+```
+
+所有 `*.local.json` 均已加入 Git 忽略。QAS/PRD 使用独立包标识和安全存储命名空间，
+不会互相读取 refresh token；首次进入某个环境需要在该环境登录一次。
 
 百度地图当前接入 Android/iOS 基础地图与按需精确定位，不包含 Search SDK。真实 AK 放在 Git 忽略的
-`config/baidu_map.local.json`，启动时使用：
-
-```bash
-flutter run --dart-define-from-file=config/baidu_map.local.json
-```
+`config/baidu_map.local.json`，由 `tool/app` 和 Local IDE配置自动注入。
 
 隐私初始化、Android/iOS 配置、CocoaPods、后端权限结构和故障排查见
 [百度地图跨平台接入与调试复盘](docs/baidu_map_cross_platform_debugging.md)。
@@ -412,13 +470,12 @@ flutter run --dart-define-from-file=config/baidu_map.local.json
 ## 验证命令
 
 ```bash
-flutter pub get
-flutter gen-l10n
-dart format lib test
-flutter analyze
-flutter test
-flutter build apk --debug --dart-define-from-file=config/baidu_map.local.json
-flutter build ios --debug --no-codesign --dart-define-from-file=config/baidu_map.local.json
+./tool/bootstrap
+./tool/app ide
+./tool/app analyze
+./tool/app test
+./tool/app build qas android
+./tool/app build qas ios
 ```
 
 提交前必须保证格式化、静态分析和自动化测试通过；涉及 Android 权限、启动图、WebView 或插件升级时，还需构建 APK 并在 API 24 设备验证。

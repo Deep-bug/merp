@@ -24,6 +24,8 @@ class FeatureResolver {
       id: id,
       title: _readString(json, const ['title', 'name']) ?? id,
       description: _readString(json, const ['description']) ?? '',
+      group:
+          _readString(json, const ['group', 'category', 'moduleGroup']) ?? '',
       icon: FeatureRegistry.iconFor(
         id,
         _readString(json, const ['icon', 'iconName']),

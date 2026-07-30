@@ -162,7 +162,7 @@ class _FeatureTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _FeatureCard(
+    return HomeFeatureCard(
       item: item,
       label: item.title,
       iconColor: iconColor,
@@ -178,7 +178,7 @@ class _MoreFeatureTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _FeatureCard(
+    return HomeFeatureCard(
       icon: Icons.grid_view_rounded,
       label: context.l10n.more,
       iconColor: iconColor,
@@ -187,13 +187,16 @@ class _MoreFeatureTile extends StatelessWidget {
   }
 }
 
-class _FeatureCard extends StatelessWidget {
-  const _FeatureCard({
+/// 首页功能方块的统一视觉组件，也供收藏排序网格复用。
+class HomeFeatureCard extends StatelessWidget {
+  const HomeFeatureCard({
+    super.key,
     this.icon,
     this.item,
     required this.label,
     required this.iconColor,
     required this.onTap,
+    this.compact = false,
   }) : assert(icon != null || item != null);
 
   final IconData? icon;
@@ -201,19 +204,25 @@ class _FeatureCard extends StatelessWidget {
   final String label;
   final Color iconColor;
   final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final iconContainerSize = compact ? 36.0 : 54.0;
+    final iconSize = compact ? 24.0 : 36.0;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFF2F5F8)),
+        border: Border.all(
+          color: compact ? const Color(0xFF8FE4E8) : const Color(0xFFF2F5F8),
+          width: compact ? 1.5 : 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF29435C).withValues(alpha: 0.12),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
+            blurRadius: compact ? 8 : 18,
+            offset: Offset(0, compact ? 4 : 10),
           ),
         ],
       ),
@@ -224,31 +233,46 @@ class _FeatureCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 4 : 8,
+              vertical: compact ? 6 : 13,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 54,
-                  height: 54,
-                  decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.10),
-                    shape: BoxShape.circle,
-                  ),
+                  width: iconContainerSize,
+                  height: iconContainerSize,
+                  decoration: compact
+                      ? null
+                      : BoxDecoration(
+                          color: iconColor.withValues(alpha: 0.10),
+                          shape: BoxShape.circle,
+                        ),
                   child: item == null
-                      ? Icon(icon, size: 36, color: iconColor)
-                      : FeatureIcon(item: item!, size: 36, color: iconColor),
+                      ? Icon(icon, size: iconSize, color: iconColor)
+                      : FeatureIcon(
+                          item: item!,
+                          size: iconSize,
+                          color: iconColor,
+                        ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: compact ? 6 : 12),
                 Text(
                   label,
                   maxLines: 2,
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: const Color(0xFF2E2F33),
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: compact
+                      ? Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: const Color(0xFF2E2F33),
+                          height: 1.12,
+                          fontWeight: FontWeight.w800,
+                        )
+                      : Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: const Color(0xFF2E2F33),
+                          fontWeight: FontWeight.w800,
+                        ),
                 ),
               ],
             ),

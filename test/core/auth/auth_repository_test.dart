@@ -119,7 +119,7 @@ void main() {
       'username': 'admin',
       'password': '123456',
       'captchaId': 'captcha-001',
-      'captcheCode': 'A7K9',
+      'captchaCode': 'A7K9',
       'appId': 'merp',
       'source': 1,
       'environment': 'merp',

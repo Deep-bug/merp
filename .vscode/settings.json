@@ -1,16 +1,5 @@
 {
-  "dart.flutterSdkPath": ".fvm/versions/3.44.6",
-  "dart.flutterSdkPaths": [
-    "E:\\flutter_windows_3.44.5-stable\\flutter"
-  ],
-  "dart.env": {
-    "ANDROID_HOME": "E:\\android",
-    "ANDROID_SDK_ROOT": "E:\\android",
-    "ANDROID_AVD_HOME": "E:\\android-avd",
-    "ANDROID_USER_HOME": "E:\\android-user",
-    "GRADLE_USER_HOME": "E:\\.gradle",
-    "PUB_CACHE": "E:\\pub-cache"
-  },
+  "dart.flutterSdkPath": ".fvm/flutter_sdk",
   "dart.previewFlutterUiGuides": true,
   "dart.lineLength": 80,
   "editor.formatOnSave": true,

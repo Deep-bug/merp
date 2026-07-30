@@ -21,7 +21,7 @@ class CaptchaChallenge {
       throw const FormatException('验证码响应缺少 captchaId');
     }
 
-    final rawImage = _readString(json, const ['imagebase64']);
+    final rawImage = _readString(json, const ['imagebase64', 'imageBase64']);
     if (rawImage == null) {
       throw const FormatException('验证码响应缺少 imagebase64');
     }

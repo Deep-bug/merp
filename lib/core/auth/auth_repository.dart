@@ -92,13 +92,28 @@ class AuthRepository {
     }
 
     try {
+      _logger.debug(
+        'auth',
+        'Login 请求参数',
+        fields: {
+          'username': username,
+          'credentialPresent': password.isNotEmpty,
+          'credentialLength': password.length,
+          'captchaId': normalizedCaptchaId,
+          'captchaInputPresent': normalizedCaptchaCode.isNotEmpty,
+          'captchaInputLength': normalizedCaptchaCode.length,
+          'appId': 'merp',
+          'source': 1,
+          'environment': loginEnvironment,
+        },
+      );
       final data = await _apiClient.post<Map<String, dynamic>>(
         _apiClient.config.loginPath,
         data: {
           'username': username,
           'password': password,
           'captchaId': normalizedCaptchaId,
-          'captcheCode': normalizedCaptchaCode,
+          'captchaCode': normalizedCaptchaCode,
           'appId': 'merp',
           'source': 1,
           'environment': loginEnvironment,

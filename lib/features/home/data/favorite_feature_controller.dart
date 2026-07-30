@@ -13,11 +13,17 @@ class FavoriteFeatureController extends ChangeNotifier {
   FavoriteFeatureController({
     required AppLogger logger,
     SharedPreferences? preferences,
+    List<String> defaultIds = const [],
+    this.defaultIdsVersion = 0,
   }) : _logger = logger,
-       _preferences = preferences;
+       _preferences = preferences,
+       _defaultIds = List.unmodifiable(defaultIds);
 
   static const _storageKey = 'merp.home.favoriteFeatureIds';
+  static const _defaultsVersionKey = 'merp.home.favoriteFeatureDefaultsVersion';
   final AppLogger _logger;
+  final List<String> _defaultIds;
+  final int defaultIdsVersion;
   SharedPreferences? _preferences;
   List<String> _ids = [];
 
@@ -26,11 +32,21 @@ class FavoriteFeatureController extends ChangeNotifier {
 
   Future<void> load() async {
     _preferences ??= await SharedPreferences.getInstance();
-    _ids = (_preferences!.getStringList(_storageKey) ?? [])
+    final storedIds = _preferences!.getStringList(_storageKey);
+    _ids = (storedIds ?? _defaultIds)
         .map((id) => id.trim())
         .where((id) => id.isNotEmpty)
         .toSet()
         .toList(growable: true);
+    final storedDefaultsVersion =
+        _preferences!.getInt(_defaultsVersionKey) ?? 0;
+    if (defaultIdsVersion > storedDefaultsVersion) {
+      for (final id in _defaultIds) {
+        if (!_ids.contains(id)) _ids.add(id);
+      }
+      await _preferences!.setStringList(_storageKey, _ids);
+      await _preferences!.setInt(_defaultsVersionKey, defaultIdsVersion);
+    }
     notifyListeners();
   }
 

@@ -2,10 +2,64 @@ pluginManagement {
     val flutterSdkPath =
         run {
             val properties = java.util.Properties()
-            file("local.properties").inputStream().use { properties.load(it) }
-            val flutterSdkPath = properties.getProperty("flutter.sdk")
-            require(flutterSdkPath != null) { "flutter.sdk not set in local.properties" }
-            flutterSdkPath
+            val localPropertiesFile = file("local.properties")
+            if (localPropertiesFile.isFile) {
+                localPropertiesFile.inputStream().use { properties.load(it) }
+            }
+
+            val configuredFlutterSdk =
+                properties
+                    .getProperty("flutter.sdk")
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { file(it) }
+            val projectFvmFlutterSdk = file("../.fvm/flutter_sdk")
+            val flutterGradlePluginPath = "packages/flutter_tools/gradle"
+            val flutterSdkDirectory =
+                listOfNotNull(configuredFlutterSdk, projectFvmFlutterSdk).firstOrNull {
+                    it.resolve(flutterGradlePluginPath).isDirectory
+                }
+
+            requireNotNull(flutterSdkDirectory) {
+                "Flutter SDK not found. Run ./tool/bootstrap from the project root, " +
+                    "or configure flutter.sdk in android/local.properties."
+            }
+
+            var localPropertiesChanged = false
+            if (configuredFlutterSdk?.absolutePath != flutterSdkDirectory.absolutePath) {
+                properties.setProperty("flutter.sdk", flutterSdkDirectory.absolutePath)
+                localPropertiesChanged = true
+            }
+
+            val configuredAndroidSdk =
+                properties
+                    .getProperty("sdk.dir")
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { file(it) }
+                    ?.takeIf { it.isDirectory }
+            if (configuredAndroidSdk == null) {
+                val androidSdkDirectory =
+                    listOfNotNull(
+                        System.getenv("ANDROID_SDK_ROOT"),
+                        System.getenv("ANDROID_HOME"),
+                        "${System.getProperty("user.home")}/Library/Android/sdk",
+                    ).asSequence()
+                        .map { file(it) }
+                        .firstOrNull { it.isDirectory }
+                if (androidSdkDirectory != null) {
+                    properties.setProperty("sdk.dir", androidSdkDirectory.absolutePath)
+                    localPropertiesChanged = true
+                }
+            }
+
+            if (localPropertiesChanged || !localPropertiesFile.exists()) {
+                localPropertiesFile.outputStream().use {
+                    properties.store(it, "Generated locally by MERP Android configuration")
+                }
+            }
+
+            flutterSdkDirectory.absolutePath
         }
 
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")

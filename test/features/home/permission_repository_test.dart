@@ -92,8 +92,22 @@ void main() {
 
       expect(requestCount, 0);
       expect(repository.status, PermissionLoadStatus.loaded);
-      expect(repository.allFeatures, isNotEmpty);
+      expect(repository.allFeatures, hasLength(25));
       expect(repository.allFeatures.every(repository.canOpen), isTrue);
+      expect(
+        {
+          for (final group in [
+            'Marketing',
+            'Sales',
+            'Customer Service',
+            'Admin',
+          ])
+            group: repository.allFeatures
+                .where((item) => item.group == group)
+                .length,
+        },
+        {'Marketing': 2, 'Sales': 12, 'Customer Service': 6, 'Admin': 5},
+      );
       expect(
         repository.allFeatures
             .singleWhere((item) => item.id == 'e-form')

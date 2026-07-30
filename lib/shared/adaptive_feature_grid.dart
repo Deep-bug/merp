@@ -41,9 +41,29 @@ class AdaptiveFeatureGridMetrics {
     return _resolve(
       context,
       availableWidth,
-      baseExtent: 164,
-      extentPerScaleStep: 48,
-      maxExtent: 212,
+      baseExtent: 116,
+      extentPerScaleStep: 38,
+      maxExtent: 154,
+      narrowSpacing: 10,
+      wideSpacing: 12,
+    );
+  }
+
+  /// 收藏排序只展示图标和标题，进一步压缩高度以减少页面滚动。
+  factory AdaptiveFeatureGridMetrics.favoriteSort(
+    BuildContext context,
+    double availableWidth,
+  ) {
+    return _resolve(
+      context,
+      availableWidth,
+      baseExtent: 94,
+      extentPerScaleStep: 28,
+      maxExtent: 122,
+      narrowSpacing: 8,
+      wideSpacing: 10,
+      narrowCrossAxisCount: 3,
+      wideCrossAxisCount: 4,
     );
   }
 
@@ -53,13 +73,19 @@ class AdaptiveFeatureGridMetrics {
     required double baseExtent,
     required double extentPerScaleStep,
     required double maxExtent,
+    double narrowSpacing = 12,
+    double wideSpacing = 18,
+    int narrowCrossAxisCount = 2,
+    int wideCrossAxisCount = 3,
   }) {
     final scaledBodySize = MediaQuery.textScalerOf(context).scale(14);
     final textScale = (scaledBodySize / 14).clamp(1.0, 2.0);
 
     // 绝大多数手机保持三列；可用宽度低于 270dp 时切为两列，避免图标和标题被挤压。
-    final columns = availableWidth < 270 ? 2 : 3;
-    final spacing = availableWidth < 320 ? 12.0 : 18.0;
+    final columns = availableWidth < 270
+        ? narrowCrossAxisCount
+        : wideCrossAxisCount;
+    final spacing = availableWidth < 320 ? narrowSpacing : wideSpacing;
     final extent = (baseExtent + (textScale - 1) * extentPerScaleStep).clamp(
       baseExtent,
       maxExtent,

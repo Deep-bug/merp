@@ -2,51 +2,124 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "MERP Android Debug",
+      "name": "MERP QAS Android Debug",
       "request": "launch",
       "type": "dart",
       "flutterMode": "debug",
       "program": "lib/main.dart",
       "deviceId": "android",
+      "toolArgs": [
+        "--flavor",
+        "qas",
+        "--dart-define-from-file=config/qas.json"
+      ],
       "presentation": {
         "group": "mobile",
         "order": 1
       }
     },
     {
-      "name": "MERP Android Profile",
+      "name": "MERP QAS Android Profile",
       "request": "launch",
       "type": "dart",
       "flutterMode": "profile",
       "program": "lib/main.dart",
       "deviceId": "android",
+      "toolArgs": [
+        "--flavor",
+        "qas",
+        "--dart-define-from-file=config/qas.json"
+      ],
       "presentation": {
         "group": "mobile",
         "order": 2
       }
     },
     {
-      "name": "MERP Web Chrome",
+      "name": "MERP QAS Android Debug (Local)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main.dart",
+      "deviceId": "android",
+      "toolArgs": [
+        "--flavor",
+        "qas",
+        "--dart-define-from-file=config/qas.json",
+        "--dart-define-from-file=config/qas.local.json",
+        "--dart-define-from-file=config/baidu_map.local.json",
+        "--dart-define-from-file=config/webview.local.json"
+      ],
+      "presentation": {
+        "group": "mobile-local",
+        "order": 3
+      }
+    },
+    {
+      "name": "MERP QAS iOS Debug",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main.dart",
+      "deviceId": "ios",
+      "toolArgs": [
+        "--flavor",
+        "qas",
+        "--dart-define-from-file=config/qas.json"
+      ],
+      "presentation": {
+        "group": "mobile",
+        "order": 4
+      }
+    },
+    {
+      "name": "MERP QAS iOS Debug (Local)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main.dart",
+      "deviceId": "ios",
+      "toolArgs": [
+        "--flavor",
+        "qas",
+        "--dart-define-from-file=config/qas.json",
+        "--dart-define-from-file=config/qas.local.json",
+        "--dart-define-from-file=config/baidu_map.local.json",
+        "--dart-define-from-file=config/webview.local.json"
+      ],
+      "presentation": {
+        "group": "mobile-local",
+        "order": 5
+      }
+    },
+    {
+      "name": "MERP QAS Web Chrome",
       "request": "launch",
       "type": "dart",
       "flutterMode": "debug",
       "program": "lib/main.dart",
       "deviceId": "chrome",
+      "toolArgs": [
+        "--dart-define-from-file=config/qas.json"
+      ],
       "presentation": {
         "group": "web",
-        "order": 3
+        "order": 6
       }
     },
     {
-      "name": "MERP Windows Debug",
+      "name": "MERP QAS Windows Debug",
       "request": "launch",
       "type": "dart",
       "flutterMode": "debug",
       "program": "lib/main.dart",
       "deviceId": "windows",
+      "toolArgs": [
+        "--dart-define-from-file=config/qas.json"
+      ],
       "presentation": {
         "group": "desktop",
-        "order": 4
+        "order": 7
       }
     }
   ]

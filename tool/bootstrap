@@ -88,6 +88,7 @@ cd "$ROOT_DIR"
 FVM_NO_ANALYTICS=1 "$FVM_BIN" install "$FLUTTER_VERSION"
 FVM_NO_ANALYTICS=1 "$FVM_BIN" use "$FLUTTER_VERSION" --force
 FVM_NO_ANALYTICS=1 "$FVM_BIN" flutter pub get
+"$TOOL_DIR/configure_ide"
 
 printf '\n系统工具检查：\n'
 JAVA_BIN="$(command -v java 2>/dev/null || true)"
@@ -135,4 +136,4 @@ else
   printf '  [缺失] CocoaPods：安装后才能构建 iOS（例如 brew install cocoapods）。\n'
 fi
 
-printf '\n初始化完成。后续统一使用 ./tool/app。\n'
+printf '\n初始化完成。后续统一使用 ./tool/app；IDE 可直接选择 MERP QAS 配置。\n'

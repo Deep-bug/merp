@@ -57,6 +57,14 @@ cd /Users/lairenlong/Research_Institute/merp
 
 以后重新拉取依赖或排查环境时可以再次执行，缓存会被复用。
 
+`android/local.properties` 保存本机 SDK 路径，必须继续被 Git 忽略。Android
+Gradle 同步会优先读取其中有效的 `flutter.sdk`；文件不存在或路径已经失效时，
+自动使用项目根目录的 `.fvm/flutter_sdk`，并在本机生成或修复
+`local.properties`。如果 `sdk.dir` 缺失或无效，macOS 会继续尝试
+`ANDROID_SDK_ROOT`、`ANDROID_HOME` 和 `$HOME/Library/Android/sdk`。如果两处
+Flutter SDK 都不存在，先在项目根目录执行 `./tool/bootstrap`，无需从其他电脑
+复制 `local.properties`。
+
 如果 doctor 提示 Android licenses 未接受：
 
 ```bash
@@ -210,7 +218,13 @@ $HOME/Library/Android/sdk/platform-tools/adb devices
 Android Studio 用于查看 Logcat、设备状态和原生 Gradle 配置。日常 Flutter 启动仍建议
 使用 `./tool/app run qas android`，以确保 Flavor 和环境参数不会遗漏。
 
-如果必须创建 Android Studio Flutter Run Configuration：
+仓库已提供可跨电脑使用的 Android Studio Flutter Run Configuration：
+
+- `MERP QAS Android`：只读取仓库内的 `config/qas.json`，任何完成初始化的电脑都能启动。
+- `MERP QAS Android (Local)`：由 `./tool/bootstrap` 或 `./tool/app ide` 自动生成，
+  额外读取被 Git 忽略的地图、WebView和 QAS 本地覆盖配置。
+
+如果需要手动核对 Run Configuration：
 
 - Dart entrypoint：`lib/main.dart`
 - Build flavor：`qas`
@@ -222,7 +236,22 @@ Android Studio 用于查看 Logcat、设备状态和原生 Gradle 配置。日�
 --dart-define-from-file=config/webview.local.json
 ```
 
-本地文件不存在时删除对应参数。
+不要使用 Android Studio 自动产生的无 Flavor `app` 配置；它会错误寻找
+`app-debug.apk`。正确的 QAS 产物是 `app-qas-debug.apk`。
+
+### 5.2.1 VS Code
+
+仓库的 `.vscode/launch.json` 已提供：
+
+- `MERP QAS Android Debug`
+- `MERP QAS Android Profile`
+- `MERP QAS Android Debug (Local)`
+- `MERP QAS iOS Debug`
+- `MERP QAS iOS Debug (Local)`
+
+共享启动项只依赖仓库配置；Local 启动项需要先执行 `./tool/bootstrap` 或
+`./tool/app ide`。`.vscode/settings.json` 只使用 `.fvm/flutter_sdk` 相对路径，
+不得写入某位开发者的 Windows、macOS SDK 绝对路径。
 
 ### 5.3 构建 QAS APK
 

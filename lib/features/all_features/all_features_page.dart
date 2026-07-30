@@ -15,6 +15,7 @@ import '../../shared/app_error_view.dart';
 import '../home/domain/feature_item.dart';
 import '../home/data/favorite_feature_controller.dart';
 import '../home/widgets/feature_icon.dart';
+import '../home/widgets/home_feature_area.dart';
 
 class AllFeaturesPage extends StatelessWidget {
   const AllFeaturesPage({super.key});
@@ -34,19 +35,50 @@ class AllFeaturesPage extends StatelessWidget {
         final favoriteItems = favorites.favoritesFrom(
           permissions.authorizedFeatures,
         );
+        final groupedFeatures = <String, List<FeatureItem>>{};
+        for (final item in permissions.allFeatures) {
+          groupedFeatures
+              .putIfAbsent(
+                item.group.trim().isEmpty ? 'Other' : item.group.trim(),
+                () => [],
+              )
+              .add(item);
+        }
         return Scaffold(
-          backgroundColor: const Color(0xFFF7FAFD),
+          backgroundColor: Colors.white,
           body: SafeArea(
             child: CustomScrollView(
               slivers: [
-                const SliverToBoxAdapter(child: _AllFeaturesHeader()),
-                if (favoriteItems.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: _FavoriteSortSection(
-                      items: favoriteItems,
-                      controller: favorites,
+                SliverAppBar(
+                  pinned: true,
+                  automaticallyImplyLeading: false,
+                  toolbarHeight: 92,
+                  backgroundColor: Colors.white,
+                  surfaceTintColor: Colors.white,
+                  leadingWidth: 70,
+                  leading: IconButton(
+                    tooltip: context.l10n.back,
+                    onPressed: () => AppNavigator.backToHome(context),
+                    icon: const Icon(Icons.chevron_left, size: 42),
+                    color: AllFeaturesPage._brandBlue,
+                  ),
+                  centerTitle: true,
+                  title: Text(
+                    'MERP 2025',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: AllFeaturesPage._brandBlue,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
+                  bottom: const PreferredSize(
+                    preferredSize: Size.fromHeight(1),
+                    child: Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: AllFeaturesPage._brandBlue,
+                    ),
+                  ),
+                ),
                 if (permissions.allFeatures.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,
@@ -56,81 +88,86 @@ class AllFeaturesPage extends StatelessWidget {
                       message: context.l10n.noFeatureListMessage,
                     ),
                   )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(18, 22, 18, 34),
-                    sliver: SliverLayoutBuilder(
-                      builder: (context, constraints) {
-                        final metrics = AdaptiveFeatureGridMetrics.allFeatures(
-                          context,
-                          constraints.crossAxisExtent,
-                        );
-                        return SliverGrid(
-                          delegate: SliverChildBuilderDelegate((
-                            context,
-                            index,
-                          ) {
-                            final item = permissions.allFeatures[index];
-                            final enabled = permissions.canOpen(item);
-                            final isFavorite = favorites.isFavorite(item.id);
-                            return _AllFeatureTile(
-                              item: item,
-                              enabled: enabled,
-                              isFavorite: isFavorite,
-                              onFavorite: enabled || isFavorite
-                                  ? () => favorites.toggle(item.id)
-                                  : null,
-                            );
-                          }, childCount: permissions.allFeatures.length),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: metrics.crossAxisCount,
-                                mainAxisSpacing: metrics.spacing,
-                                crossAxisSpacing: metrics.spacing,
-                                mainAxisExtent: metrics.mainAxisExtent,
-                              ),
-                        );
-                      },
+                else ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 20, 18, 8),
+                      child: Text(
+                        context.l10n.manageMyApps,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: const Color(0xFF999999),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
                   ),
+                  for (final group in groupedFeatures.entries) ...[
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+                        child: Text(
+                          group.key,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: const Color(0xFF252525),
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      sliver: SliverLayoutBuilder(
+                        builder: (context, constraints) {
+                          final metrics =
+                              AdaptiveFeatureGridMetrics.allFeatures(
+                                context,
+                                constraints.crossAxisExtent,
+                              );
+                          return SliverGrid(
+                            delegate: SliverChildBuilderDelegate((
+                              context,
+                              index,
+                            ) {
+                              final item = group.value[index];
+                              final enabled = permissions.canOpen(item);
+                              final isFavorite = favorites.isFavorite(item.id);
+                              return _AllFeatureTile(
+                                item: item,
+                                enabled: enabled,
+                                isFavorite: isFavorite,
+                                onFavorite: enabled || isFavorite
+                                    ? () => favorites.toggle(item.id)
+                                    : null,
+                              );
+                            }, childCount: group.value.length),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: metrics.crossAxisCount,
+                                  mainAxisSpacing: metrics.spacing,
+                                  crossAxisSpacing: metrics.spacing,
+                                  mainAxisExtent: metrics.mainAxisExtent,
+                                ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                  if (favoriteItems.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: _FavoriteSortSection(
+                        items: favoriteItems,
+                        controller: favorites,
+                      ),
+                    ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 34)),
+                ],
               ],
             ),
           ),
         );
       },
-    );
-  }
-}
-
-class _AllFeaturesHeader extends StatelessWidget {
-  const _AllFeaturesHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 92,
-      color: Colors.white,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(
-            left: 14,
-            child: IconButton(
-              tooltip: context.l10n.back,
-              onPressed: () => AppNavigator.backToHome(context),
-              icon: const Icon(Icons.chevron_left, size: 42),
-              color: AllFeaturesPage._brandBlue,
-            ),
-          ),
-          Text(
-            context.l10n.allFeatures,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: AllFeaturesPage._brandBlue,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -201,8 +238,8 @@ class _AllFeatureTile extends StatelessWidget {
                 if (enabled)
                   BoxShadow(
                     color: const Color(0xFF29435C).withValues(alpha: 0.12),
-                    blurRadius: 18,
-                    offset: const Offset(0, 10),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
                   ),
               ],
             ),
@@ -215,27 +252,21 @@ class _AllFeatureTile extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 6,
-                    vertical: 12,
+                    vertical: 8,
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: iconColor.withValues(
-                            alpha: enabled ? 0.10 : 0.07,
-                          ),
-                          shape: BoxShape.circle,
-                        ),
+                      SizedBox(
+                        width: 42,
+                        height: 42,
                         child: FeatureIcon(
                           item: item,
-                          size: 34,
+                          size: 32,
                           color: iconColor,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 9),
                       Text(
                         item.title,
                         maxLines: 2,
@@ -244,31 +275,6 @@ class _AllFeatureTile extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: textColor,
                           fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: iconColor.withValues(
-                            alpha: enabled ? 0.10 : 0.08,
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          enabled
-                              ? context.l10n.authorized
-                              : context.l10n.unauthorized,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: iconColor,
-                                fontWeight: FontWeight.w700,
-                              ),
                         ),
                       ),
                     ],
@@ -289,8 +295,8 @@ class _AllFeatureTile extends StatelessWidget {
                 : context.l10n.favoriteFeature,
             icon: Icon(isFavorite ? Icons.star : Icons.star_border),
             color: isFavorite
-                ? const Color(0xFFFFB300)
-                : const Color(0xFF8DA0B3),
+                ? const Color(0xFF00E837)
+                : const Color(0xFFD6D6D6),
             iconSize: 22,
             onPressed: onFavorite,
           ),
@@ -300,18 +306,78 @@ class _AllFeatureTile extends StatelessWidget {
   }
 }
 
-class _FavoriteSortSection extends StatelessWidget {
+class _FavoriteSortSection extends StatefulWidget {
   const _FavoriteSortSection({required this.items, required this.controller});
 
   final List<FeatureItem> items;
   final FavoriteFeatureController controller;
 
   @override
+  State<_FavoriteSortSection> createState() => _FavoriteSortSectionState();
+}
+
+class _FavoriteSortSectionState extends State<_FavoriteSortSection> {
+  late List<FeatureItem> _displayItems;
+  List<String> _originalIds = const [];
+  String? _draggedId;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayItems = List.of(widget.items);
+  }
+
+  @override
+  void didUpdateWidget(covariant _FavoriteSortSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_draggedId == null) {
+      _displayItems = List.of(widget.items);
+    }
+  }
+
+  void _startDrag(String id) {
+    setState(() {
+      _draggedId = id;
+      _originalIds = widget.items
+          .map((item) => item.id)
+          .toList(growable: false);
+      _displayItems = List.of(widget.items);
+    });
+  }
+
+  bool _moveDraggedItemTo(String targetId) {
+    final draggedId = _draggedId;
+    if (draggedId == null || draggedId == targetId) return false;
+    final oldIndex = _displayItems.indexWhere((item) => item.id == draggedId);
+    final newIndex = _displayItems.indexWhere((item) => item.id == targetId);
+    if (oldIndex < 0 || newIndex < 0) return false;
+
+    setState(() {
+      final movedItem = _displayItems.removeAt(oldIndex);
+      _displayItems.insert(newIndex, movedItem);
+    });
+    return true;
+  }
+
+  void _finishDrag() {
+    final draggedId = _draggedId;
+    if (draggedId == null) return;
+    final oldIndex = _originalIds.indexOf(draggedId);
+    final newIndex = _displayItems.indexWhere((item) => item.id == draggedId);
+    final shouldSave = oldIndex >= 0 && newIndex >= 0 && oldIndex != newIndex;
+
+    setState(() => _draggedId = null);
+    if (shouldSave) {
+      widget.controller.reorderVisible(_originalIds, oldIndex, newIndex);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SizedBox.shrink();
+    if (_displayItems.isEmpty) return const SizedBox.shrink();
     return Container(
-      margin: const EdgeInsets.fromLTRB(18, 18, 18, 0),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+      margin: const EdgeInsets.fromLTRB(18, 32, 18, 0),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -320,41 +386,89 @@ class _FavoriteSortSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            context.l10n.favoriteFeatureOrder,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            context.l10n.favoriteFeatureOrderHint,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          ReorderableListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            buildDefaultDragHandles: false,
-            itemCount: items.length,
-            onReorderItem: (oldIndex, newIndex) => controller.reorderVisible(
-              items.map((item) => item.id).toList(growable: false),
-              oldIndex,
-              newIndex,
+            '${context.l10n.favoriteFeatureOrder}'
+            '(${context.l10n.favoriteFeatureOrderHint})',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: const Color(0xFF999999),
+              fontWeight: FontWeight.w800,
             ),
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return ListTile(
-                key: ValueKey(item.id),
-                dense: true,
-                leading: FeatureIcon(
-                  item: item,
-                  size: 24,
-                  color: AllFeaturesPage._enabledBlue,
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final metrics = AdaptiveFeatureGridMetrics.favoriteSort(
+                context,
+                constraints.maxWidth,
+              );
+              final tileWidth =
+                  (constraints.maxWidth -
+                      metrics.spacing * (metrics.crossAxisCount - 1)) /
+                  metrics.crossAxisCount;
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _displayItems.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: metrics.crossAxisCount,
+                  mainAxisSpacing: metrics.spacing,
+                  crossAxisSpacing: metrics.spacing,
+                  mainAxisExtent: metrics.mainAxisExtent,
                 ),
-                title: Text(item.title),
-                trailing: ReorderableDelayedDragStartListener(
-                  index: index,
-                  child: const Icon(Icons.drag_handle),
-                ),
+                itemBuilder: (context, index) {
+                  final item = _displayItems[index];
+                  final isDragging = item.id == _draggedId;
+                  final card = HomeFeatureCard(
+                    item: item,
+                    label: item.title,
+                    iconColor: AllFeaturesPage._enabledBlue,
+                    onTap: () {},
+                    compact: true,
+                  );
+                  return RepaintBoundary(
+                    child: DragTarget<String>(
+                      key: ValueKey(item.id),
+                      onWillAcceptWithDetails: (details) {
+                        if (details.data == item.id) return false;
+                        return _moveDraggedItemTo(item.id);
+                      },
+                      onAcceptWithDetails: (_) {},
+                      builder: (context, candidateData, rejectedData) {
+                        return LongPressDraggable<String>(
+                          data: item.id,
+                          delay: const Duration(milliseconds: 220),
+                          maxSimultaneousDrags: 1,
+                          hapticFeedbackOnStart: true,
+                          onDragStarted: () => _startDrag(item.id),
+                          onDragEnd: (_) => _finishDrag(),
+                          feedback: Theme(
+                            data: Theme.of(context),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: SizedBox(
+                                width: tileWidth,
+                                height: metrics.mainAxisExtent,
+                                child: Transform.scale(
+                                  scale: 1.04,
+                                  child: card,
+                                ),
+                              ),
+                            ),
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.24,
+                            child: Transform.scale(scale: 0.94, child: card),
+                          ),
+                          child: AnimatedScale(
+                            scale: isDragging ? 0.94 : 1,
+                            duration: const Duration(milliseconds: 120),
+                            child: card,
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
               );
             },
           ),

@@ -14,6 +14,7 @@ class FeatureItem {
     required this.id,
     required this.title,
     required this.description,
+    this.group = '',
     required this.icon,
     this.iconUrl,
     required this.permissionCode,
@@ -25,6 +26,7 @@ class FeatureItem {
   final String id;
   final String title;
   final String description;
+  final String group;
   final IconData icon;
   final String? iconUrl;
   final String permissionCode;

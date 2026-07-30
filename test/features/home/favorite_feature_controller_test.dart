@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:merp/core/logging/app_logger.dart';
 import 'package:merp/features/home/data/favorite_feature_controller.dart';
+import 'package:merp/features/home/data/mock_feature_menu.dart';
 import 'package:merp/features/home/domain/feature_item.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -43,6 +44,23 @@ void main() {
     await controller.load();
 
     expect(controller.ids, ['first', 'second']);
+  });
+
+  test('旧版首页应用默认顺序会一次性合并到已有收藏', () async {
+    SharedPreferences.setMockInitialValues({
+      'merp.home.favoriteFeatureIds': ['existing'],
+    });
+    final controller = FavoriteFeatureController(
+      logger: AppLogger(),
+      defaultIds: MockFeatureMenu.defaultFavoriteIds,
+      defaultIdsVersion: 1,
+    );
+
+    await controller.load();
+
+    expect(controller.ids.first, 'existing');
+    expect(controller.ids.skip(1), MockFeatureMenu.defaultFavoriteIds);
+    expect(controller.ids, hasLength(20));
   });
 }
 
