@@ -43,6 +43,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get password => '密码';
 
   @override
+  String get captcha => '验证码';
+
+  @override
+  String get refreshCaptcha => '点击刷新验证码';
+
+  @override
+  String get captchaLoadFailed => '验证码加载失败，点击重试';
+
+  @override
   String get loginFailed => '登录失败';
 
   @override
@@ -92,6 +101,27 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get noAuthorizedFeaturesMessage => '当前账号暂时没有可打开的常用功能，可进入更多查看全部功能授权状态。';
+
+  @override
+  String get noFavoriteFeatures => '尚未收藏首页功能';
+
+  @override
+  String get noFavoriteFeaturesMessage => '请进入更多功能，点击图标右上角的星标添加到首页。';
+
+  @override
+  String get favoriteFeature => '收藏到首页';
+
+  @override
+  String get unfavoriteFeature => '取消首页收藏';
+
+  @override
+  String get favoriteRequiresPermission => '未授权功能不能收藏到首页';
+
+  @override
+  String get favoriteFeatureOrder => '首页收藏排序';
+
+  @override
+  String get favoriteFeatureOrderHint => '长按拖动右侧排序按钮，调整首页功能图标的展示顺序。';
 
   @override
   String get more => '更多';
@@ -551,6 +581,15 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get password => '密碼';
 
   @override
+  String get captcha => '驗證碼';
+
+  @override
+  String get refreshCaptcha => '點擊重新整理驗證碼';
+
+  @override
+  String get captchaLoadFailed => '驗證碼載入失敗，點擊重試';
+
+  @override
   String get loginFailed => '登入失敗';
 
   @override
@@ -600,6 +639,27 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get noAuthorizedFeaturesMessage => '目前帳號暫時沒有可開啟的常用功能，可進入更多查看全部功能授權狀態。';
+
+  @override
+  String get noFavoriteFeatures => '尚未收藏首頁功能';
+
+  @override
+  String get noFavoriteFeaturesMessage => '請進入更多功能，點擊圖示右上角的星號新增到首頁。';
+
+  @override
+  String get favoriteFeature => '收藏到首頁';
+
+  @override
+  String get unfavoriteFeature => '取消首頁收藏';
+
+  @override
+  String get favoriteRequiresPermission => '未授權功能不能收藏到首頁';
+
+  @override
+  String get favoriteFeatureOrder => '首頁收藏排序';
+
+  @override
+  String get favoriteFeatureOrderHint => '長按拖動右側排序按鈕，調整首頁功能圖示的顯示順序。';
 
   @override
   String get more => '更多';

@@ -52,17 +52,43 @@ class AuthRepository {
     return AuthSession(tokens: refreshedTokens, profile: profile);
   }
 
+  Future<CaptchaChallenge> fetchCaptcha() async {
+    try {
+      final data = await _apiClient.get<Map<String, dynamic>>(
+        _apiClient.config.captchaPath,
+        skipAuth: true,
+      );
+      return CaptchaChallenge.fromJson(data);
+    } on ApiException catch (error) {
+      throw AuthException(error.userMessage);
+    } on FormatException catch (error) {
+      throw AuthException(error.message);
+    } catch (error) {
+      throw AuthException(error.toString());
+    }
+  }
+
   Future<AuthSession> login({
     required String account,
     required String password,
+    required String captchaId,
+    required String captchaCode,
     String? environment,
   }) async {
     final username = account.trim();
+    final normalizedCaptchaId = captchaId.trim();
+    final normalizedCaptchaCode = captchaCode.trim();
     final loginEnvironment = environment?.trim().isNotEmpty == true
         ? environment!.trim()
         : _apiClient.config.normalizedAuthEnvironment;
     if (username.isEmpty || password.isEmpty) {
       throw const AuthException('请输入账号和密码');
+    }
+    if (normalizedCaptchaId.isEmpty) {
+      throw const AuthException('验证码已失效，请刷新验证码');
+    }
+    if (normalizedCaptchaCode.isEmpty) {
+      throw const AuthException('请输入验证码');
     }
 
     try {
@@ -71,6 +97,8 @@ class AuthRepository {
         data: {
           'username': username,
           'password': password,
+          'captchaId': normalizedCaptchaId,
+          'captcheCode': normalizedCaptchaCode,
           'appId': 'merp',
           'source': 1,
           'environment': loginEnvironment,

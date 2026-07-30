@@ -71,6 +71,21 @@ AuthSession
 
 ## 4. 接口与时序
 
+### 验证码
+
+登录页打开时调用 `GET /api/v1/auth/captcha`，设置 `skipAuth: true`。统一响应
+解包后的数据结构为：
+
+```json
+{
+  "captchaId": "captcha-001",
+  "imagebase64": "data:image/png;base64,iVBORw0..."
+}
+```
+
+客户端把 `captchaId` 和解码后的图片作为同一个 `CaptchaChallenge` 保存，刷新
+时必须同时替换，禁止复用旧 ID。登录失败后清空用户输入并重新获取一套验证码。
+
 ### 登录
 
 `POST /api/v1/auth/login`，设置 `skipAuth: true`：
@@ -79,6 +94,8 @@ AuthSession
 {
   "username": "admin",
   "password": "123456",
+  "captchaId": "captcha-001",
+  "captcheCode": "A7K9",
   "appId": "merp",
   "source": 1,
   "environment": "merp"

@@ -5,6 +5,42 @@
 // 维护说明：后端认证字段变更统一在此映射，页面不得直接解析接口 JSON
 // -----------------------------------------------------------------------------
 
+import 'dart:convert';
+import 'dart:typed_data';
+
+/// 一次验证码挑战；图片与 captchaId 必须始终成对更新和提交。
+class CaptchaChallenge {
+  const CaptchaChallenge({required this.captchaId, required this.imageBytes});
+
+  final String captchaId;
+  final Uint8List imageBytes;
+
+  factory CaptchaChallenge.fromJson(Map<String, dynamic> json) {
+    final captchaId = _readString(json, const ['captchaId']);
+    if (captchaId == null) {
+      throw const FormatException('验证码响应缺少 captchaId');
+    }
+
+    final rawImage = _readString(json, const ['imagebase64']);
+    if (rawImage == null) {
+      throw const FormatException('验证码响应缺少 imagebase64');
+    }
+
+    final commaIndex = rawImage.indexOf(',');
+    final encoded = commaIndex >= 0
+        ? rawImage.substring(commaIndex + 1)
+        : rawImage;
+    try {
+      return CaptchaChallenge(
+        captchaId: captchaId,
+        imageBytes: base64Decode(encoded.replaceAll(RegExp(r'\s'), '')),
+      );
+    } on FormatException {
+      throw const FormatException('验证码图片不是有效的 Base64');
+    }
+  }
+}
+
 /// 后端登录与刷新接口返回的令牌对。
 class AuthTokens {
   const AuthTokens({required this.accessToken, this.refreshToken});

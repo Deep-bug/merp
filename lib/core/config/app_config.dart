@@ -40,6 +40,7 @@ class AppConfig {
           'https://mcrmapi.deltaww.com.cn/mcom/webvue/1.0.beta/dist/FixedAssetInventory.html#/home',
     ),
     this.loginPath = '/api/v1/auth/login',
+    this.captchaPath = '/api/v1/auth/captcha',
     this.refreshTokenPath = '/api/v1/auth/refresh',
     this.logoutPath = '/api/v1/auth/logout',
     this.userInfoPath = '/api/v1/user/userInfo',
@@ -105,6 +106,9 @@ class AppConfig {
   final String assetInventoryUrl;
 
   final String loginPath;
+
+  /// 获取登录验证码图片和对应 captchaId。
+  final String captchaPath;
 
   /// 使用 refresh_token 换取新访问令牌的接口。
   final String refreshTokenPath;

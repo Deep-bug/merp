@@ -158,6 +158,24 @@ abstract class AppLocalizations {
   /// **'密码'**
   String get password;
 
+  /// No description provided for @captcha.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证码'**
+  String get captcha;
+
+  /// No description provided for @refreshCaptcha.
+  ///
+  /// In zh, this message translates to:
+  /// **'点击刷新验证码'**
+  String get refreshCaptcha;
+
+  /// No description provided for @captchaLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证码加载失败，点击重试'**
+  String get captchaLoadFailed;
+
   /// No description provided for @loginFailed.
   ///
   /// In zh, this message translates to:
@@ -259,6 +277,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'当前账号暂时没有可打开的常用功能，可进入更多查看全部功能授权状态。'**
   String get noAuthorizedFeaturesMessage;
+
+  /// No description provided for @noFavoriteFeatures.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚未收藏首页功能'**
+  String get noFavoriteFeatures;
+
+  /// No description provided for @noFavoriteFeaturesMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'请进入更多功能，点击图标右上角的星标添加到首页。'**
+  String get noFavoriteFeaturesMessage;
+
+  /// No description provided for @favoriteFeature.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏到首页'**
+  String get favoriteFeature;
+
+  /// No description provided for @unfavoriteFeature.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消首页收藏'**
+  String get unfavoriteFeature;
+
+  /// No description provided for @favoriteRequiresPermission.
+  ///
+  /// In zh, this message translates to:
+  /// **'未授权功能不能收藏到首页'**
+  String get favoriteRequiresPermission;
+
+  /// No description provided for @favoriteFeatureOrder.
+  ///
+  /// In zh, this message translates to:
+  /// **'首页收藏排序'**
+  String get favoriteFeatureOrder;
+
+  /// No description provided for @favoriteFeatureOrderHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'长按拖动右侧排序按钮，调整首页功能图标的展示顺序。'**
+  String get favoriteFeatureOrderHint;
 
   /// No description provided for @more.
   ///

@@ -16,6 +16,44 @@ import '../../helpers/fake_http_adapter.dart';
 import '../../helpers/memory_token_store.dart';
 
 void main() {
+  test('captcha follows backend contract without Authorization', () async {
+    RequestOptions? captchaRequest;
+    final dio = Dio()
+      ..httpClientAdapter = FakeHttpAdapter((options) {
+        captchaRequest = options;
+        return jsonResponse({
+          'code': 0,
+          'message': 'success',
+          'data': {
+            'data': {
+              'captchaId': 'captcha-001',
+              'imagebase64': 'data:image/png;base64,AQIDBA==',
+            },
+          },
+        });
+      });
+    final store = MemoryTokenStore();
+    final logger = AppLogger();
+    final repository = AuthRepository(
+      apiClient: ApiClient(
+        config: const AppConfig(),
+        tokenStore: store,
+        logger: logger,
+        dio: dio,
+      ),
+      tokenStore: store,
+      logger: logger,
+    );
+
+    final challenge = await repository.fetchCaptcha();
+
+    expect(captchaRequest?.method, 'GET');
+    expect(captchaRequest?.path, '/api/v1/auth/captcha');
+    expect(captchaRequest?.headers.containsKey('Authorization'), isFalse);
+    expect(challenge.captchaId, 'captcha-001');
+    expect(challenge.imageBytes, [1, 2, 3, 4]);
+  });
+
   test('login follows backend contract and loads complete userInfo', () async {
     RequestOptions? loginRequest;
     RequestOptions? userInfoRequest;
@@ -73,11 +111,15 @@ void main() {
     final session = await repository.login(
       account: '  admin  ',
       password: '123456',
+      captchaId: 'captcha-001',
+      captchaCode: ' A7K9 ',
     );
 
     expect(loginRequest?.data, {
       'username': 'admin',
       'password': '123456',
+      'captchaId': 'captcha-001',
+      'captcheCode': 'A7K9',
       'appId': 'merp',
       'source': 1,
       'environment': 'merp',

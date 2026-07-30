@@ -31,6 +31,9 @@ class AuthController extends ChangeNotifier {
   AuthStatus status = AuthStatus.booting;
   AuthSession? session;
   String? lastError;
+  CaptchaChallenge? captchaChallenge;
+  bool isCaptchaLoading = false;
+  String? captchaError;
   bool isProfileLoading = false;
   String? profileLoadError;
   int _sessionGeneration = 0;
@@ -69,11 +72,45 @@ class AuthController extends ChangeNotifier {
     await restoreSession();
   }
 
+  Future<void> refreshCaptcha() async {
+    if (isCaptchaLoading) {
+      return;
+    }
+
+    isCaptchaLoading = true;
+    captchaError = null;
+    captchaChallenge = null;
+    notifyListeners();
+
+    try {
+      captchaChallenge = await _authRepository.fetchCaptcha();
+    } catch (error, stackTrace) {
+      captchaError = error.toString();
+      _logger.warning('auth', '验证码加载失败', error: error, stackTrace: stackTrace);
+    } finally {
+      isCaptchaLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> login({
     required String account,
     required String password,
+    required String captchaCode,
     String? environment,
   }) async {
+    final challenge = captchaChallenge;
+    if (challenge == null) {
+      lastError = '请先获取验证码';
+      notifyListeners();
+      return false;
+    }
+    if (captchaCode.trim().isEmpty) {
+      lastError = '请输入验证码';
+      notifyListeners();
+      return false;
+    }
+
     lastError = null;
     notifyListeners();
 
@@ -81,8 +118,12 @@ class AuthController extends ChangeNotifier {
       session = await _authRepository.login(
         account: account,
         password: password,
+        captchaId: challenge.captchaId,
+        captchaCode: captchaCode,
         environment: environment,
       );
+      captchaChallenge = null;
+      captchaError = null;
       status = AuthStatus.authenticated;
       _sessionGeneration += 1;
       _logger.info('auth', '用户登录成功', fields: {'account': account.trim()});
@@ -100,6 +141,7 @@ class AuthController extends ChangeNotifier {
         fields: {'account': account.trim()},
       );
       notifyListeners();
+      unawaited(refreshCaptcha());
       return false;
     }
   }
@@ -158,6 +200,8 @@ class AuthController extends ChangeNotifier {
     await _authRepository.logout();
     await _permissionRepository.clear();
     session = null;
+    captchaChallenge = null;
+    captchaError = null;
     status = AuthStatus.unauthenticated;
     _logger.info('auth', '用户已退出登录');
     notifyListeners();
@@ -168,6 +212,8 @@ class AuthController extends ChangeNotifier {
     _sessionGeneration += 1;
     await _permissionRepository.clear();
     session = null;
+    captchaChallenge = null;
+    captchaError = null;
     status = AuthStatus.unauthenticated;
     lastError = '登录已过期，请重新登录';
     _logger.warning('auth', '刷新令牌失效，已退出当前会话');

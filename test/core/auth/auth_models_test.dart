@@ -9,6 +9,30 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:merp/core/auth/auth_models.dart';
 
 void main() {
+  test('parses captcha id and data-uri image as one challenge', () {
+    final challenge = CaptchaChallenge.fromJson({
+      'captchaId': 'captcha-001',
+      'imagebase64': 'data:image/png;base64,AQIDBA==',
+    });
+
+    expect(challenge.captchaId, 'captcha-001');
+    expect(challenge.imageBytes, [1, 2, 3, 4]);
+  });
+
+  test('rejects incomplete captcha response', () {
+    expect(
+      () => CaptchaChallenge.fromJson({'imagebase64': 'AQIDBA=='}),
+      throwsFormatException,
+    );
+    expect(
+      () => CaptchaChallenge.fromJson({
+        'captchaId': 'captcha-001',
+        'imagebase64': 'not-base64',
+      }),
+      throwsFormatException,
+    );
+  });
+
   test('parses login tokens and keeps previous refresh token', () {
     final loginTokens = AuthTokens.fromJson({
       'access_token': 'access-1',
