@@ -17,6 +17,7 @@ import '../core/device/map_sdk_service.dart';
 import '../core/logging/app_logger.dart';
 import '../core/resources/resource_update_controller.dart';
 import '../features/home/data/permission_repository.dart';
+import '../features/home/data/favorite_feature_controller.dart';
 import '../features/settings/settings_controller.dart';
 
 /// 应用级依赖容器。
@@ -29,6 +30,7 @@ class AppScope extends InheritedWidget {
     required this.config,
     required this.authController,
     required this.permissionRepository,
+    required this.favoriteFeatureController,
     required this.settingsController,
     required this.resourceUpdateController,
     required this.cameraService,
@@ -43,6 +45,7 @@ class AppScope extends InheritedWidget {
   final AppConfig config;
   final AuthController authController;
   final PermissionRepository permissionRepository;
+  final FavoriteFeatureController favoriteFeatureController;
   final SettingsController settingsController;
   final ResourceUpdateController resourceUpdateController;
   final CameraService cameraService;
@@ -63,6 +66,7 @@ class AppScope extends InheritedWidget {
     return config != oldWidget.config ||
         authController != oldWidget.authController ||
         permissionRepository != oldWidget.permissionRepository ||
+        favoriteFeatureController != oldWidget.favoriteFeatureController ||
         settingsController != oldWidget.settingsController ||
         resourceUpdateController != oldWidget.resourceUpdateController ||
         cameraService != oldWidget.cameraService ||

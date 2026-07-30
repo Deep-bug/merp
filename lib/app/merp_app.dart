@@ -44,6 +44,7 @@ class _MerpAppState extends State<MerpApp> {
       config: dependencies.config,
       authController: dependencies.authController,
       permissionRepository: dependencies.permissionRepository,
+      favoriteFeatureController: dependencies.favoriteFeatureController,
       settingsController: dependencies.settingsController,
       resourceUpdateController: dependencies.resourceUpdateController,
       cameraService: dependencies.cameraService,

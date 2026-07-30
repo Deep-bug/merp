@@ -13,14 +13,16 @@ import '../../../routing/app_navigator.dart';
 import '../../../routing/app_routes.dart';
 import '../../../shared/adaptive_feature_grid.dart';
 import '../../../shared/app_error_view.dart';
-import '../domain/feature_item.dart';
 import '../data/permission_repository.dart';
+import '../domain/feature_item.dart';
+import 'feature_icon.dart';
 
 class HomeFeatureArea extends StatelessWidget {
   const HomeFeatureArea({
     super.key,
     required this.features,
     required this.hasAnyFeature,
+    required this.hasAuthorizedFeature,
     required this.loadStatus,
     required this.onRetry,
     required this.iconColor,
@@ -28,6 +30,7 @@ class HomeFeatureArea extends StatelessWidget {
 
   final List<FeatureItem> features;
   final bool hasAnyFeature;
+  final bool hasAuthorizedFeature;
   final PermissionLoadStatus loadStatus;
   final Future<void> Function() onRetry;
   final Color iconColor;
@@ -57,12 +60,6 @@ class HomeFeatureArea extends StatelessWidget {
       );
     }
 
-    final tiles = <Widget>[
-      for (final feature in features.take(9))
-        _FeatureTile(item: feature, iconColor: iconColor),
-      _MoreFeatureTile(iconColor: iconColor),
-    ];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -70,10 +67,18 @@ class HomeFeatureArea extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: AppErrorView(
-              icon: Icons.lock_outline,
-              tone: AppErrorTone.warning,
-              title: context.l10n.noAuthorizedFeatures,
-              message: context.l10n.noAuthorizedFeaturesMessage,
+              icon: hasAuthorizedFeature
+                  ? Icons.star_border_rounded
+                  : Icons.lock_outline,
+              tone: hasAuthorizedFeature
+                  ? AppErrorTone.info
+                  : AppErrorTone.warning,
+              title: hasAuthorizedFeature
+                  ? context.l10n.noFavoriteFeatures
+                  : context.l10n.noAuthorizedFeatures,
+              message: hasAuthorizedFeature
+                  ? context.l10n.noFavoriteFeaturesMessage
+                  : context.l10n.noAuthorizedFeaturesMessage,
             ),
           ),
         LayoutBuilder(
@@ -83,16 +88,18 @@ class HomeFeatureArea extends StatelessWidget {
               constraints.maxWidth,
             );
             return GridView.builder(
-              itemCount: tiles.length,
+              itemCount: features.length + 1,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: metrics.crossAxisCount,
+                crossAxisCount: 3,
                 mainAxisSpacing: metrics.spacing,
                 crossAxisSpacing: metrics.spacing,
                 mainAxisExtent: metrics.mainAxisExtent,
               ),
-              itemBuilder: (context, index) => tiles[index],
+              itemBuilder: (context, index) => index == features.length
+                  ? _MoreFeatureTile(iconColor: iconColor)
+                  : _FeatureTile(item: features[index], iconColor: iconColor),
             );
           },
         ),
@@ -113,16 +120,16 @@ class _FeatureLoadingSkeleton extends StatelessWidget {
           constraints.maxWidth,
         );
         return GridView.builder(
-          itemCount: metrics.crossAxisCount * 2,
+          itemCount: 6,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: metrics.crossAxisCount,
+            crossAxisCount: 3,
             mainAxisSpacing: metrics.spacing,
             crossAxisSpacing: metrics.spacing,
             mainAxisExtent: metrics.mainAxisExtent,
           ),
-          itemBuilder: (context, index) => const DecoratedBox(
+          itemBuilder: (_, _) => const DecoratedBox(
             decoration: BoxDecoration(
               color: Color(0xFFF0F3F7),
               borderRadius: BorderRadius.all(Radius.circular(8)),
@@ -156,7 +163,7 @@ class _FeatureTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _FeatureCard(
-      icon: item.icon,
+      item: item,
       label: item.title,
       iconColor: iconColor,
       onTap: () => _open(context),
@@ -182,13 +189,15 @@ class _MoreFeatureTile extends StatelessWidget {
 
 class _FeatureCard extends StatelessWidget {
   const _FeatureCard({
-    required this.icon,
+    this.icon,
+    this.item,
     required this.label,
     required this.iconColor,
     required this.onTap,
-  });
+  }) : assert(icon != null || item != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final FeatureItem? item;
   final String label;
   final Color iconColor;
   final VoidCallback onTap;
@@ -226,7 +235,9 @@ class _FeatureCard extends StatelessWidget {
                     color: iconColor.withValues(alpha: 0.10),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, size: 36, color: iconColor),
+                  child: item == null
+                      ? Icon(icon, size: 36, color: iconColor)
+                      : FeatureIcon(item: item!, size: 36, color: iconColor),
                 ),
                 const SizedBox(height: 12),
                 Text(

@@ -27,7 +27,12 @@ class HomePage extends StatelessWidget {
     final resources = scope.resourceUpdateController;
 
     return AnimatedBuilder(
-      animation: Listenable.merge([auth, permissions, resources]),
+      animation: Listenable.merge([
+        auth,
+        permissions,
+        resources,
+        scope.favoriteFeatureController,
+      ]),
       builder: (context, _) {
         final manifest = resources.manifest;
 
@@ -61,8 +66,11 @@ class HomePage extends StatelessWidget {
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(18, 22, 18, 34),
                           child: HomeFeatureArea(
-                            features: permissions.features,
+                            features: scope.favoriteFeatureController
+                                .favoritesFrom(permissions.authorizedFeatures),
                             hasAnyFeature: permissions.allFeatures.isNotEmpty,
+                            hasAuthorizedFeature:
+                                permissions.authorizedFeatures.isNotEmpty,
                             loadStatus: permissions.status,
                             onRetry: auth.reloadSessionData,
                             iconColor: manifest.iconColor,

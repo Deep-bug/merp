@@ -5,12 +5,14 @@
 // 维护说明：后端菜单兼容逻辑只在此维护，页面只调用 canOpen
 // -----------------------------------------------------------------------------
 
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/network/api_client.dart';
 import '../domain/feature_item.dart';
+import 'feature_resolver.dart';
+import 'mock_feature_menu.dart';
 
 /// 登录后的功能清单和权限缓存。
 ///
@@ -25,11 +27,14 @@ class PermissionRepository extends ChangeNotifier {
   PermissionRepository({
     required ApiClient apiClient,
     required AppLogger logger,
+    FeatureResolver resolver = const FeatureResolver(),
   }) : _apiClient = apiClient,
-       _logger = logger;
+       _logger = logger,
+       _resolver = resolver;
 
   final ApiClient _apiClient;
   final AppLogger _logger;
+  final FeatureResolver _resolver;
   final List<FeatureItem> _allFeatures = [];
   final Set<String> _allowedCodes = {};
   PermissionLoadStatus _status = PermissionLoadStatus.idle;
@@ -42,11 +47,9 @@ class PermissionRepository extends ChangeNotifier {
   /// 全部功能：用于“更多/全部功能”页，未授权功能也会展示为灰色。
   List<FeatureItem> get allFeatures => List.unmodifiable(_allFeatures);
 
-  /// 首页常用功能：只展示当前账号有权限的功能，数量控制在首页可快速扫描的范围内。
-  List<FeatureItem> get features => _allFeatures
-      .where((feature) => canOpen(feature))
-      .take(9)
-      .toList(growable: false);
+  /// 当前账号全部可打开的功能；首页再根据本地收藏 id 进行筛选和排序。
+  List<FeatureItem> get authorizedFeatures =>
+      _allFeatures.where((feature) => canOpen(feature)).toList(growable: false);
 
   bool canOpen(FeatureItem item) => _allowedCodes.contains(item.permissionCode);
 
@@ -119,7 +122,7 @@ class PermissionRepository extends ChangeNotifier {
     if (raw is List<dynamic>) {
       final features = raw
           .whereType<Map<String, dynamic>>()
-          .map(_featureFromJson)
+          .map(_resolver.resolve)
           .toList(growable: false);
       return _PermissionSnapshot(
         features: features,
@@ -129,7 +132,7 @@ class PermissionRepository extends ChangeNotifier {
 
     if (raw is Map<String, dynamic>) {
       final rows = _readFeatureRows(raw);
-      final features = rows.map(_featureFromJson).toList(growable: false);
+      final features = rows.map(_resolver.resolve).toList(growable: false);
       final permissionCodes = _readStringList(raw, [
         'permissionCodes',
         'permissions',
@@ -171,179 +174,10 @@ class PermissionRepository extends ChangeNotifier {
     return const [];
   }
 
-  FeatureItem _featureFromJson(Map<String, dynamic> json) {
-    final mode = json['launchMode'] == 'native'
-        ? FeatureLaunchMode.native
-        : FeatureLaunchMode.legacyWeb;
-    final id = json['id'] as String? ?? json['code'] as String? ?? 'unknown';
-
-    return FeatureItem(
-      id: id,
-      title: json['title'] as String? ?? id,
-      description: json['description'] as String? ?? '',
-      icon: _iconFromName(json['icon'] as String?),
-      permissionCode: json['permissionCode'] as String? ?? id,
-      launchMode: mode,
-      route: json['route'] as String? ?? '/legacy/$id',
-      legacyPath: json['legacyPath'] as String?,
-    );
-  }
-
-  IconData _iconFromName(String? name) {
-    return switch (name) {
-      'form' => Icons.account_tree_outlined,
-      'field' => Icons.location_on_outlined,
-      'task' => Icons.checklist_outlined,
-      'service' => Icons.build_outlined,
-      'opportunity' => Icons.query_stats_outlined,
-      'customer' => Icons.groups_outlined,
-      'customer360' => Icons.diversity_3_outlined,
-      'asset' => Icons.home_work_outlined,
-      'device' => Icons.article_outlined,
-      'faq' => Icons.help_outline,
-      'ai' => Icons.smart_toy_outlined,
-      'agent' => Icons.group_add_outlined,
-      'camera' => Icons.photo_camera_outlined,
-      'map' => Icons.map_outlined,
-      'inventory' => Icons.inventory_2_outlined,
-      'approval' => Icons.fact_check_outlined,
-      'sales' => Icons.point_of_sale_outlined,
-      _ => Icons.apps_outlined,
-    };
-  }
-
   _PermissionSnapshot _mockSnapshot() {
-    final features = [
-      FeatureItem(
-        id: 'e-form',
-        title: '电子表单',
-        description: '旧表单中心',
-        icon: Icons.account_tree_outlined,
-        permissionCode: 'form.electronic.view',
-        launchMode: FeatureLaunchMode.legacyWeb,
-        route: '/legacy/e-form',
-        legacyPath: _apiClient.config.electronicFormUrl,
-      ),
-      FeatureItem(
-        id: 'field-work',
-        title: '外勤管理2.0',
-        description: '外勤签到与定位',
-        icon: Icons.location_on_outlined,
-        permissionCode: 'field.work.view',
-        launchMode: FeatureLaunchMode.legacyWeb,
-        route: '/legacy/field-work',
-        legacyPath: '/field-work',
-      ),
-      FeatureItem(
-        id: 'my-task',
-        title: '我的任务',
-        description: '待办任务',
-        icon: Icons.checklist_outlined,
-        permissionCode: 'task.mine.view',
-        launchMode: FeatureLaunchMode.legacyWeb,
-        route: '/legacy/my-task',
-        legacyPath: '/tasks/mine',
-      ),
-      FeatureItem(
-        id: 'map-location',
-        title: '地图定位',
-        description: '百度基础地图',
-        icon: Icons.map_outlined,
-        permissionCode: 'map.location.view',
-        launchMode: FeatureLaunchMode.native,
-        route: '/native/map',
-      ),
-      FeatureItem(
-        id: 'service-dispatch',
-        title: '服务派工',
-        description: '服务工单派发',
-        icon: Icons.build_outlined,
-        permissionCode: 'service.dispatch.view',
-        launchMode: FeatureLaunchMode.legacyWeb,
-        route: '/legacy/service-dispatch',
-        legacyPath: '/service/dispatch',
-      ),
-      FeatureItem(
-        id: 'sales-lead',
-        title: '线索商机',
-        description: '销售线索管理',
-        icon: Icons.query_stats_outlined,
-        permissionCode: 'sales.lead.view',
-        launchMode: FeatureLaunchMode.legacyWeb,
-        route: '/legacy/sales-lead',
-        legacyPath: '/sales/leads',
-      ),
-      FeatureItem(
-        id: 'customer',
-        title: '客户',
-        description: '客户资料',
-        icon: Icons.groups_outlined,
-        permissionCode: 'customer.view',
-        launchMode: FeatureLaunchMode.legacyWeb,
-        route: '/legacy/customer',
-        legacyPath: '/customers',
-      ),
-      FeatureItem(
-        id: 'customer-360',
-        title: '客户 360',
-        description: '客户全景',
-        icon: Icons.diversity_3_outlined,
-        permissionCode: 'customer.360.view',
-        launchMode: FeatureLaunchMode.legacyWeb,
-        route: '/legacy/customer-360',
-        legacyPath: '/customers/360',
-      ),
-      FeatureItem(
-        id: 'asset-inventory',
-        title: '固资盘点3.0',
-        description: '固定资产盘点',
-        icon: Icons.home_work_outlined,
-        permissionCode: 'asset.inventory.view',
-        launchMode: FeatureLaunchMode.legacyWeb,
-        route: '/legacy/asset-inventory',
-        legacyPath: _apiClient.config.assetInventoryUrl,
-      ),
-      FeatureItem(
-        id: 'device-history',
-        title: '设备履历',
-        description: '设备档案履历',
-        icon: Icons.article_outlined,
-        permissionCode: 'device.history.view',
-        launchMode: FeatureLaunchMode.legacyWeb,
-        route: '/legacy/device-history',
-        legacyPath: '/devices/history',
-      ),
-      FeatureItem(
-        id: 'faq',
-        title: 'FAQ',
-        description: '常见问题',
-        icon: Icons.help_outline,
-        permissionCode: 'faq.view',
-        launchMode: FeatureLaunchMode.legacyWeb,
-        route: '/legacy/faq',
-        legacyPath: '/faq',
-      ),
-      FeatureItem(
-        id: 'ai-search',
-        title: 'AI搜索',
-        description: '智能搜索',
-        icon: Icons.smart_toy_outlined,
-        permissionCode: 'ai.search.view',
-        launchMode: FeatureLaunchMode.legacyWeb,
-        route: '/legacy/ai-search',
-        legacyPath: '/ai/search',
-      ),
-      FeatureItem(
-        id: 'agent-setting',
-        title: '代理人设定',
-        description: '代理人配置',
-        icon: Icons.group_add_outlined,
-        permissionCode: 'agent.setting.view',
-        launchMode: FeatureLaunchMode.legacyWeb,
-        route: '/legacy/agent-setting',
-        legacyPath: '/agents/settings',
-      ),
-    ];
+    final features = MockFeatureMenu.rows(
+      _apiClient.config,
+    ).map(_resolver.resolve).toList(growable: false);
 
     return _PermissionSnapshot(
       features: features,

@@ -19,6 +19,7 @@ import '../core/logging/app_logger.dart';
 import '../core/network/api_client.dart';
 import '../core/resources/resource_update_controller.dart';
 import '../features/home/data/permission_repository.dart';
+import '../features/home/data/favorite_feature_controller.dart';
 import '../features/settings/settings_controller.dart';
 
 /// 应用级依赖容器。
@@ -33,6 +34,7 @@ class AppDependencies {
     required this.apiClient,
     required this.authController,
     required this.permissionRepository,
+    required this.favoriteFeatureController,
     required this.settingsController,
     required this.resourceUpdateController,
     required this.cameraService,
@@ -48,6 +50,7 @@ class AppDependencies {
   final ApiClient apiClient;
   final AuthController authController;
   final PermissionRepository permissionRepository;
+  final FavoriteFeatureController favoriteFeatureController;
   final SettingsController settingsController;
   final ResourceUpdateController resourceUpdateController;
   final CameraService cameraService;
@@ -100,6 +103,7 @@ class AppDependencies {
       logger: logger,
     );
     final resourceUpdateController = ResourceUpdateController(logger: logger);
+    final favoriteFeatureController = FavoriteFeatureController(logger: logger);
 
     // 本地设置、运行时资源、地图 SDK 占位初始化互不依赖，可以并行加载。
     // 后续真正接入地图 SDK 时，仍然建议把耗时授权/定位动作放到具体业务页再触发。
@@ -107,6 +111,7 @@ class AppDependencies {
       mapSdkService.initialize(),
       settingsController.load(),
       resourceUpdateController.load(),
+      favoriteFeatureController.load(),
     ]);
 
     final authController = AuthController(
@@ -129,6 +134,7 @@ class AppDependencies {
       apiClient: apiClient,
       authController: authController,
       permissionRepository: permissionRepository,
+      favoriteFeatureController: favoriteFeatureController,
       settingsController: settingsController,
       resourceUpdateController: resourceUpdateController,
       cameraService: CameraService(),
@@ -148,6 +154,7 @@ class AppDependencies {
   void dispose() {
     authController.dispose();
     permissionRepository.dispose();
+    favoriteFeatureController.dispose();
     settingsController.dispose();
     resourceUpdateController.dispose();
   }

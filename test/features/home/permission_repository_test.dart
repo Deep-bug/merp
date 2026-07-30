@@ -52,7 +52,7 @@ void main() {
     await repository.loadForSession(session);
 
     expect(repository.status, PermissionLoadStatus.loaded);
-    expect(repository.features.single.id, 'map-location');
+    expect(repository.authorizedFeatures.single.id, 'map-location');
 
     await repository.clear();
 

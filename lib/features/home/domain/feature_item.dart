@@ -2,7 +2,7 @@
 // 文件：feature_item.dart
 // 作用：定义后端功能菜单在 Flutter 中的领域模型和启动模式
 // 编写时间：2026-07-10
-// 维护说明：模型保持与 UI、Dio 解耦，便于后续增加原生模块类型
+// 维护说明：模型保持与 Dio 解耦；图标解析统一在 FeatureResolver 完成
 // -----------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
@@ -15,6 +15,7 @@ class FeatureItem {
     required this.title,
     required this.description,
     required this.icon,
+    this.iconUrl,
     required this.permissionCode,
     required this.launchMode,
     required this.route,
@@ -25,6 +26,7 @@ class FeatureItem {
   final String title;
   final String description;
   final IconData icon;
+  final String? iconUrl;
   final String permissionCode;
   final FeatureLaunchMode launchMode;
   final String route;

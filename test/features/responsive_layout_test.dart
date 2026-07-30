@@ -5,23 +5,34 @@
 // 维护说明：调整登录或功能卡片尺寸时必须保持这些边界场景通过
 // -----------------------------------------------------------------------------
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merp/core/auth/auth_controller.dart';
+import 'package:merp/core/auth/auth_repository.dart';
+import 'package:merp/core/config/app_config.dart';
+import 'package:merp/core/logging/app_logger.dart';
+import 'package:merp/core/network/api_client.dart';
 import 'package:merp/features/home/data/permission_repository.dart';
 import 'package:merp/features/home/domain/feature_item.dart';
 import 'package:merp/features/home/widgets/home_feature_area.dart';
 import 'package:merp/features/login/login_page.dart';
 import 'package:merp/l10n/generated/app_localizations.dart';
 
+import '../helpers/memory_token_store.dart';
+
 void main() {
   testWidgets('login remains scrollable when keyboard reduces screen height', (
     tester,
   ) async {
     _useCompactPhone(tester);
+    final auth = _testAuthController();
+    addTearDown(auth.dispose);
 
     await tester.pumpWidget(
       _testShell(
-        const LoginPage(),
+        LoginPage(authController: auth),
         viewInsets: const EdgeInsets.only(bottom: 300),
         textScale: 1.35,
       ),
@@ -30,6 +41,7 @@ void main() {
 
     expect(find.byType(SingleChildScrollView), findsOneWidget);
     expect(find.text('登录'), findsOneWidget);
+    expect(find.text('验证码'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -65,6 +77,7 @@ void main() {
                 ),
               ],
               hasAnyFeature: true,
+              hasAuthorizedFeature: true,
               loadStatus: PermissionLoadStatus.loaded,
               onRetry: _noopRetry,
               iconColor: Color(0xFF16A3DE),
@@ -79,6 +92,7 @@ void main() {
     final grid = tester.widget<GridView>(find.byType(GridView));
     final delegate =
         grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.crossAxisCount, 3);
     expect(delegate.mainAxisExtent, greaterThanOrEqualTo(138));
     expect(find.text('更多'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -86,6 +100,37 @@ void main() {
 }
 
 Future<void> _noopRetry() async {}
+
+AuthController _testAuthController() {
+  final logger = AppLogger();
+  final tokenStore = MemoryTokenStore();
+  final apiClient = ApiClient(
+    config: const AppConfig(),
+    tokenStore: tokenStore,
+    logger: logger,
+  );
+  final controller = AuthController(
+    authRepository: AuthRepository(
+      apiClient: apiClient,
+      tokenStore: tokenStore,
+      logger: logger,
+    ),
+    permissionRepository: PermissionRepository(
+      apiClient: apiClient,
+      logger: logger,
+    ),
+    logger: logger,
+  );
+  controller.status = AuthStatus.unauthenticated;
+  controller.captchaChallenge = CaptchaChallenge(
+    captchaId: 'captcha-001',
+    imageBytes: base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk'
+      '+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    ),
+  );
+  return controller;
+}
 
 Widget _testShell(
   Widget home, {
