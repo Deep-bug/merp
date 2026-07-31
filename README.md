@@ -14,23 +14,37 @@ MERP 是原 Cordova 6.5 外壳的 Flutter 升级版本。Flutter 统一负责启
 ## 开发环境与打包
 
 项目统一使用 Flutter `3.44.6` 和项目内固定版本的 FVM。新同事不需要全局安装
-FVM，也不要直接执行全局 `flutter`；首次拉取代码后运行：
+FVM，也不要直接执行全局 `flutter`。首次拉取代码后，在项目根目录按系统运行：
 
 完整教程见
 [MERP Flutter 开发、运行与发布教程](docs/DEVELOPMENT_AND_RELEASE_GUIDE.md)。
 
 ```bash
+# macOS
 ./tool/bootstrap
 ./tool/app doctor
 ```
 
-`bootstrap` 会识别 macOS CPU、下载并校验固定版本 FVM、安装 `.fvmrc` 指定的
-Flutter、获取依赖并检查 Java、Android SDK、Xcode 和 CocoaPods。重复执行会复用
-`.tool-cache` 缓存。初始化同时会生成本机 QAS 配置和 IDE 运行配置；本地配置变化后
-可以单独执行：
+```powershell
+# Windows（CMD 或 PowerShell）
+.\tool\bootstrap.cmd
+.\tool\app.cmd doctor
+```
+
+`bootstrap` 会识别 macOS/Windows 和 CPU 架构，下载并校验对应平台的固定版本
+FVM，安装 `.fvmrc` 指定的 Flutter、获取依赖并检查开发环境。macOS 额外检查
+Xcode 和 CocoaPods；Windows 支持 Android 开发与打包，不能运行或构建 iOS。
+重复执行会复用 `.tool-cache` 缓存。初始化同时会生成本机 QAS 配置和 IDE
+运行配置；本地配置变化后可以单独执行：
 
 ```bash
+# macOS
 ./tool/app ide
+```
+
+```powershell
+# Windows
+.\tool\app.cmd ide
 ```
 
 日常只运行 QAS：
@@ -41,6 +55,13 @@ Flutter、获取依赖并检查 Java、Android SDK、Xcode 和 CocoaPods。重�
 
 # 指定设备
 ./tool/app run qas android -d <device-id>
+```
+
+Windows 使用相同参数，把入口替换为 `.\tool\app.cmd`：
+
+```powershell
+.\tool\app.cmd run qas android
+.\tool\app.cmd run qas android -d emulator-5554
 ```
 
 Android Studio 打开项目根目录后，可直接选择共享的 `MERP QAS Android`；执行过
@@ -57,8 +78,9 @@ Android Studio 打开项目根目录后，可直接选择共享的 `MERP QAS And
 `flutter.sdk`；文件缺失或路径已经失效时，会自动回退到项目固定的
 `.fvm/flutter_sdk`，并在本机生成或修复 `local.properties`。macOS 上缺少有效
 `sdk.dir` 时也会尝试使用 `ANDROID_SDK_ROOT`、`ANDROID_HOME` 或默认的
-`$HOME/Library/Android/sdk`。如果仍找不到 Flutter SDK，按错误提示在项目根目录
-执行 `./tool/bootstrap` 即可。
+`$HOME/Library/Android/sdk`；Windows 还会尝试
+`%LOCALAPPDATA%\Android\Sdk`。如果仍找不到 Flutter SDK，按错误提示在项目根目录
+执行当前系统的 `bootstrap` 即可。
 
 Android Studio运行配置：
 
@@ -86,6 +108,14 @@ VS Code运行配置：
 
 `.vscode/settings.json` 只保存 `.fvm/flutter_sdk` 相对路径，不得提交某位开发者的
 Android SDK、Flutter SDK、Pub Cache 或 Gradle Cache 绝对路径。
+移动端启动项不写死 `deviceId`；运行前先在 VS Code 右下角选择当前模拟器或真机，
+再按 `F5`。例如 Android 模拟器的真实设备 ID 通常是 `emulator-5554`，不同电脑
+和不同启动次数可能变化，不能写进共享配置。
+
+Windows 上安装 Flutter 与 Dart 的 VS Code 扩展后，仍选择
+`MERP QAS Android Debug`，再选择 Android 模拟器或手机。项目没有 Windows
+桌面端工程，因此“Windows 同事开发”指在 Windows 主机上开发 Android，不要选择
+Windows 桌面设备。iOS 启动项只可在 macOS 使用。
 
 代码检查与测试：
 
@@ -93,6 +123,8 @@ Android SDK、Flutter SDK、Pub Cache 或 Gradle Cache 绝对路径。
 ./tool/app analyze
 ./tool/app test
 ```
+
+Windows 对应为 `.\tool\app.cmd analyze` 和 `.\tool\app.cmd test`。
 
 构建矩阵：
 
@@ -157,6 +189,9 @@ merp/
 ├── .vscode/                                 # VS Code QAS Flavor启动配置
 ├── config/                                  # QAS/PRD公共配置与本地覆盖模板
 ├── tool/                                     # 固定工具链、首次初始化和统一构建入口
+│   ├── app / bootstrap                       # macOS 入口
+│   ├── app.cmd / bootstrap.cmd               # Windows 入口
+│   └── *.ps1                                 # Windows PowerShell 实现
 ├── android/                                  # Android 工程、权限、启动图、图标和 Gradle 配置
 │   └── app/
 │       ├── build.gradle.kts                  # minSdk=24，明确兼容 Android 7.0

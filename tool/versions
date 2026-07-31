@@ -6,3 +6,7 @@ FVM_MACOS_ARM64_URL="https://github.com/conceptadev/fvm/releases/download/4.1.2/
 FVM_MACOS_ARM64_SHA256="0b2a146986c51f06331f135f0bdf2a202eb57f55d7edd420c9078e8520e4c033"
 FVM_MACOS_X64_URL="https://github.com/conceptadev/fvm/releases/download/4.1.2/fvm-4.1.2-macos-x64.tar.gz"
 FVM_MACOS_X64_SHA256="7bbfcb6883ea67ce532163704f5625eba7ecf340084be707cde71a28fefff1d8"
+FVM_WINDOWS_ARM64_URL="https://github.com/conceptadev/fvm/releases/download/4.1.2/fvm-4.1.2-windows-arm64.zip"
+FVM_WINDOWS_ARM64_SHA256="05f8aba2e8d96c26eef054396e7c24c6ace6ca0758c2e0eed1921c18e17202da"
+FVM_WINDOWS_X64_URL="https://github.com/conceptadev/fvm/releases/download/4.1.2/fvm-4.1.2-windows-x64.zip"
+FVM_WINDOWS_X64_SHA256="9a18b4daac98dac3c3230ff67ccc644d5a7875d1fc09fb7d848cb2900b9478b8"

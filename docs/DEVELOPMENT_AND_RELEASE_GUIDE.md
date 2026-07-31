@@ -3,7 +3,8 @@
 本文档适用于 MERP Flutter 工程的日常开发、真机调试、测试包构建和正式发布。
 项目已经统一封装 FVM、Flutter 版本、QAS/PRD Flavor 和双平台构建参数。
 
-日常不要直接拼接复杂的 `flutter build` 命令，统一使用 `./tool/app`。
+日常不要直接拼接复杂的 `flutter build` 命令。macOS 统一使用 `./tool/app`，
+Windows 统一使用 `.\tool\app.cmd`。
 
 ## 1. 环境与应用矩阵
 
@@ -34,6 +35,13 @@ macOS 至少需要：
 - Xcode
 - CocoaPods
 
+Windows 至少需要：
+
+- Git for Windows
+- Android Studio 和 Android SDK
+- VS Code（可选）及 Flutter、Dart 扩展
+- Windows PowerShell 5.1 或更高版本
+
 不需要提前全局安装 FVM。项目会下载固定的 FVM `4.1.2`，并安装
 `.fvmrc` 指定的 Flutter `3.44.6`。
 
@@ -42,33 +50,48 @@ macOS 至少需要：
 进入项目根目录：
 
 ```bash
-cd /Users/lairenlong/Research_Institute/merp
+# macOS
+cd /path/to/merp
 ./tool/bootstrap
 ./tool/app doctor
 ```
 
+Windows 在 CMD 或 PowerShell 中进入自己的项目目录：
+
+```powershell
+.\tool\bootstrap.cmd
+.\tool\app.cmd doctor
+```
+
 `bootstrap` 会：
 
-1. 检查 macOS 和 CPU 架构。
-2. 下载并校验项目固定版本的 FVM。
+1. 检查操作系统和 CPU 架构。
+2. 下载并校验当前平台对应的固定版本 FVM。
 3. 安装 Flutter `3.44.6`。
 4. 获取 Flutter 依赖。
-5. 检查 Java、Android SDK、Xcode 和 CocoaPods。
+5. 检查 Java 和 Android SDK；macOS 额外检查 Xcode 和 CocoaPods。
 
 以后重新拉取依赖或排查环境时可以再次执行，缓存会被复用。
 
 `android/local.properties` 保存本机 SDK 路径，必须继续被 Git 忽略。Android
 Gradle 同步会优先读取其中有效的 `flutter.sdk`；文件不存在或路径已经失效时，
 自动使用项目根目录的 `.fvm/flutter_sdk`，并在本机生成或修复
-`local.properties`。如果 `sdk.dir` 缺失或无效，macOS 会继续尝试
-`ANDROID_SDK_ROOT`、`ANDROID_HOME` 和 `$HOME/Library/Android/sdk`。如果两处
-Flutter SDK 都不存在，先在项目根目录执行 `./tool/bootstrap`，无需从其他电脑
-复制 `local.properties`。
+`local.properties`。如果 `sdk.dir` 缺失或无效，会继续尝试
+`ANDROID_SDK_ROOT`、`ANDROID_HOME`；macOS 再尝试
+`$HOME/Library/Android/sdk`，Windows 再尝试
+`%LOCALAPPDATA%\Android\Sdk`。如果两处 Flutter SDK 都不存在，先在项目根目录
+执行当前系统的 `bootstrap`，无需从其他电脑复制 `local.properties`。
 
 如果 doctor 提示 Android licenses 未接受：
 
 ```bash
 .fvm/flutter_sdk/bin/flutter doctor --android-licenses
+```
+
+Windows：
+
+```powershell
+.\.fvm\flutter_sdk\bin\flutter.bat doctor --android-licenses
 ```
 
 ## 3. 配置本地环境
@@ -96,6 +119,9 @@ config/qas.local.json
 ```bash
 cp config/baidu_map.example.json config/baidu_map.local.json
 ```
+
+Windows 初始化时会自动创建该本地文件；也可以执行
+`Copy-Item config\baidu_map.example.json config\baidu_map.local.json` 后填写。
 
 然后在 `config/baidu_map.local.json` 中填写 Android 和 iOS AK。真实 AK 不得提交。
 
@@ -145,8 +171,15 @@ config/prd.local.json
 ### 4.1 拉取代码后
 
 ```bash
+# macOS
 git pull
 ./tool/bootstrap
+```
+
+```powershell
+# Windows
+git pull
+.\tool\bootstrap.cmd
 ```
 
 只有依赖或工具链发生变化时才需要重新执行 bootstrap，重复执行不会重复下载 FVM。
@@ -159,6 +192,14 @@ git pull
 ./tool/app run qas android
 ```
 
+Windows：
+
+```powershell
+.\tool\app.cmd analyze
+.\tool\app.cmd test
+.\tool\app.cmd run qas android
+```
+
 开发 iOS 时将最后一条改为：
 
 ```bash
@@ -166,6 +207,7 @@ git pull
 ```
 
 本地开发只运行 QAS，不提供 `run prd`。
+Windows 只能开发、运行和构建 Android；iOS 必须使用 macOS 和 Xcode。
 
 ### 4.3 指定真机
 
@@ -175,12 +217,16 @@ git pull
 .fvm/flutter_sdk/bin/flutter devices
 ```
 
+Windows 对应 `.\.fvm\flutter_sdk\bin\flutter.bat devices`。
+
 指定设备：
 
 ```bash
 ./tool/app run qas android -d <android-device-id>
 ./tool/app run qas ios -d <ios-device-id>
 ```
+
+Windows 使用 `.\tool\app.cmd run qas android -d <android-device-id>`。
 
 没有传 `-d` 时，脚本会自动选择当前平台的第一个可用设备。
 
@@ -204,8 +250,13 @@ Info.plist、原生权限、插件或启动图后，必须停止并重新构建�
 3. 确认设备：
 
 ```bash
+# macOS 默认路径
 $HOME/Library/Android/sdk/platform-tools/adb devices
 ```
+
+Windows 可以直接执行 `adb devices`；如果找不到 `adb`，使用
+`%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe devices`，或把
+`platform-tools` 加入 Path。
 
 4. 运行 QAS：
 
@@ -216,12 +267,14 @@ $HOME/Library/Android/sdk/platform-tools/adb devices
 ### 5.2 使用 Android Studio
 
 Android Studio 用于查看 Logcat、设备状态和原生 Gradle 配置。日常 Flutter 启动仍建议
-使用 `./tool/app run qas android`，以确保 Flavor 和环境参数不会遗漏。
+使用统一入口运行，以确保 Flavor 和环境参数不会遗漏：macOS 使用
+`./tool/app run qas android`，Windows 使用
+`.\tool\app.cmd run qas android`。
 
 仓库已提供可跨电脑使用的 Android Studio Flutter Run Configuration：
 
 - `MERP QAS Android`：只读取仓库内的 `config/qas.json`，任何完成初始化的电脑都能启动。
-- `MERP QAS Android (Local)`：由 `./tool/bootstrap` 或 `./tool/app ide` 自动生成，
+- `MERP QAS Android (Local)`：由当前系统的 `bootstrap` 或 `app ide` 自动生成，
   额外读取被 Git 忽略的地图、WebView和 QAS 本地覆盖配置。
 
 如果需要手动核对 Run Configuration：
@@ -249,9 +302,17 @@ Android Studio 用于查看 Logcat、设备状态和原生 Gradle 配置。日�
 - `MERP QAS iOS Debug`
 - `MERP QAS iOS Debug (Local)`
 
-共享启动项只依赖仓库配置；Local 启动项需要先执行 `./tool/bootstrap` 或
-`./tool/app ide`。`.vscode/settings.json` 只使用 `.fvm/flutter_sdk` 相对路径，
+共享启动项只依赖仓库配置；Local 启动项需要先执行当前系统的 `bootstrap` 或
+`app ide`。`.vscode/settings.json` 只使用 `.fvm/flutter_sdk` 相对路径，
 不得写入某位开发者的 Windows、macOS SDK 绝对路径。
+
+Android/iOS 移动端启动项不设置固定 `deviceId`。运行前在 VS Code 右下角选择
+当前模拟器、Simulator 或真机，再按 `F5`；共享配置会使用 Flutter 扩展当前选中的
+真实设备 ID。`android` 和 `ios` 是平台名称，不是可跨电脑使用的设备 ID。
+
+Windows 同事运行 Android 时同样选择 `MERP QAS Android Debug`，不需要 Windows
+专属启动项。仓库当前没有 `windows/` 桌面端工程，所以 Windows 主机只用于开发
+Android；iOS 启动项只能在 macOS 使用。
 
 ### 5.3 构建 QAS APK
 
@@ -259,6 +320,14 @@ Android Studio 用于查看 Logcat、设备状态和原生 Gradle 配置。日�
 ./tool/app analyze
 ./tool/app test
 ./tool/app build qas android
+```
+
+Windows 对应：
+
+```powershell
+.\tool\app.cmd analyze
+.\tool\app.cmd test
+.\tool\app.cmd build qas android
 ```
 
 脚本完成后会打印实际 APK 完整路径。当前典型路径为：
@@ -282,6 +351,9 @@ $HOME/Library/Android/sdk/platform-tools/adb install -r \
 cp android/key.properties.example android/key.properties
 ```
 
+Windows 使用
+`Copy-Item android\key.properties.example android\key.properties`。
+
 填写：
 
 ```properties
@@ -301,6 +373,14 @@ keyPassword=由发布负责人提供
 
 ```bash
 BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build prd android
+```
+
+Windows PowerShell：
+
+```powershell
+$env:BUILD_NAME = "1.2.0"
+$env:BUILD_NUMBER = "108"
+.\tool\app.cmd build prd android
 ```
 
 本地会显示 PRD 警告，输入：
@@ -498,10 +578,16 @@ CI Secret 至少包含：
 
 ### 找不到 FVM
 
-不要执行全局 `fvm`，运行：
+不要执行全局 `fvm`。macOS 运行：
 
 ```bash
 ./tool/bootstrap
+```
+
+Windows 运行：
+
+```powershell
+.\tool\bootstrap.cmd
 ```
 
 ### Android 找不到设备

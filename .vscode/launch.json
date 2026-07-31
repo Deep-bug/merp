@@ -7,7 +7,6 @@
       "type": "dart",
       "flutterMode": "debug",
       "program": "lib/main.dart",
-      "deviceId": "android",
       "toolArgs": [
         "--flavor",
         "qas",
@@ -24,7 +23,6 @@
       "type": "dart",
       "flutterMode": "profile",
       "program": "lib/main.dart",
-      "deviceId": "android",
       "toolArgs": [
         "--flavor",
         "qas",
@@ -41,7 +39,6 @@
       "type": "dart",
       "flutterMode": "debug",
       "program": "lib/main.dart",
-      "deviceId": "android",
       "toolArgs": [
         "--flavor",
         "qas",
@@ -61,7 +58,6 @@
       "type": "dart",
       "flutterMode": "debug",
       "program": "lib/main.dart",
-      "deviceId": "ios",
       "toolArgs": [
         "--flavor",
         "qas",
@@ -78,7 +74,6 @@
       "type": "dart",
       "flutterMode": "debug",
       "program": "lib/main.dart",
-      "deviceId": "ios",
       "toolArgs": [
         "--flavor",
         "qas",
@@ -105,21 +100,6 @@
       "presentation": {
         "group": "web",
         "order": 6
-      }
-    },
-    {
-      "name": "MERP QAS Windows Debug",
-      "request": "launch",
-      "type": "dart",
-      "flutterMode": "debug",
-      "program": "lib/main.dart",
-      "deviceId": "windows",
-      "toolArgs": [
-        "--dart-define-from-file=config/qas.json"
-      ],
-      "presentation": {
-        "group": "desktop",
-        "order": 7
       }
     }
   ]

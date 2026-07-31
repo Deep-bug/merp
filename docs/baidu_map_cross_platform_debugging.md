@@ -37,11 +37,16 @@ flutter_bmflocation: 3.8.4
 }
 ```
 
-启动时使用：
+把密钥文件保存后，通过项目统一入口启动。入口会自动加载该本地文件：
 
 ```bash
-/Users/lairenlong/.pub-cache/bin/fvm flutter run \
-  --dart-define-from-file=config/baidu_map.local.json
+# macOS
+./tool/app run qas android
+```
+
+```powershell
+# Windows
+.\tool\app.cmd run qas android
 ```
 
 提交前必须确认：
@@ -107,11 +112,9 @@ iOS 真机运行前需要：
 常用命令：
 
 ```bash
-/Users/lairenlong/.pub-cache/bin/fvm flutter pub get
+./tool/bootstrap
 cd ios && pod install --repo-update && cd ..
-/Users/lairenlong/.pub-cache/bin/fvm flutter run \
-  -d <iPhone device id> \
-  --dart-define-from-file=config/baidu_map.local.json
+./tool/app run qas ios -d <iPhone device id>
 ```
 
 如果日志提示 `地图所需资源文件不完整，请正确添加 mapapi.bundle`，先不要手动往 Xcode target 里加 bundle。CocoaPods 的 `[CP] Copy Pods Resources` 正常会复制 `mapapi.bundle`，手动添加反而会造成 `Multiple commands produce mapapi.bundle`。正确排查方式：
@@ -119,9 +122,11 @@ cd ios && pod install --repo-update && cd ..
 ```bash
 rg "mapapi.bundle" ios/Pods/Target\ Support\ Files/Pods-Runner
 rm -rf build/ios/Debug-iphoneos build/ios/iphoneos/Runner.app
-/Users/lairenlong/.pub-cache/bin/fvm flutter build ios \
+.fvm/flutter_sdk/bin/flutter build ios \
   --debug \
   --no-codesign \
+  --flavor qas \
+  --dart-define-from-file=config/qas.json \
   --dart-define-from-file=config/baidu_map.local.json
 test -d build/ios/iphoneos/Runner.app/mapapi.bundle
 du -sh build/ios/iphoneos/Runner.app/mapapi.bundle
@@ -222,45 +227,38 @@ setNewMapStatus(
 静态检查：
 
 ```bash
-FLUTTER_STORAGE_BASE_URL=https://storage.googleapis.com \
-/Users/lairenlong/.pub-cache/bin/fvm flutter analyze
+./tool/app analyze
 ```
 
-Android debug 构建：
-
-```bash
-FLUTTER_STORAGE_BASE_URL=https://storage.googleapis.com \
-/Users/lairenlong/.pub-cache/bin/fvm flutter build apk \
-  --debug \
-  --dart-define-from-file=config/baidu_map.local.json
+```powershell
+.\tool\app.cmd analyze
 ```
 
-Android release 构建：
+Android QAS release 构建：
 
 ```bash
-FLUTTER_STORAGE_BASE_URL=https://storage.googleapis.com \
-/Users/lairenlong/.pub-cache/bin/fvm flutter build apk \
-  --release \
-  --dart-define-from-file=config/baidu_map.local.json
+./tool/app build qas android
+```
+
+```powershell
+.\tool\app.cmd build qas android
 ```
 
 iOS debug 构建：
 
 ```bash
-FLUTTER_STORAGE_BASE_URL=https://storage.googleapis.com \
-/Users/lairenlong/.pub-cache/bin/fvm flutter build ios \
+.fvm/flutter_sdk/bin/flutter build ios \
   --debug \
   --no-codesign \
+  --flavor qas \
+  --dart-define-from-file=config/qas.json \
   --dart-define-from-file=config/baidu_map.local.json
 ```
 
 iOS 真机启动：
 
 ```bash
-FLUTTER_STORAGE_BASE_URL=https://storage.googleapis.com \
-/Users/lairenlong/.pub-cache/bin/fvm flutter run \
-  -d <iPhone device id> \
-  --dart-define-from-file=config/baidu_map.local.json
+./tool/app run qas ios -d <iPhone device id>
 ```
 
 ## 已验证的关键现象
