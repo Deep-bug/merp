@@ -111,7 +111,8 @@ CI=true BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build prd android
 
 命令会统一注入 Flavor、`config/<env>.json`、本地地图/WebView 配置、版本号和
 构建编号，并在成功后打印实际产物的完整路径、环境、版本和 Git 提交。PRD 不提供
-日常运行命令，也不会自动上传商店。
+日常运行命令，也不会自动上传商店。Android 命令检测到终端 Java 低于 17 时，会
+自动使用标准安装位置中的 Android Studio 内置 JDK。
 
 环境配置：
 

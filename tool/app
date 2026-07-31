@@ -43,6 +43,41 @@ ensure_fvm() {
   fi
 }
 
+ensure_android_java() {
+  local java_bin=""
+  local java_major=""
+  local java_version_line=""
+  local android_studio_java_home="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+
+  if [[ -n "${JAVA_HOME:-}" && -x "$JAVA_HOME/bin/java" ]]; then
+    java_bin="$JAVA_HOME/bin/java"
+  else
+    java_bin="$(command -v java 2>/dev/null || true)"
+  fi
+
+  if [[ -n "$java_bin" ]]; then
+    java_version_line="$("$java_bin" -version 2>&1 | head -n 1)"
+    if [[ "$java_version_line" == *'version "1.'* ]]; then
+      java_major="$(printf '%s' "$java_version_line" | sed -E 's/.*version "1\.([0-9]+).*/\1/')"
+    else
+      java_major="$(printf '%s' "$java_version_line" | sed -E 's/.*version "([0-9]+).*/\1/')"
+    fi
+  fi
+
+  if [[ "$java_major" =~ ^[0-9]+$ && "$java_major" -ge 17 ]]; then
+    return
+  fi
+
+  if [[ -x "$android_studio_java_home/bin/java" ]]; then
+    export JAVA_HOME="$android_studio_java_home"
+    export PATH="$JAVA_HOME/bin:$PATH"
+    printf '当前 Java 版本不满足 Android 构建要求，已使用 Android Studio 内置 JDK。\n'
+    return
+  fi
+
+  fail "Android 构建需要 JDK 17 以上；请安装 Android Studio，或将 JAVA_HOME 指向可用 JDK。"
+}
+
 flutter() {
   FVM_NO_ANALYTICS=1 "$FVM_BIN" flutter "$@"
 }
@@ -193,9 +228,15 @@ if [[ "$COMMAND" == "run" && "$ENVIRONMENT" == "prd" ]]; then
 fi
 
 shift 3
-EXTRA_ARGUMENTS=("$@")
+# macOS 自带 Bash 3.2 在 `set -u` 下展开空数组会报 unbound variable。
+# 保留一个不传给 Flutter 的占位元素，使“没有额外参数”也能安全执行。
+EXTRA_ARGUMENTS=("")
+EXTRA_ARGUMENTS+=("$@")
 ensure_fvm
 config_args "$ENVIRONMENT"
+if [[ "$PLATFORM" == "android" ]]; then
+  ensure_android_java
+fi
 
 VERSION_NAME="${BUILD_NAME:-$(project_version)}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(project_build_number)}"
@@ -205,11 +246,11 @@ BUILD_NUMBER="${BUILD_NUMBER:-$(project_build_number)}"
 cd "$ROOT_DIR"
 
 if [[ "$COMMAND" == "run" ]]; then
-  if ! has_device_argument "${EXTRA_ARGUMENTS[@]}"; then
+  if ! has_device_argument "${EXTRA_ARGUMENTS[@]:1}"; then
     DEVICE_ID="$(select_device "$PLATFORM")"
     [[ -n "$DEVICE_ID" ]] ||
       fail "没有发现可用的 $PLATFORM 设备；请连接设备或传入 -d <device-id>。"
-    EXTRA_ARGUMENTS=("-d" "$DEVICE_ID" "${EXTRA_ARGUMENTS[@]}")
+    EXTRA_ARGUMENTS=("" "-d" "$DEVICE_ID" "${EXTRA_ARGUMENTS[@]:1}")
     printf '使用 %s 设备：%s\n' "$PLATFORM" "$DEVICE_ID"
   fi
   flutter run \
@@ -219,7 +260,7 @@ if [[ "$COMMAND" == "run" ]]; then
     "${CONFIG_ARGUMENTS[@]}" \
     --build-name "$VERSION_NAME" \
     --build-number "$BUILD_NUMBER" \
-    "${EXTRA_ARGUMENTS[@]}"
+    "${EXTRA_ARGUMENTS[@]:1}"
   exit 0
 fi
 
@@ -235,23 +276,23 @@ touch "$MARKER"
 if [[ "$PLATFORM" == "android" && "$ENVIRONMENT" == "qas" ]]; then
   flutter build apk --flavor qas --release --target lib/main.dart \
     "${CONFIG_ARGUMENTS[@]}" --build-name "$VERSION_NAME" \
-    --build-number "$BUILD_NUMBER" "${EXTRA_ARGUMENTS[@]}"
+    --build-number "$BUILD_NUMBER" "${EXTRA_ARGUMENTS[@]:1}"
   print_artifact qas android "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" apk
 elif [[ "$PLATFORM" == "android" ]]; then
   flutter build appbundle --flavor prd --release --target lib/main.dart \
     "${CONFIG_ARGUMENTS[@]}" --build-name "$VERSION_NAME" \
-    --build-number "$BUILD_NUMBER" "${EXTRA_ARGUMENTS[@]}"
+    --build-number "$BUILD_NUMBER" "${EXTRA_ARGUMENTS[@]:1}"
   print_artifact prd android "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" aab
 elif [[ "$ENVIRONMENT" == "qas" ]]; then
   flutter build ipa --flavor qas --release --target lib/main.dart \
     --export-method development "${CONFIG_ARGUMENTS[@]}" \
     --build-name "$VERSION_NAME" --build-number "$BUILD_NUMBER" \
-    "${EXTRA_ARGUMENTS[@]}"
+    "${EXTRA_ARGUMENTS[@]:1}"
   print_artifact qas ios "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" ipa
 else
   flutter build ipa --flavor prd --release --target lib/main.dart \
     --export-method app-store "${CONFIG_ARGUMENTS[@]}" \
     --build-name "$VERSION_NAME" --build-number "$BUILD_NUMBER" \
-    "${EXTRA_ARGUMENTS[@]}"
+    "${EXTRA_ARGUMENTS[@]:1}"
   print_artifact prd ios "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" ipa
 fi
