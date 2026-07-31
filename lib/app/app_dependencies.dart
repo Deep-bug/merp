@@ -20,7 +20,6 @@ import '../core/network/api_client.dart';
 import '../core/resources/resource_update_controller.dart';
 import '../features/home/data/permission_repository.dart';
 import '../features/home/data/favorite_feature_controller.dart';
-import '../features/home/data/mock_feature_menu.dart';
 import '../features/settings/settings_controller.dart';
 
 /// 应用级依赖容器。
@@ -104,13 +103,7 @@ class AppDependencies {
       logger: logger,
     );
     final resourceUpdateController = ResourceUpdateController(logger: logger);
-    final favoriteFeatureController = FavoriteFeatureController(
-      logger: logger,
-      defaultIds: config.mockMenus
-          ? MockFeatureMenu.defaultFavoriteIds
-          : const [],
-      defaultIdsVersion: config.mockMenus ? 1 : 0,
-    );
+    final favoriteFeatureController = FavoriteFeatureController(logger: logger);
 
     // 本地设置、运行时资源、地图 SDK 占位初始化互不依赖，可以并行加载。
     // 后续真正接入地图 SDK 时，仍然建议把耗时授权/定位动作放到具体业务页再触发。

@@ -6,29 +6,6 @@
 import '../../../core/config/app_config.dart';
 
 abstract final class MockFeatureMenu {
-  /// 旧版“首页应用”区域的默认顺序；未列出的功能默认不收藏。
-  static const defaultFavoriteIds = [
-    'e-form',
-    'my-task',
-    'device-history',
-    'service-dispatch',
-    'sales-report',
-    'sales-lead',
-    'field-work',
-    'customer',
-    'customer-360',
-    'spare-parts-inventory',
-    'asset-inventory',
-    'service-report',
-    'field-report',
-    'ai-search',
-    'agent-setting',
-    'inventory-query',
-    'service-calendar',
-    'faq',
-    'dealer-price-query',
-  ];
-
   static List<Map<String, dynamic>> rows(AppConfig config) => [
     _web(
       id: 'survey-analysis',

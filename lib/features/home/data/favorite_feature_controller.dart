@@ -13,17 +13,13 @@ class FavoriteFeatureController extends ChangeNotifier {
   FavoriteFeatureController({
     required AppLogger logger,
     SharedPreferences? preferences,
-    List<String> defaultIds = const [],
-    this.defaultIdsVersion = 0,
   }) : _logger = logger,
-       _preferences = preferences,
-       _defaultIds = List.unmodifiable(defaultIds);
+       _preferences = preferences;
 
-  static const _storageKey = 'merp.home.favoriteFeatureIds';
-  static const _defaultsVersionKey = 'merp.home.favoriteFeatureDefaultsVersion';
+  // v2 只保存用户主动点击星标产生的收藏。
+  // 不迁移旧键，避免旧版自动写入的默认首页应用继续进入拖动区域。
+  static const _storageKey = 'merp.home.manualFavoriteFeatureIds.v2';
   final AppLogger _logger;
-  final List<String> _defaultIds;
-  final int defaultIdsVersion;
   SharedPreferences? _preferences;
   List<String> _ids = [];
 
@@ -33,20 +29,11 @@ class FavoriteFeatureController extends ChangeNotifier {
   Future<void> load() async {
     _preferences ??= await SharedPreferences.getInstance();
     final storedIds = _preferences!.getStringList(_storageKey);
-    _ids = (storedIds ?? _defaultIds)
+    _ids = (storedIds ?? const <String>[])
         .map((id) => id.trim())
         .where((id) => id.isNotEmpty)
         .toSet()
         .toList(growable: true);
-    final storedDefaultsVersion =
-        _preferences!.getInt(_defaultsVersionKey) ?? 0;
-    if (defaultIdsVersion > storedDefaultsVersion) {
-      for (final id in _defaultIds) {
-        if (!_ids.contains(id)) _ids.add(id);
-      }
-      await _preferences!.setStringList(_storageKey, _ids);
-      await _preferences!.setInt(_defaultsVersionKey, defaultIdsVersion);
-    }
     notifyListeners();
   }
 
@@ -92,7 +79,11 @@ class FavoriteFeatureController extends ChangeNotifier {
   Future<void> _save() async {
     _preferences ??= await SharedPreferences.getInstance();
     await _preferences!.setStringList(_storageKey, _ids);
-    _logger.info('home.features', '首页收藏功能已保存', fields: {'count': _ids.length});
+    _logger.info(
+      'home.features',
+      '用户手动收藏功能已保存',
+      fields: {'count': _ids.length},
+    );
     notifyListeners();
   }
 }
