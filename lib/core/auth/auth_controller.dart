@@ -72,6 +72,30 @@ class AuthController extends ChangeNotifier {
     await restoreSession();
   }
 
+  /// 放弃无法恢复的旧会话，让用户可以主动返回登录页切换账号。
+  Future<void> discardStoredSession() async {
+    status = AuthStatus.booting;
+    lastError = null;
+    notifyListeners();
+    try {
+      await Future.wait([
+        _authRepository.clearLocalSession(),
+        _permissionRepository.clear(),
+      ]);
+      _sessionGeneration += 1;
+      session = null;
+      captchaChallenge = null;
+      captchaError = null;
+      status = AuthStatus.unauthenticated;
+      _logger.info('auth', '用户已放弃旧会话，返回登录页');
+    } catch (error, stackTrace) {
+      status = AuthStatus.restoreFailed;
+      lastError = error.toString();
+      _logger.error('auth', '清理旧会话失败', error: error, stackTrace: stackTrace);
+    }
+    notifyListeners();
+  }
+
   Future<void> refreshCaptcha() async {
     if (isCaptchaLoading) {
       return;

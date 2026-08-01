@@ -11,7 +11,6 @@ import 'package:merp/core/auth/auth_models.dart';
 import 'package:merp/core/config/app_config.dart';
 import 'package:merp/core/logging/app_logger.dart';
 import 'package:merp/core/network/api_client.dart';
-import 'package:merp/core/network/api_exception.dart';
 
 import '../../helpers/fake_http_adapter.dart';
 import '../../helpers/memory_token_store.dart';
@@ -213,7 +212,7 @@ void main() {
     },
   );
 
-  test('restore refresh keeps tokens on malformed refresh request', () async {
+  test('restore refresh clears tokens on non-retryable bad request', () async {
     final dio = Dio()
       ..httpClientAdapter = FakeHttpAdapter((options) {
         return jsonResponse({
@@ -232,12 +231,10 @@ void main() {
       dio: dio,
     );
 
-    await expectLater(
-      client.refreshTokensForRestore(),
-      throwsA(isA<ApiException>()),
-    );
+    final tokens = await client.refreshTokensForRestore();
 
-    expect(store.tokens?.refreshToken, 'refresh-1');
-    expect(store.clearCount, 0);
+    expect(tokens, isNull);
+    expect(store.tokens, isNull);
+    expect(store.clearCount, 1);
   });
 }

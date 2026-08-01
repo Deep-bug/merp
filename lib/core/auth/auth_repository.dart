@@ -171,6 +171,9 @@ class AuthRepository {
     }
   }
 
+  /// 启动恢复失败时只清理本地状态，不请求当前可能不可用的登出接口。
+  Future<void> clearLocalSession() => _tokenStore.clear();
+
   /// 无论服务端登出成功与否，本地令牌都必须清空。
   Future<void> logout() async {
     final refreshToken = (await _tokenStore.readTokens())?.refreshToken;

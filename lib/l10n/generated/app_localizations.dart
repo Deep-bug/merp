@@ -140,6 +140,12 @@ abstract class AppLocalizations {
   /// **'应用初始化没有完成，请检查本地配置、网络或后端服务状态。'**
   String get startupFailedMessage;
 
+  /// No description provided for @clearSessionAndLogin.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除登录状态并进入登录页'**
+  String get clearSessionAndLogin;
+
   /// No description provided for @login.
   ///
   /// In zh, this message translates to:

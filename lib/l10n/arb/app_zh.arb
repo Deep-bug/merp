@@ -6,6 +6,7 @@
   "restoringSession": "正在恢复登录状态",
   "startupFailed": "启动失败",
   "startupFailedMessage": "应用初始化没有完成，请检查本地配置、网络或后端服务状态。",
+  "clearSessionAndLogin": "清除登录状态并进入登录页",
   "login": "登录",
   "account": "账号",
   "password": "密码",

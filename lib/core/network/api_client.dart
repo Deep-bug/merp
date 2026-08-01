@@ -341,10 +341,9 @@ class ApiClient {
   bool _isRefreshTokenRejected(ApiException error) {
     return switch (error.httpStatusCode) {
       401 || 403 => true,
-      400 => RegExp(
-        r'(invalid|expired|无效|失效|过期)',
-        caseSensitive: false,
-      ).hasMatch(error.message),
+      // refresh 请求的 400 属于不可重试的客户端/令牌错误；继续保留同一
+      // refresh_token 只会让用户永久停留在启动错误页。
+      400 => true,
       _ =>
         error.errorCode == AppErrorCode.serverUnauthorized ||
             error.errorCode == AppErrorCode.serverForbidden,

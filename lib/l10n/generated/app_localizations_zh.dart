@@ -34,6 +34,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get startupFailedMessage => '应用初始化没有完成，请检查本地配置、网络或后端服务状态。';
 
   @override
+  String get clearSessionAndLogin => '清除登录状态并进入登录页';
+
+  @override
   String get login => '登录';
 
   @override
@@ -573,6 +576,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get startupFailedMessage => '應用程式初始化未完成，請檢查本機設定、網路或後端服務狀態。';
+
+  @override
+  String get clearSessionAndLogin => '清除登入狀態並進入登入頁';
 
   @override
   String get login => '登入';
