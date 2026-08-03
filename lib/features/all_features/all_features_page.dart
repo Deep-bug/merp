@@ -13,9 +13,8 @@ import '../../routing/app_navigator.dart';
 import '../../shared/adaptive_feature_grid.dart';
 import '../../shared/app_error_view.dart';
 import '../home/domain/feature_item.dart';
-import '../home/data/favorite_feature_controller.dart';
 import '../home/widgets/feature_icon.dart';
-import '../home/widgets/home_feature_area.dart';
+import 'widgets/favorite_feature_sort_section.dart';
 
 class AllFeaturesPage extends StatelessWidget {
   const AllFeaturesPage({super.key});
@@ -156,9 +155,9 @@ class AllFeaturesPage extends StatelessWidget {
                   ],
                   if (favoriteItems.isNotEmpty)
                     SliverToBoxAdapter(
-                      child: _FavoriteSortSection(
+                      child: FavoriteFeatureSortSection(
                         items: favoriteItems,
-                        controller: favorites,
+                        onReorder: favorites.reorderVisible,
                       ),
                     ),
                   const SliverToBoxAdapter(child: SizedBox(height: 34)),
@@ -302,178 +301,6 @@ class _AllFeatureTile extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _FavoriteSortSection extends StatefulWidget {
-  const _FavoriteSortSection({required this.items, required this.controller});
-
-  final List<FeatureItem> items;
-  final FavoriteFeatureController controller;
-
-  @override
-  State<_FavoriteSortSection> createState() => _FavoriteSortSectionState();
-}
-
-class _FavoriteSortSectionState extends State<_FavoriteSortSection> {
-  late List<FeatureItem> _displayItems;
-  List<String> _originalIds = const [];
-  String? _draggedId;
-
-  @override
-  void initState() {
-    super.initState();
-    _displayItems = List.of(widget.items);
-  }
-
-  @override
-  void didUpdateWidget(covariant _FavoriteSortSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (_draggedId == null) {
-      _displayItems = List.of(widget.items);
-    }
-  }
-
-  void _startDrag(String id) {
-    setState(() {
-      _draggedId = id;
-      _originalIds = widget.items
-          .map((item) => item.id)
-          .toList(growable: false);
-      _displayItems = List.of(widget.items);
-    });
-  }
-
-  bool _moveDraggedItemTo(String targetId) {
-    final draggedId = _draggedId;
-    if (draggedId == null || draggedId == targetId) return false;
-    final oldIndex = _displayItems.indexWhere((item) => item.id == draggedId);
-    final newIndex = _displayItems.indexWhere((item) => item.id == targetId);
-    if (oldIndex < 0 || newIndex < 0) return false;
-
-    setState(() {
-      final movedItem = _displayItems.removeAt(oldIndex);
-      _displayItems.insert(newIndex, movedItem);
-    });
-    return true;
-  }
-
-  void _finishDrag() {
-    final draggedId = _draggedId;
-    if (draggedId == null) return;
-    final oldIndex = _originalIds.indexOf(draggedId);
-    final newIndex = _displayItems.indexWhere((item) => item.id == draggedId);
-    final shouldSave = oldIndex >= 0 && newIndex >= 0 && oldIndex != newIndex;
-
-    setState(() => _draggedId = null);
-    if (shouldSave) {
-      widget.controller.reorderVisible(_originalIds, oldIndex, newIndex);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_displayItems.isEmpty) return const SizedBox.shrink();
-    return Container(
-      margin: const EdgeInsets.fromLTRB(18, 32, 18, 0),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${context.l10n.favoriteFeatureOrder}'
-            '(${context.l10n.favoriteFeatureOrderHint})',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: const Color(0xFF999999),
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final metrics = AdaptiveFeatureGridMetrics.favoriteSort(
-                context,
-                constraints.maxWidth,
-              );
-              final tileWidth =
-                  (constraints.maxWidth -
-                      metrics.spacing * (metrics.crossAxisCount - 1)) /
-                  metrics.crossAxisCount;
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _displayItems.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: metrics.crossAxisCount,
-                  mainAxisSpacing: metrics.spacing,
-                  crossAxisSpacing: metrics.spacing,
-                  mainAxisExtent: metrics.mainAxisExtent,
-                ),
-                itemBuilder: (context, index) {
-                  final item = _displayItems[index];
-                  final isDragging = item.id == _draggedId;
-                  final card = HomeFeatureCard(
-                    item: item,
-                    label: item.title,
-                    iconColor: AllFeaturesPage._enabledBlue,
-                    onTap: () {},
-                    compact: true,
-                  );
-                  return RepaintBoundary(
-                    child: DragTarget<String>(
-                      key: ValueKey(item.id),
-                      onWillAcceptWithDetails: (details) {
-                        if (details.data == item.id) return false;
-                        return _moveDraggedItemTo(item.id);
-                      },
-                      onAcceptWithDetails: (_) {},
-                      builder: (context, candidateData, rejectedData) {
-                        return LongPressDraggable<String>(
-                          data: item.id,
-                          delay: const Duration(milliseconds: 220),
-                          maxSimultaneousDrags: 1,
-                          hapticFeedbackOnStart: true,
-                          onDragStarted: () => _startDrag(item.id),
-                          onDragEnd: (_) => _finishDrag(),
-                          feedback: Theme(
-                            data: Theme.of(context),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: SizedBox(
-                                width: tileWidth,
-                                height: metrics.mainAxisExtent,
-                                child: Transform.scale(
-                                  scale: 1.04,
-                                  child: card,
-                                ),
-                              ),
-                            ),
-                          ),
-                          childWhenDragging: Opacity(
-                            opacity: 0.24,
-                            child: Transform.scale(scale: 0.94, child: card),
-                          ),
-                          child: AnimatedScale(
-                            scale: isDragging ? 0.94 : 1,
-                            duration: const Duration(milliseconds: 120),
-                            child: card,
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ],
-      ),
     );
   }
 }

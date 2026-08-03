@@ -19,6 +19,7 @@ import 'package:merp/features/home/domain/feature_item.dart';
 import 'package:merp/features/home/widgets/home_feature_area.dart';
 import 'package:merp/features/login/login_page.dart';
 import 'package:merp/l10n/generated/app_localizations.dart';
+import 'package:merp/shared/adaptive_feature_grid.dart';
 
 import '../helpers/memory_token_store.dart';
 
@@ -96,6 +97,83 @@ void main() {
     expect(delegate.mainAxisExtent, greaterThanOrEqualTo(138));
     expect(find.text('更多'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('favorite sort grid stays three columns on phone widths', (
+    tester,
+  ) async {
+    late AdaptiveFeatureGridMetrics compactMetrics;
+    late AdaptiveFeatureGridMetrics regularMetrics;
+
+    await tester.pumpWidget(
+      _testShell(
+        Builder(
+          builder: (context) {
+            compactMetrics = AdaptiveFeatureGridMetrics.favoriteSort(
+              context,
+              250,
+            );
+            regularMetrics = AdaptiveFeatureGridMetrics.favoriteSort(
+              context,
+              360,
+            );
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    expect(compactMetrics.crossAxisCount, 3);
+    expect(regularMetrics.crossAxisCount, 3);
+  });
+
+  test('favorite sort changes target only after crossing cell centers', () {
+    const metrics = AdaptiveFeatureGridMetrics(
+      crossAxisCount: 3,
+      spacing: 10,
+      mainAxisExtent: 94,
+    );
+
+    expect(
+      metrics.nearestIndexForPosition(
+        localPosition: const Offset(104, 47),
+        availableWidth: 320,
+        itemCount: 7,
+      ),
+      0,
+    );
+    expect(
+      metrics.nearestIndexForPosition(
+        localPosition: const Offset(106, 47),
+        availableWidth: 320,
+        itemCount: 7,
+      ),
+      1,
+    );
+    expect(
+      metrics.nearestIndexForPosition(
+        localPosition: const Offset(160, 98),
+        availableWidth: 320,
+        itemCount: 7,
+      ),
+      1,
+    );
+    expect(
+      metrics.nearestIndexForPosition(
+        localPosition: const Offset(160, 100),
+        availableWidth: 320,
+        itemCount: 7,
+      ),
+      4,
+    );
+    expect(
+      metrics.nearestIndexForPosition(
+        localPosition: const Offset(270, 260),
+        availableWidth: 320,
+        itemCount: 7,
+      ),
+      6,
+    );
   });
 }
 

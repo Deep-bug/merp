@@ -19,6 +19,34 @@ class AdaptiveFeatureGridMetrics {
   final double spacing;
   final double mainAxisExtent;
 
+  /// 把网格内的手指坐标映射到最近的功能格子。
+  ///
+  /// 以相邻格子中心线作为换位边界，比“刚进入卡片边缘就换位”更稳定；最后一行
+  /// 不满时会限制到最后一个真实功能，避免拖进空白格产生越界索引。
+  int nearestIndexForPosition({
+    required Offset localPosition,
+    required double availableWidth,
+    required int itemCount,
+  }) {
+    if (itemCount <= 0) return -1;
+
+    final tileWidth =
+        (availableWidth - spacing * (crossAxisCount - 1)) / crossAxisCount;
+    final horizontalStride = tileWidth + spacing;
+    final verticalStride = mainAxisExtent + spacing;
+    final column = ((localPosition.dx - tileWidth / 2) / horizontalStride)
+        .round()
+        .clamp(0, crossAxisCount - 1)
+        .toInt();
+    final maxRow = (itemCount - 1) ~/ crossAxisCount;
+    final row = ((localPosition.dy - mainAxisExtent / 2) / verticalStride)
+        .round()
+        .clamp(0, maxRow)
+        .toInt();
+
+    return (row * crossAxisCount + column).clamp(0, itemCount - 1);
+  }
+
   /// 首页卡片只有图标与标题，高度可相对紧凑。
   factory AdaptiveFeatureGridMetrics.home(
     BuildContext context,
@@ -63,7 +91,7 @@ class AdaptiveFeatureGridMetrics {
       narrowSpacing: 8,
       wideSpacing: 10,
       narrowCrossAxisCount: 3,
-      wideCrossAxisCount: 4,
+      wideCrossAxisCount: 3,
     );
   }
 
