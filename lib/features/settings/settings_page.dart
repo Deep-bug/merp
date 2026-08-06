@@ -36,23 +36,48 @@ class SettingsPage extends StatelessWidget {
                   title: context.l10n.security,
                   children: [
                     SwitchListTile(
-                      value: settings.biometricEnabled,
-                      secondary: const Icon(Icons.fingerprint),
-                      title: Text(context.l10n.enableBiometric),
-                      subtitle: Text(context.l10n.biometricSubtitle),
-                      onChanged: (value) async {
-                        final ok = await settings.setBiometricEnabled(value);
-                        if (!context.mounted || ok) {
-                          return;
+                      value: settings.unlockMethod == UnlockMethod.gesture,
+                      secondary: const Icon(Icons.pattern_outlined),
+                      title: Text(context.l10n.gestureUnlock),
+                      subtitle: Text(context.l10n.gestureUnlockSubtitle),
+                      onChanged: (enabled) {
+                        if (enabled) {
+                          _selectUnlockMethod(
+                            context,
+                            settings,
+                            UnlockMethod.gesture,
+                          );
                         }
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              settings.lastBiometricError ??
-                                  context.l10n.biometricUnavailable,
-                            ),
-                          ),
-                        );
+                      },
+                    ),
+                    SwitchListTile(
+                      value: settings.unlockMethod == UnlockMethod.fingerprint,
+                      secondary: const Icon(Icons.fingerprint),
+                      title: Text(context.l10n.fingerprintUnlock),
+                      subtitle: Text(context.l10n.fingerprintUnlockSubtitle),
+                      onChanged: (enabled) {
+                        if (enabled) {
+                          _selectUnlockMethod(
+                            context,
+                            settings,
+                            UnlockMethod.fingerprint,
+                          );
+                        }
+                      },
+                    ),
+                    SwitchListTile(
+                      value: settings.unlockMethod == UnlockMethod.face,
+                      secondary: const Icon(Icons.face_outlined),
+                      title: Text(context.l10n.faceUnlock),
+                      subtitle: Text(context.l10n.faceUnlockSubtitle),
+                      onChanged: (enabled) {
+                        if (enabled) {
+                          _selectUnlockMethod(
+                            context,
+                            settings,
+                            UnlockMethod.face,
+                          );
+                        }
                       },
                     ),
                     SwitchListTile(
@@ -71,8 +96,12 @@ class SettingsPage extends StatelessWidget {
                             : context.l10n.gestureNotConfigured,
                       ),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () =>
-                          AppNavigator.openSecondary(context, AppRoute.gesture),
+                      onTap: () => AppNavigator.openSecondary(
+                        context,
+                        settings.gesturePasswordConfigured
+                            ? AppRoute.gesture
+                            : AppRoute.gestureEnrollment,
+                      ),
                     ),
                   ],
                 ),
@@ -149,6 +178,27 @@ class SettingsPage extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  static Future<void> _selectUnlockMethod(
+    BuildContext context,
+    SettingsController settings,
+    UnlockMethod method,
+  ) async {
+    if (settings.unlockMethod == method) {
+      return;
+    }
+    final ok = await settings.setUnlockMethod(method);
+    if (!context.mounted || ok) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          settings.lastBiometricError ?? context.l10n.biometricUnavailable,
+        ),
+      ),
     );
   }
 

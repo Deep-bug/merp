@@ -333,14 +333,14 @@ Windows 对应：
 脚本完成后会打印实际 APK 完整路径。当前典型路径为：
 
 ```text
-build/app/outputs/apk/qas/release/app-qas-release.apk
+build/app/outputs/apk/qas/release/app-qas-arm64-v8a-release.apk
 ```
 
 安装到真机：
 
 ```bash
 $HOME/Library/Android/sdk/platform-tools/adb install -r \
-  build/app/outputs/apk/qas/release/app-qas-release.apk
+  build/app/outputs/apk/qas/release/app-qas-arm64-v8a-release.apk
 ```
 
 ### 5.4 配置 Android PRD 签名
@@ -399,14 +399,19 @@ prd
 - 百度 Android AK 包名和签名 SHA1 匹配。
 - 登录、WebView、地图、定位、相机、文件和扫码完成真机回归。
 
-### 5.6 只构建 arm64-v8a
+### 5.6 Release 只构建 arm64-v8a
 
-如果所有目标设备都支持 64 位 ARM，可以在 `android/app/build.gradle.kts` 的
-`defaultConfig` 中配置：
+项目已经把 Android Release 产物固定为 `arm64-v8a`，QAS APK、PRD AAB、macOS、
+Windows 和 CI 使用相同规则。QAS APK 使用 `--split-per-abi` 生成 ARM64 独立包；
+APK 和 AAB 还会在 Release 最终包装阶段排除其他 ABI：
 
 ```kotlin
-ndk {
-    abiFilters += setOf("arm64-v8a")
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.packaging.jniLibs.excludes.addAll(
+            setOf("**/armeabi-v7a/**", "**/x86/**", "**/x86_64/**"),
+        )
+    }
 }
 ```
 
@@ -416,8 +421,9 @@ ndk {
 adb shell getprop ro.product.cpu.abilist
 ```
 
-输出必须包含 `arm64-v8a`。限制后，32 位 ARM 手机和 x86_64 模拟器将无法运行。
-如果开发仍依赖模拟器，建议只限制 release 变体。
+目标真机输出必须包含 `arm64-v8a`。32 位 ARM 手机不能安装 Release 包；Debug
+不限制 ABI，因此 x86_64 和 ARM64 模拟器仍可用于页面及普通业务开发。百度地图
+核心库不提供 x86_64，地图与定位最终必须在 ARM64 真机或 ARM64 模拟器回归。
 
 ## 6. iOS 开发与打包
 

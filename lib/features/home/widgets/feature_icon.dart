@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // 文件：feature_icon.dart
-// 作用：统一展示后端图标图片，并在失败时回退到本地 Material 图标
+// 作用：统一展示客户端 FeatureRegistry 映射的 Material 图标
 // -----------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
@@ -21,19 +21,6 @@ class FeatureIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = item.iconUrl;
-    if (imageUrl == null) {
-      return Icon(item.icon, size: size, color: color);
-    }
-
-    return ClipOval(
-      child: Image.network(
-        imageUrl,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => Icon(item.icon, size: size, color: color),
-      ),
-    );
+    return Icon(item.icon, size: size, color: color);
   }
 }

@@ -121,6 +121,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get favoriteRequiresPermission => '未授权功能不能收藏到首页';
 
   @override
+  String get featurePermissionDenied => '没有权限，无法使用';
+
+  @override
   String get favoriteFeatureOrder => '首页应用';
 
   @override
@@ -159,6 +162,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get biometricUnavailable => '当前设备无法启用指纹解锁';
 
   @override
+  String get gestureUnlock => '图形密码解锁';
+
+  @override
+  String get gestureUnlockSubtitle => '冷启动和自动锁屏后绘制图形密码';
+
+  @override
+  String get fingerprintUnlock => '指纹解锁';
+
+  @override
+  String get fingerprintUnlockSubtitle => '开启时检测设备指纹服务并立即验证';
+
+  @override
+  String get faceUnlock => '面容解锁';
+
+  @override
+  String get faceUnlockSubtitle => '开启时检测设备面容服务并立即验证';
+
+  @override
   String get autoLock => '自动锁屏';
 
   @override
@@ -166,6 +187,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get changeGesturePassword => '修改图形密码';
+
+  @override
+  String get setGesturePassword => '设置图形密码';
 
   @override
   String get gestureConfigured => '已设置手势密码';
@@ -245,6 +269,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get gestureIncorrect => '手势密码不正确，请重试';
 
   @override
+  String get gestureVerifyCurrent => '请先绘制当前手势密码';
+
+  @override
+  String get coldStartLocked => '请验证手势密码';
+
+  @override
+  String get coldStartLockedMessage => '应用已恢复登录状态，验证成功后可继续使用。';
+
+  @override
+  String get gestureAutoLockedMessage => '10 秒未操作，请绘制图形密码继续使用。';
+
+  @override
+  String get fingerprintVerificationTitle => '请验证指纹';
+
+  @override
+  String get fingerprintVerificationMessage => '请使用当前设备已录入的指纹继续使用 MERP。';
+
+  @override
+  String get faceVerificationTitle => '请验证面容';
+
+  @override
+  String get faceVerificationMessage => '请使用当前设备已录入的面容继续使用 MERP。';
+
+  @override
+  String get gestureRequiredMessage => '首次使用需要设置手势密码，完成后进入首页。';
+
+  @override
   String get gestureDrawNew => '请绘制新的手势密码，至少连接 4 个点';
 
   @override
@@ -272,7 +323,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noFeatureList => '暂无功能清单';
 
   @override
-  String get noFeatureListMessage => '后端没有返回全部功能数据，请检查菜单权限接口。';
+  String get noFeatureListMessage => '平台完整功能目录为空，请检查客户端功能配置。';
 
   @override
   String noFeaturePermission(String title) {
@@ -665,6 +716,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get favoriteRequiresPermission => '未授權功能不能收藏到首頁';
 
   @override
+  String get featurePermissionDenied => '沒有權限，無法使用';
+
+  @override
   String get favoriteFeatureOrder => '首頁應用';
 
   @override
@@ -703,6 +757,24 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get biometricUnavailable => '目前裝置無法啟用指紋解鎖';
 
   @override
+  String get gestureUnlock => '圖形密碼解鎖';
+
+  @override
+  String get gestureUnlockSubtitle => '冷啟動和自動鎖定後繪製圖形密碼';
+
+  @override
+  String get fingerprintUnlock => '指紋解鎖';
+
+  @override
+  String get fingerprintUnlockSubtitle => '開啟時檢查裝置指紋服務並立即驗證';
+
+  @override
+  String get faceUnlock => '面容解鎖';
+
+  @override
+  String get faceUnlockSubtitle => '開啟時檢查裝置面容服務並立即驗證';
+
+  @override
   String get autoLock => '自動鎖定';
 
   @override
@@ -710,6 +782,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get changeGesturePassword => '修改圖形密碼';
+
+  @override
+  String get setGesturePassword => '設定圖形密碼';
 
   @override
   String get gestureConfigured => '已設定手勢密碼';
@@ -789,6 +864,33 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get gestureIncorrect => '手勢密碼不正確，請重試';
 
   @override
+  String get gestureVerifyCurrent => '請先繪製目前的手勢密碼';
+
+  @override
+  String get coldStartLocked => '請驗證手勢密碼';
+
+  @override
+  String get coldStartLockedMessage => '應用程式已恢復登入狀態，驗證成功後可繼續使用。';
+
+  @override
+  String get gestureAutoLockedMessage => '10 秒未操作，請繪製圖形密碼繼續使用。';
+
+  @override
+  String get fingerprintVerificationTitle => '請驗證指紋';
+
+  @override
+  String get fingerprintVerificationMessage => '請使用目前裝置已登錄的指紋繼續使用 MERP。';
+
+  @override
+  String get faceVerificationTitle => '請驗證面容';
+
+  @override
+  String get faceVerificationMessage => '請使用目前裝置已登錄的面容繼續使用 MERP。';
+
+  @override
+  String get gestureRequiredMessage => '首次使用需要設定手勢密碼，完成後進入首頁。';
+
+  @override
   String get gestureDrawNew => '請繪製新的手勢密碼，至少連接 4 個點';
 
   @override
@@ -816,7 +918,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get noFeatureList => '暫無功能清單';
 
   @override
-  String get noFeatureListMessage => '後端未回傳全部功能資料，請檢查選單權限介面。';
+  String get noFeatureListMessage => '平臺完整功能目錄為空，請檢查用戶端功能設定。';
 
   @override
   String noFeaturePermission(String title) {

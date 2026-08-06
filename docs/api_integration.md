@@ -10,6 +10,8 @@
 | API Base URL | `http://10.146.152.51:31234` | `lib/core/config/app_config.dart` |
 | 部署环境 | `APP_ENV=qas/prd` | `config/environment.*.json` |
 | 认证环境 | `AUTH_ENVIRONMENT=merp` | 登录与刷新请求体 |
+| 菜单应用 | `MENU_APP_ID=merp` | 功能菜单请求体 |
+| 菜单范围 | `MENU_FEATURE_SCOPE=at` | 功能菜单请求体 |
 | 连接超时 | 30 秒 | `lib/core/network/api_client.dart` |
 | 接收/发送超时 | 60 秒 | `lib/core/network/api_client.dart` |
 | 客户端请求头 | `X-Client: merp-flutter` | ApiClient 请求拦截器 |
@@ -109,6 +111,25 @@ AuthSession
 
 `GET /api/v1/user/userInfo`，自动携带 Bearer Token。返回数据转换为
 `UserProfile`，首页侧栏、个人中心和 Bridge 共用同一个会话对象。
+
+### 功能菜单
+
+`POST /api/v1/app/features`，自动携带 Bearer Token：
+
+```json
+{
+  "appId": "merp",
+  "lang": "zh_CN",
+  "sys_app_features": "at"
+}
+```
+
+简体、繁体和英语分别传 `zh_CN`、`zh_TW`、`en_US`。平台完整功能目录由客户端
+维护，并始终展示在“全部功能”页面。后端响应已经按当前账号过滤，客户端将其中
+的 `featureCode` 映射为授权功能 ID：命中的功能点亮并允许收藏，未命中的功能
+置灰且禁止收藏。`target` 用于覆盖已授权功能的旧业务页面路径。当前暂不使用响应
+中的 `icon` 或 `iconUrl`，客户端根据平台功能 ID 从 `FeatureRegistry` 映射
+Material Icons；未配置映射的功能显示通用应用图标。
 
 ### 自动刷新
 

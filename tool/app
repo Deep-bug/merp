@@ -248,10 +248,21 @@ if [[ "$COMMAND" == "run" ]]; then
     EXTRA_ARGUMENTS=("" "-d" "$DEVICE_ID" "${EXTRA_ARGUMENTS[@]:1}")
     printf '使用 %s 设备：%s\n' "$PLATFORM" "$DEVICE_ID"
   fi
-  flutter run \
-    --flavor qas \
-    --debug \
-    --target lib/main.dart \
+  RUN_ARGUMENTS=(run --flavor qas)
+  HAS_EXPLICIT_BUILD_MODE=false
+  for argument in "${EXTRA_ARGUMENTS[@]:1}"; do
+    case "$argument" in
+      --debug|--profile|--jit-release|--release)
+        HAS_EXPLICIT_BUILD_MODE=true
+        break
+        ;;
+    esac
+  done
+  if [[ "$HAS_EXPLICIT_BUILD_MODE" == false ]]; then
+    RUN_ARGUMENTS+=(--debug)
+  fi
+  RUN_ARGUMENTS+=(--target lib/main.dart)
+  flutter "${RUN_ARGUMENTS[@]}" \
     "${CONFIG_ARGUMENTS[@]}" \
     "${EXTRA_ARGUMENTS[@]:1}"
   exit 0
@@ -273,11 +284,13 @@ touch "$MARKER"
 
 if [[ "$PLATFORM" == "android" && "$ENVIRONMENT" == "qas" ]]; then
   flutter build apk --flavor qas --release --target lib/main.dart \
+    --target-platform android-arm64 --split-per-abi \
     "${CONFIG_ARGUMENTS[@]}" --build-name "$VERSION_NAME" \
     --build-number "$BUILD_NUMBER" "${EXTRA_ARGUMENTS[@]:1}"
   print_artifact qas android "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" apk
 elif [[ "$PLATFORM" == "android" ]]; then
   flutter build appbundle --flavor prd --release --target lib/main.dart \
+    --target-platform android-arm64 \
     "${CONFIG_ARGUMENTS[@]}" --build-name "$VERSION_NAME" \
     --build-number "$BUILD_NUMBER" "${EXTRA_ARGUMENTS[@]:1}"
   print_artifact prd android "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" aab

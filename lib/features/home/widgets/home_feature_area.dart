@@ -5,6 +5,7 @@
 // 维护说明：点击前必须再次校验权限和路由，不能只依赖界面是否显示
 // -----------------------------------------------------------------------------
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_scope.dart';
@@ -210,6 +211,8 @@ class HomeFeatureCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final iconContainerSize = compact ? 36.0 : 54.0;
     final iconSize = compact ? 24.0 : 36.0;
+    final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+    final labelWeight = isIos ? FontWeight.w600 : FontWeight.w800;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -267,11 +270,12 @@ class HomeFeatureCard extends StatelessWidget {
                       ? Theme.of(context).textTheme.labelMedium?.copyWith(
                           color: const Color(0xFF2E2F33),
                           height: 1.12,
-                          fontWeight: FontWeight.w800,
+                          fontSize: isIos ? 13 : null,
+                          fontWeight: labelWeight,
                         )
                       : Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: const Color(0xFF2E2F33),
-                          fontWeight: FontWeight.w800,
+                          fontWeight: labelWeight,
                         ),
                 ),
               ],

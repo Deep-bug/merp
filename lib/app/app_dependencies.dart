@@ -84,7 +84,10 @@ class AppDependencies {
       logger: logger,
       environment: appEnvironment,
     );
-    final settingsController = SettingsController(logger: logger);
+    final settingsController = SettingsController(
+      logger: logger,
+      environment: appEnvironment,
+    );
     final apiClient = ApiClient(
       config: config,
       tokenStore: tokenStore,
@@ -101,6 +104,7 @@ class AppDependencies {
     final permissionRepository = PermissionRepository(
       apiClient: apiClient,
       logger: logger,
+      languageCodeProvider: () => settingsController.language.apiCode,
     );
     final resourceUpdateController = ResourceUpdateController(logger: logger);
     final favoriteFeatureController = FavoriteFeatureController(logger: logger);

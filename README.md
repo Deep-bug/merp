@@ -130,11 +130,11 @@ Windows 对应为 `.\tool\app.cmd analyze` 和 `.\tool\app.cmd test`。
 
 ```bash
 # QAS 测试包
-./tool/app build qas android  # release APK
+./tool/app build qas android  # arm64-v8a release APK
 ./tool/app build qas ios      # development IPA
 
 # PRD 正式包，本地需输入 prd 二次确认
-./tool/app build prd android  # release AAB
+./tool/app build prd android  # arm64-v8a release AAB
 ./tool/app build prd ios      # App Store IPA
 
 # CI 无交互执行示例
@@ -148,7 +148,9 @@ CI=true BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build prd android
 
 环境配置：
 
-- QAS 使用 `config/qas.json`，现有 QAS API 地址已迁移，默认开启必要日志。
+- QAS 使用 `config/qas.json`，现有 QAS API 地址已迁移。默认关闭高频 Debug/Info
+  追踪，只保留警告、错误、故障编号和应用内诊断信息；需要排查接口时可在
+  `config/qas.local.json` 中临时设置 `"ENABLE_LOG": true`。
 - PRD 使用 `config/prd.json`，生产 API 尚不能从仓库确认，当前留空并在构建前拦截。
 - 本地或 CI 可生成被 Git 忽略的 `config/prd.local.json` 覆盖生产配置。
 - 百度地图 AK 放在 `config/baidu_map.local.json`；WebView 私有参数放在
@@ -168,6 +170,8 @@ cp config/baidu_map.example.json config/baidu_map.local.json
 - Android PRD 使用 `com.delta.merpdelta`，QAS 使用 `com.delta.merpdelta.qas`，两者可同时安装。
 - Android QAS release 使用 debug 签名作为测试包。PRD 必须配置
   `android/key.properties` 和生产 keystore，缺失时构建会失败，绝不回退到 debug 签名。
+- Android Release 产物统一只包含 `arm64-v8a`；Debug 不限制 ABI，以保留
+  Android Studio 和 VS Code 模拟器开发能力。
 - iOS PRD 使用 `com.delta.merpdelta`，QAS 使用 `com.delta.merpdelta.qas`，共享
   Scheme 为 `prd` 和 `qas`。
 - iOS IPA 需要匹配两个 Bundle ID 的证书和 Provisioning Profile；PRD 发布还需要
@@ -314,11 +318,11 @@ Splash 阶段明确不做这些事：
 - 不读取或上传真实经纬度。
 - 不执行耗时业务数据预加载。
 
-进入首页后，用户资料与权限菜单并行加载，只保存在当前进程内存中。用户资料读取真实接口；权限菜单根据 `MOCK_MENUS` 选择本地 Mock 或真实接口。功能区加载期间显示骨架状态，真实接口网络失败时显示重试入口，且不会清除仍然有效的 refresh token。
+进入首页后，用户资料与权限菜单并行加载，只保存在当前进程内存中。用户资料读取真实接口；权限菜单通过带 Token 的 `POST /api/v1/app/features` 读取，并根据当前语言传递 `zh_CN` 或 `zh_TW`。客户端始终使用本地平台完整功能目录展示“全部功能”，后端返回列表只转换成当前账号的授权集合：授权入口点亮并允许收藏，未授权入口置灰且点击时显示权限提示。功能区加载期间显示骨架状态，真实接口网络失败时显示重试入口，且不会清除仍然有效的 refresh token。
 
 如果冷启动刷新 Token 时遇到断网、超时或服务端 `5xx`，应用会保留 refresh token 并停留在启动恢复页供用户重试；只有服务端明确返回 `400/401/403` 表示 refresh token 无效时，才清理本地 Token 并进入登录页。
 
-当前菜单接口处于 Mock 阶段，`MOCK_MENUS` 默认是 `true`：应用不请求 `/auth/menus`，直接加载本地完整功能清单并授予全部权限。后端菜单接口接通后，在启动命令中增加 `--dart-define=MOCK_MENUS=false` 即可切换到真实接口。
+QAS 和生产配置默认使用真实菜单接口。请求参数由 `MENU_APP_ID=merp` 和 `MENU_FEATURE_SCOPE=at` 配置；仅离线开发时可临时设置 `MOCK_MENUS=true` 使用本地完整菜单。当前暂不使用接口返回的 `icon` 或 `iconUrl`，功能图标统一根据 `featureCode` 从客户端 `FeatureRegistry` 映射为 Material Icons，未知功能显示通用应用图标。
 
 这样的分层能保证启动体验稳定，也能满足隐私合规：地图展示在进入地图页后才初始化，精确定位在用户点击定位按钮后才触发。
 
@@ -380,7 +384,7 @@ lib/features/inventory/
 
 ## 结构化日志
 
-`AppLogger` 当前写入 Android Studio/VS Code 调试终端，并保留最近 200 条到内存环形缓冲区。系统设置中的“诊断日志”可查看、复制和清空日志。
+`AppLogger` 默认只记录警告和错误，并保留最近 200 条到内存环形缓冲区。系统设置中的“诊断日志”可查看、复制和清空日志。开启 `ENABLE_LOG` 后，Debug/Info 会写入调试终端和内存，但不会同步刷写诊断文件；只有警告和错误会落盘，避免高频日志阻塞 UI 线程。
 
 ```dart
 logger.info(

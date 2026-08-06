@@ -9,8 +9,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:merp/core/logging/app_logger.dart';
 
 void main() {
+  test('keeps verbose logs disabled by default', () {
+    final logger = AppLogger();
+
+    logger.debug('test', 'debug');
+    logger.info('test', 'info');
+    logger.warning('test', 'warning');
+
+    expect(logger.entries, hasLength(1));
+    expect(logger.entries.single.level, AppLogLevel.warning);
+  });
+
   test('keeps bounded entries and redacts sensitive values', () {
-    final logger = AppLogger(maxEntries: 2);
+    final logger = AppLogger(maxEntries: 2, enableDebugLogs: true);
 
     logger.info('test', 'first');
     logger.info('test', 'second', fields: {'token': 'secret-token'});

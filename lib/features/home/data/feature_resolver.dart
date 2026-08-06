@@ -10,7 +10,8 @@ class FeatureResolver {
   const FeatureResolver();
 
   FeatureItem resolve(Map<String, dynamic> json) {
-    final id = _readString(json, const ['id', 'code']) ?? 'unknown';
+    final id =
+        _readString(json, const ['id', 'code', 'featureCode']) ?? 'unknown';
     final requestedMode = _readString(json, const ['launchMode']);
     final isNative = requestedMode == 'native';
 
@@ -26,20 +27,44 @@ class FeatureResolver {
       description: _readString(json, const ['description']) ?? '',
       group:
           _readString(json, const ['group', 'category', 'moduleGroup']) ?? '',
-      icon: FeatureRegistry.iconFor(
-        id,
-        _readString(json, const ['icon', 'iconName']),
-      ),
-      iconUrl: _readHttpUrl(json, const ['iconUrl', 'iconURL']),
+      groupCode: _readString(json, const ['groupCode']) ?? '',
+      groupSort: _readInt(json, const ['groupSort']) ?? 0,
+      sort: _readInt(json, const ['sort']) ?? 0,
+      isDefault: _readBool(json, const ['defaultFlag']) ?? false,
+      // 菜单接口的图片地址暂不使用，统一按 featureCode 读取客户端图标映射。
+      icon: FeatureRegistry.iconFor(id, null),
       permissionCode:
           _readString(json, const ['permissionCode', 'permission']) ?? id,
       launchMode: isNative
           ? FeatureLaunchMode.native
           : FeatureLaunchMode.legacyWeb,
       route: route,
-      legacyPath: _readString(json, const ['legacyPath', 'url']),
+      legacyPath: _readString(json, const ['legacyPath', 'url', 'target']),
     );
   }
+}
+
+int? _readInt(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+  }
+  return null;
+}
+
+bool? _readBool(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      if (value.toLowerCase() == 'true' || value == '1') return true;
+      if (value.toLowerCase() == 'false' || value == '0') return false;
+    }
+  }
+  return null;
 }
 
 String? _readString(Map<String, dynamic> json, List<String> keys) {
@@ -50,11 +75,4 @@ String? _readString(Map<String, dynamic> json, List<String> keys) {
     }
   }
   return null;
-}
-
-String? _readHttpUrl(Map<String, dynamic> json, List<String> keys) {
-  final value = _readString(json, keys);
-  final uri = value == null ? null : Uri.tryParse(value);
-  if (uri == null || !uri.hasScheme) return null;
-  return uri.scheme == 'http' || uri.scheme == 'https' ? value : null;
 }

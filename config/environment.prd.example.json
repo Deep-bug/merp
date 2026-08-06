@@ -1,6 +1,8 @@
 {
   "APP_ENV": "prd",
   "AUTH_ENVIRONMENT": "merp",
+  "MENU_APP_ID": "merp",
+  "MENU_FEATURE_SCOPE": "at",
   "API_BASE_URL": "https://请替换为生产环境接口地址",
   "MOCK_MENUS": false
 }

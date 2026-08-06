@@ -13,6 +13,7 @@ abstract final class AppRoute {
   static const features = '/features';
   static const settings = '/settings';
   static const gesture = '/settings/gesture';
+  static const gestureEnrollment = '/settings/gesture?mode=enrollment';
   static const resourceUpdate = '/settings/resource-update';
   static const bridgeTest = '/settings/bridge-test';
   static const logs = '/settings/logs';

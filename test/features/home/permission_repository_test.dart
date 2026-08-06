@@ -26,38 +26,102 @@ void main() {
   );
 
   test('loads permissions into memory and clears them on logout', () async {
+    RequestOptions? capturedRequest;
     final dio = Dio()
-      ..httpClientAdapter = FakeHttpAdapter(
-        (_) => jsonResponse({
-          'code': 0,
+      ..httpClientAdapter = FakeHttpAdapter((options) {
+        capturedRequest = options;
+        return jsonResponse({
+          'code': 200,
           'message': 'success',
           'data': {
-            'data': {
-              'features': [
-                {
-                  'id': 'map-location',
-                  'title': '地图定位',
-                  'permissionCode': 'map.location.view',
-                  'launchMode': 'native',
-                  'route': '/native/map',
-                },
-              ],
-              'permissionCodes': ['map.location.view'],
-            },
+            'groups': [
+              {
+                'groupCode': 'group_cs',
+                'groupName': 'Customer Service',
+                'groupSort': 3,
+                'items': [
+                  {
+                    'featureCode': 'wechat-csinventory',
+                    'name': '备件库存',
+                    'icon': 'img/funicon/wechat-csinventory.png',
+                    'target': 'cs_inventory/inventory.html',
+                    'sort': 999,
+                    'defaultFlag': false,
+                  },
+                ],
+              },
+              {
+                'groupCode': 'group_sales',
+                'groupName': 'Sales',
+                'groupSort': 2,
+                'items': [
+                  {
+                    'featureCode': 'wechat-salesreport',
+                    'name': '销售报表',
+                    'icon': 'img/funicon/wechat-salesreport.png',
+                    'target': 'bw_report/bw/index.html',
+                    'sort': 999,
+                    'defaultFlag': false,
+                  },
+                  {
+                    'featureCode': 'wechat-eform',
+                    'name': '电子表单',
+                    'icon': 'img/funicon/wechat-eform.png',
+                    'target': 'merp/bpm/index.html',
+                    'sort': 0,
+                    'defaultFlag': true,
+                  },
+                ],
+              },
+            ],
           },
-        }),
-      );
-    final repository = _repository(dio, mockMenus: false);
+        });
+      });
+    final repository = _repository(
+      dio,
+      mockMenus: false,
+      languageCodeProvider: () => 'zh-TW',
+    );
 
     await repository.loadForSession(session);
 
     expect(repository.status, PermissionLoadStatus.loaded);
-    expect(repository.authorizedFeatures.single.id, 'map-location');
+    expect(capturedRequest?.method, 'POST');
+    expect(capturedRequest?.path, '/api/v1/app/features');
+    expect(capturedRequest?.headers['Authorization'], 'Bearer access-1');
+    expect(capturedRequest?.data, {
+      'appId': 'merp',
+      'lang': 'zh_TW',
+      'sys_app_features': 'at',
+    });
+    expect(repository.allFeatures, hasLength(25));
+    expect(repository.authorizedFeatures.map((item) => item.id), [
+      'e-form',
+      'sales-report',
+      'spare-parts-inventory',
+    ]);
+    final eform = repository.allFeatures.singleWhere(
+      (item) => item.id == 'e-form',
+    );
+    expect(eform.group, 'Sales');
+    expect(eform.groupCode, isEmpty);
+    expect(eform.groupSort, 0);
+    expect(eform.sort, 0);
+    expect(eform.isDefault, isTrue);
+    expect(eform.legacyPath, 'merp/bpm/index.html');
+    expect(repository.canOpen(eform), isTrue);
+    expect(
+      repository.canOpen(
+        repository.allFeatures.singleWhere((item) => item.id == 'customer'),
+      ),
+      isFalse,
+    );
 
     await repository.clear();
 
     expect(repository.status, PermissionLoadStatus.idle);
-    expect(repository.allFeatures, isEmpty);
+    expect(repository.allFeatures, hasLength(25));
+    expect(repository.authorizedFeatures, isEmpty);
   });
 
   test(
@@ -73,7 +137,8 @@ void main() {
 
       expect(repository.status, PermissionLoadStatus.failed);
       expect(repository.loadError, isNotEmpty);
-      expect(repository.allFeatures, isEmpty);
+      expect(repository.allFeatures, hasLength(25));
+      expect(repository.authorizedFeatures, isEmpty);
     },
   );
 
@@ -124,13 +189,23 @@ void main() {
   );
 }
 
-PermissionRepository _repository(Dio dio, {bool mockMenus = true}) {
+PermissionRepository _repository(
+  Dio dio, {
+  bool mockMenus = true,
+  String Function()? languageCodeProvider,
+}) {
   final logger = AppLogger();
   final client = ApiClient(
     config: AppConfig(mockMenus: mockMenus),
-    tokenStore: MemoryTokenStore(),
+    tokenStore: MemoryTokenStore(
+      const AuthTokens(accessToken: 'access-1', refreshToken: 'refresh-1'),
+    ),
     logger: logger,
     dio: dio,
   );
-  return PermissionRepository(apiClient: client, logger: logger);
+  return PermissionRepository(
+    apiClient: client,
+    logger: logger,
+    languageCodeProvider: languageCodeProvider,
+  );
 }

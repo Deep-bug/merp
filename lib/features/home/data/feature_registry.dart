@@ -18,6 +18,16 @@ class ClientFeatureDefinition {
 }
 
 abstract final class FeatureRegistry {
+  /// 后端菜单编码与客户端平台功能 ID 的兼容映射。
+  ///
+  /// 平台完整功能清单使用稳定的客户端 ID；权限接口可能继续返回旧微信端编码。
+  /// 新接口出现新的 featureCode 时，只需在这里补充一条映射。
+  static const Map<String, String> platformIdByServerCode = {
+    'wechat-eform': 'e-form',
+    'wechat-salesreport': 'sales-report',
+    'wechat-csinventory': 'spare-parts-inventory',
+  };
+
   static const Map<String, ClientFeatureDefinition> definitions = {
     'survey-analysis': ClientFeatureDefinition(
       fallbackIcon: Icons.analytics_outlined,
@@ -92,6 +102,15 @@ abstract final class FeatureRegistry {
     'agent-setting': ClientFeatureDefinition(
       fallbackIcon: Icons.group_add_outlined,
     ),
+    'wechat-eform': ClientFeatureDefinition(
+      fallbackIcon: Icons.account_tree_outlined,
+    ),
+    'wechat-salesreport': ClientFeatureDefinition(
+      fallbackIcon: Icons.insert_chart_outlined,
+    ),
+    'wechat-csinventory': ClientFeatureDefinition(
+      fallbackIcon: Icons.other_houses_outlined,
+    ),
   };
 
   static IconData iconFor(String featureId, String? iconName) {
@@ -102,6 +121,15 @@ abstract final class FeatureRegistry {
 
   static String? nativeRouteFor(String featureId) {
     return definitions[featureId]?.nativeRoute;
+  }
+
+  static String? platformIdForServerCode(String serverCode) {
+    final normalized = serverCode.trim().toLowerCase();
+    if (normalized.isEmpty) return null;
+    final mapped = platformIdByServerCode[normalized];
+    if (mapped != null) return mapped;
+    if (definitions.containsKey(normalized)) return normalized;
+    return null;
   }
 
   static IconData? _iconFromName(String? name) {

@@ -5,6 +5,11 @@
 // 维护说明：持久化键与安全策略集中在此，页面只负责展示和触发意图
 // -----------------------------------------------------------------------------
 
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
@@ -13,16 +18,34 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/logging/app_logger.dart';
 
 enum AppLanguage {
-  zhHans('zh-CN', Locale('zh')),
-  zhHant('zh-TW', Locale('zh', 'TW'));
+  zhHans('zh-CN', 'zh_CN', Locale('zh')),
+  zhHant('zh-TW', 'zh_TW', Locale('zh', 'TW'));
 
-  const AppLanguage(this.code, this.locale);
+  const AppLanguage(this.code, this.apiCode, this.locale);
 
   final String code;
+  final String apiCode;
   final Locale locale;
 
   static AppLanguage fromCode(String? code) {
     return values.firstWhere((item) => item.code == code, orElse: () => zhHans);
+  }
+}
+
+enum UnlockMethod {
+  gesture('gesture'),
+  fingerprint('fingerprint'),
+  face('face');
+
+  const UnlockMethod(this.code);
+
+  final String code;
+
+  static UnlockMethod fromCode(String? code) {
+    return values.firstWhere(
+      (method) => method.code == code,
+      orElse: () => gesture,
+    );
   }
 }
 
@@ -43,6 +66,7 @@ class VersionCheckResult {
 class SettingsController extends ChangeNotifier {
   SettingsController({
     required AppLogger logger,
+    this.environment = 'qas',
     LocalAuthentication? localAuthentication,
     FlutterSecureStorage? secureStorage,
     bool useSecureStorage = true,
@@ -52,66 +76,77 @@ class SettingsController extends ChangeNotifier {
        _useSecureStorage = useSecureStorage;
 
   static const autoLockTimeout = Duration(seconds: 10);
-  static const _biometricKey = 'merp.settings.biometricEnabled';
   static const _autoLockKey = 'merp.settings.autoLockEnabled';
   static const _languageKey = 'merp.settings.language';
-  static const _gestureKey = 'merp.settings.gesturePassword';
+  static const _gestureKeyPrefix = 'merp.security.gesture.v2';
+  static const _gestureScopeKeyPrefix = 'merp.security.gesture.lastScope';
+  static const _unlockMethodKeyPrefix = 'merp.security.unlockMethod.v1';
+  static const _gestureIterations = 120000;
 
   final LocalAuthentication _localAuthentication;
   final AppLogger _logger;
   final FlutterSecureStorage _secureStorage;
   final bool _useSecureStorage;
+  final String environment;
 
   SharedPreferences? _preferences;
-  String? _memoryGestureHash;
-  bool biometricEnabled = false;
+  final Map<String, String> _memoryGestureValues = {};
+  String? _activeGestureKey;
+  String? _activeUnlockMethodKey;
   bool autoLockEnabled = false;
   AppLanguage language = AppLanguage.zhHans;
   bool gesturePasswordConfigured = false;
+  UnlockMethod unlockMethod = UnlockMethod.gesture;
   String? lastBiometricError;
+
+  bool get biometricEnabled => unlockMethod != UnlockMethod.gesture;
 
   Future<void> load() async {
     _preferences = await SharedPreferences.getInstance();
-    biometricEnabled = _preferences?.getBool(_biometricKey) ?? false;
     autoLockEnabled = _preferences?.getBool(_autoLockKey) ?? false;
     language = AppLanguage.fromCode(_preferences?.getString(_languageKey));
-    gesturePasswordConfigured = await _readGestureHash() != null;
+    gesturePasswordConfigured = false;
     _logger.info(
       'settings',
       '本地设置加载完成',
       fields: {
         'language': language.code,
         'autoLock': autoLockEnabled,
-        'biometric': biometricEnabled,
+        'unlockMethod': unlockMethod.code,
       },
     );
     notifyListeners();
   }
 
-  Future<bool> setBiometricEnabled(bool enabled) async {
+  Future<bool> setUnlockMethod(UnlockMethod method) async {
     lastBiometricError = null;
-    if (enabled) {
-      final available = await _isBiometricAvailable();
-      if (!available) {
-        biometricEnabled = false;
-        await _preferences?.setBool(_biometricKey, false);
-        notifyListeners();
-        return false;
-      }
-
-      final verified = await authenticateWithBiometrics();
-      if (!verified) {
-        biometricEnabled = false;
-        await _preferences?.setBool(_biometricKey, false);
-        notifyListeners();
-        return false;
-      }
+    if (_activeUnlockMethodKey == null) {
+      lastBiometricError = _localizedMessage('尚未绑定当前用户', '尚未綁定目前使用者');
+      return false;
     }
-
-    biometricEnabled = enabled;
-    await _preferences?.setBool(_biometricKey, enabled);
-    notifyListeners();
+    if (method == UnlockMethod.gesture) {
+      if (!gesturePasswordConfigured) {
+        lastBiometricError = _localizedMessage('请先设置图形密码', '請先設定圖形密碼');
+        return false;
+      }
+      await _persistUnlockMethod(method);
+      return true;
+    }
+    if (!await _isBiometricMethodAvailable(method)) {
+      return false;
+    }
+    if (!await authenticateWithBiometrics(method: method)) {
+      return false;
+    }
+    await _persistUnlockMethod(method);
+    _logger.info('settings', '解锁方式已变更', fields: {'method': method.code});
     return true;
+  }
+
+  Future<void> _persistUnlockMethod(UnlockMethod method) async {
+    unlockMethod = method;
+    await _preferences?.setString(_activeUnlockMethodKey!, method.code);
+    notifyListeners();
   }
 
   Future<void> setAutoLockEnabled(bool enabled) async {
@@ -129,17 +164,109 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<void> saveGesturePassword(List<int> pattern) async {
-    await _writeGestureHash(_hashPattern(pattern));
+    final key = _activeGestureKey;
+    if (key == null) {
+      throw StateError('尚未绑定当前用户，不能保存手势密码');
+    }
+    final salt = _randomBytes(16);
+    final digest = await compute(
+      _derivePatternHash,
+      _PatternHashRequest(pattern, salt, _gestureIterations),
+    );
+    final value = jsonEncode({
+      'version': 2,
+      'iterations': _gestureIterations,
+      'salt': base64UrlEncode(salt),
+      'hash': base64UrlEncode(digest),
+    });
+    await _writeGestureValue(key, value);
     gesturePasswordConfigured = true;
     notifyListeners();
   }
 
   Future<bool> verifyGesturePassword(List<int> pattern) async {
-    final saved = await _readGestureHash();
+    final key = _activeGestureKey;
+    if (key == null) {
+      return false;
+    }
+    final saved = await _readGestureValue(key);
     if (saved == null || saved.isEmpty) {
       return false;
     }
-    return saved == _hashPattern(pattern);
+    try {
+      final record = jsonDecode(saved) as Map<String, dynamic>;
+      if (record['version'] != 2) {
+        return false;
+      }
+      final salt = base64Url.decode(record['salt'] as String);
+      final expected = base64Url.decode(record['hash'] as String);
+      final iterations = record['iterations'] as int;
+      final actual = await compute(
+        _derivePatternHash,
+        _PatternHashRequest(pattern, salt, iterations),
+      );
+      return _constantTimeEquals(expected, actual);
+    } catch (error, stackTrace) {
+      _logger.warning(
+        'settings',
+        '手势密码记录格式无效',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return false;
+    }
+  }
+
+  /// 清除当前用户的本机手势；下次账号登录成功后会进入首次设置流程。
+  Future<void> clearGesturePassword() async {
+    final key = _activeGestureKey;
+    if (key == null) {
+      return;
+    }
+    await _deleteGestureValue(key);
+    gesturePasswordConfigured = false;
+    if (_activeUnlockMethodKey != null) {
+      await _persistUnlockMethod(UnlockMethod.gesture);
+    }
+    notifyListeners();
+  }
+
+  /// 将手势密码绑定到当前部署环境和当前登录用户。
+  Future<bool> activateGestureScope({
+    required String userId,
+    required String accountName,
+    bool persist = true,
+  }) async {
+    final normalizedUserId = userId.trim();
+    final normalizedAccount = accountName.trim().toLowerCase();
+    final identity = normalizedUserId.isNotEmpty
+        ? 'id:$normalizedUserId'
+        : normalizedAccount.isNotEmpty
+        ? 'account:$normalizedAccount'
+        : '';
+    if (identity.isEmpty) {
+      return false;
+    }
+    await _activateGestureIdentity(identity, persist: persist);
+    return true;
+  }
+
+  /// 冷启动恢复会话时，资料接口返回前先沿用本机上次登录用户的安全域。
+  Future<bool> restoreLastGestureScope() async {
+    final identity = _preferences?.getString(_lastGestureScopeKey)?.trim();
+    if (identity == null || identity.isEmpty) {
+      return false;
+    }
+    await _activateGestureIdentity(identity, persist: false);
+    return true;
+  }
+
+  void clearActiveGestureScope() {
+    _activeGestureKey = null;
+    _activeUnlockMethodKey = null;
+    gesturePasswordConfigured = false;
+    unlockMethod = UnlockMethod.gesture;
+    notifyListeners();
   }
 
   Future<VersionCheckResult> checkVersion() async {
@@ -154,17 +281,31 @@ class SettingsController extends ChangeNotifier {
     );
   }
 
-  Future<bool> authenticateWithBiometrics() async {
+  Future<bool> authenticateWithBiometrics({UnlockMethod? method}) async {
+    final selected = method ?? unlockMethod;
+    if (selected == UnlockMethod.gesture) {
+      return false;
+    }
+    if (!await _isBiometricMethodAvailable(selected)) {
+      return false;
+    }
     try {
-      return await _localAuthentication.authenticate(
-        localizedReason: language == AppLanguage.zhHant
-            ? '請驗證指紋以解鎖 MERP'
-            : '请验证指纹以解锁 MERP',
+      final verified = await _localAuthentication.authenticate(
+        localizedReason: _biometricReason(selected),
         biometricOnly: true,
         persistAcrossBackgrounding: true,
       );
+      if (!verified) {
+        lastBiometricError = selected == UnlockMethod.face
+            ? _localizedMessage('面容验证未通过', '面容驗證未通過')
+            : _localizedMessage('指纹验证未通过', '指紋驗證未通過');
+      }
+      return verified;
     } catch (error, stackTrace) {
-      lastBiometricError = '无法调起系统指纹验证：$error';
+      lastBiometricError = _localizedMessage(
+        '无法调起系统生物识别：$error',
+        '無法啟動系統生物辨識：$error',
+      );
       _logger.error(
         'biometric',
         '无法调起系统生物识别',
@@ -175,17 +316,28 @@ class SettingsController extends ChangeNotifier {
     }
   }
 
-  Future<bool> _isBiometricAvailable() async {
+  Future<bool> _isBiometricMethodAvailable(UnlockMethod method) async {
     try {
       final supported = await _localAuthentication.isDeviceSupported();
       final canCheck = await _localAuthentication.canCheckBiometrics;
       if (!supported || !canCheck) {
-        lastBiometricError = '当前设备没有可用的指纹或生物识别能力';
+        lastBiometricError = _unavailableMessage(method);
+        return false;
+      }
+      final types = await _localAuthentication.getAvailableBiometrics();
+      final expected = method == UnlockMethod.face
+          ? BiometricType.face
+          : BiometricType.fingerprint;
+      if (!types.contains(expected)) {
+        lastBiometricError = _unavailableMessage(method);
         return false;
       }
       return true;
     } catch (error, stackTrace) {
-      lastBiometricError = '检查指纹能力失败：$error';
+      lastBiometricError = _localizedMessage(
+        '检查生物识别能力失败：$error',
+        '檢查生物辨識能力失敗：$error',
+      );
       _logger.error(
         'biometric',
         '检查系统生物识别能力失败',
@@ -196,23 +348,59 @@ class SettingsController extends ChangeNotifier {
     }
   }
 
-  String _hashPattern(List<int> pattern) {
-    // 手势密码不明文落盘；正式环境可替换为后端盐值或 PBKDF2/Argon2。
-    final source = 'merp:${pattern.join('-')}';
-    var hash = 0x811c9dc5;
-    for (final codeUnit in source.codeUnits) {
-      hash ^= codeUnit;
-      hash = (hash * 0x01000193) & 0xFFFFFFFF;
+  String get _lastGestureScopeKey =>
+      '$_gestureScopeKeyPrefix.${environment.trim().toLowerCase()}';
+
+  Future<void> _activateGestureIdentity(
+    String identity, {
+    required bool persist,
+  }) async {
+    final namespace = '${environment.trim().toLowerCase()}:$identity';
+    final encoded = base64UrlEncode(utf8.encode(namespace)).replaceAll('=', '');
+    _activeGestureKey = '$_gestureKeyPrefix.$encoded';
+    _activeUnlockMethodKey = '$_unlockMethodKeyPrefix.$encoded';
+    if (persist) {
+      await _preferences?.setString(_lastGestureScopeKey, identity);
     }
-    return hash.toRadixString(16).padLeft(8, '0');
+    gesturePasswordConfigured =
+        await _readGestureValue(_activeGestureKey!) != null;
+    unlockMethod = UnlockMethod.fromCode(
+      _preferences?.getString(_activeUnlockMethodKey!),
+    );
+    if (!gesturePasswordConfigured && unlockMethod != UnlockMethod.gesture) {
+      unlockMethod = UnlockMethod.gesture;
+      await _preferences?.setString(
+        _activeUnlockMethodKey!,
+        UnlockMethod.gesture.code,
+      );
+    }
+    notifyListeners();
   }
 
-  Future<String?> _readGestureHash() async {
+  String _biometricReason(UnlockMethod method) {
+    if (method == UnlockMethod.face) {
+      return _localizedMessage('请验证面容以解锁 MERP', '請驗證面容以解鎖 MERP');
+    }
+    return _localizedMessage('请验证指纹以解锁 MERP', '請驗證指紋以解鎖 MERP');
+  }
+
+  String _unavailableMessage(UnlockMethod method) {
+    if (method == UnlockMethod.face) {
+      return _localizedMessage('当前设备没有可用或已录入的面容识别', '目前裝置沒有可用或已登錄的面容辨識');
+    }
+    return _localizedMessage('当前设备没有可用或已录入的指纹识别', '目前裝置沒有可用或已登錄的指紋辨識');
+  }
+
+  String _localizedMessage(String simplified, String traditional) {
+    return language == AppLanguage.zhHant ? traditional : simplified;
+  }
+
+  Future<String?> _readGestureValue(String key) async {
     if (!_useSecureStorage) {
-      return _memoryGestureHash;
+      return _memoryGestureValues[key];
     }
     try {
-      return await _secureStorage.read(key: _gestureKey);
+      return await _secureStorage.read(key: key);
     } catch (error, stackTrace) {
       _logger.warning(
         'settings',
@@ -224,11 +412,62 @@ class SettingsController extends ChangeNotifier {
     }
   }
 
-  Future<void> _writeGestureHash(String value) async {
+  Future<void> _writeGestureValue(String key, String value) async {
     if (!_useSecureStorage) {
-      _memoryGestureHash = value;
+      _memoryGestureValues[key] = value;
       return;
     }
-    await _secureStorage.write(key: _gestureKey, value: value);
+    await _secureStorage.write(key: key, value: value);
   }
+
+  Future<void> _deleteGestureValue(String key) async {
+    if (!_useSecureStorage) {
+      _memoryGestureValues.remove(key);
+      return;
+    }
+    await _secureStorage.delete(key: key);
+  }
+
+  Uint8List _randomBytes(int length) {
+    final random = Random.secure();
+    return Uint8List.fromList(
+      List<int>.generate(length, (_) => random.nextInt(256)),
+    );
+  }
+}
+
+class _PatternHashRequest {
+  const _PatternHashRequest(this.pattern, this.salt, this.iterations);
+
+  final List<int> pattern;
+  final Uint8List salt;
+  final int iterations;
+}
+
+Uint8List _derivePatternHash(_PatternHashRequest request) {
+  final password = utf8.encode('merp:${request.pattern.join('-')}');
+  final hmac = Hmac(sha256, password);
+  final block = Uint8List(request.salt.length + 4)
+    ..setAll(0, request.salt)
+    ..setAll(request.salt.length, const [0, 0, 0, 1]);
+  var value = Uint8List.fromList(hmac.convert(block).bytes);
+  final result = Uint8List.fromList(value);
+  for (var i = 1; i < request.iterations; i++) {
+    value = Uint8List.fromList(hmac.convert(value).bytes);
+    for (var j = 0; j < result.length; j++) {
+      result[j] ^= value[j];
+    }
+  }
+  return result;
+}
+
+bool _constantTimeEquals(List<int> left, List<int> right) {
+  if (left.length != right.length) {
+    return false;
+  }
+  var difference = 0;
+  for (var i = 0; i < left.length; i++) {
+    difference |= left[i] ^ right[i];
+  }
+  return difference == 0;
 }

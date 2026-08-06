@@ -314,6 +314,12 @@ abstract class AppLocalizations {
   /// **'未授权功能不能收藏到首页'**
   String get favoriteRequiresPermission;
 
+  /// No description provided for @featurePermissionDenied.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有权限，无法使用'**
+  String get featurePermissionDenied;
+
   /// No description provided for @favoriteFeatureOrder.
   ///
   /// In zh, this message translates to:
@@ -386,6 +392,42 @@ abstract class AppLocalizations {
   /// **'当前设备无法启用指纹解锁'**
   String get biometricUnavailable;
 
+  /// No description provided for @gestureUnlock.
+  ///
+  /// In zh, this message translates to:
+  /// **'图形密码解锁'**
+  String get gestureUnlock;
+
+  /// No description provided for @gestureUnlockSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'冷启动和自动锁屏后绘制图形密码'**
+  String get gestureUnlockSubtitle;
+
+  /// No description provided for @fingerprintUnlock.
+  ///
+  /// In zh, this message translates to:
+  /// **'指纹解锁'**
+  String get fingerprintUnlock;
+
+  /// No description provided for @fingerprintUnlockSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启时检测设备指纹服务并立即验证'**
+  String get fingerprintUnlockSubtitle;
+
+  /// No description provided for @faceUnlock.
+  ///
+  /// In zh, this message translates to:
+  /// **'面容解锁'**
+  String get faceUnlock;
+
+  /// No description provided for @faceUnlockSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启时检测设备面容服务并立即验证'**
+  String get faceUnlockSubtitle;
+
   /// No description provided for @autoLock.
   ///
   /// In zh, this message translates to:
@@ -403,6 +445,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'修改图形密码'**
   String get changeGesturePassword;
+
+  /// No description provided for @setGesturePassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置图形密码'**
+  String get setGesturePassword;
 
   /// No description provided for @gestureConfigured.
   ///
@@ -546,6 +594,60 @@ abstract class AppLocalizations {
   /// **'手势密码不正确，请重试'**
   String get gestureIncorrect;
 
+  /// No description provided for @gestureVerifyCurrent.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先绘制当前手势密码'**
+  String get gestureVerifyCurrent;
+
+  /// No description provided for @coldStartLocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'请验证手势密码'**
+  String get coldStartLocked;
+
+  /// No description provided for @coldStartLockedMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用已恢复登录状态，验证成功后可继续使用。'**
+  String get coldStartLockedMessage;
+
+  /// No description provided for @gestureAutoLockedMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'10 秒未操作，请绘制图形密码继续使用。'**
+  String get gestureAutoLockedMessage;
+
+  /// No description provided for @fingerprintVerificationTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'请验证指纹'**
+  String get fingerprintVerificationTitle;
+
+  /// No description provided for @fingerprintVerificationMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'请使用当前设备已录入的指纹继续使用 MERP。'**
+  String get fingerprintVerificationMessage;
+
+  /// No description provided for @faceVerificationTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'请验证面容'**
+  String get faceVerificationTitle;
+
+  /// No description provided for @faceVerificationMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'请使用当前设备已录入的面容继续使用 MERP。'**
+  String get faceVerificationMessage;
+
+  /// No description provided for @gestureRequiredMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'首次使用需要设置手势密码，完成后进入首页。'**
+  String get gestureRequiredMessage;
+
   /// No description provided for @gestureDrawNew.
   ///
   /// In zh, this message translates to:
@@ -603,7 +705,7 @@ abstract class AppLocalizations {
   /// No description provided for @noFeatureListMessage.
   ///
   /// In zh, this message translates to:
-  /// **'后端没有返回全部功能数据，请检查菜单权限接口。'**
+  /// **'平台完整功能目录为空，请检查客户端功能配置。'**
   String get noFeatureListMessage;
 
   /// No description provided for @noFeaturePermission.

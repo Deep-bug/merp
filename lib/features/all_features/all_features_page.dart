@@ -1,10 +1,11 @@
 // -----------------------------------------------------------------------------
 // 文件：all_features_page.dart
-// 作用：展示后端完整功能清单及当前账号授权状态
+// 作用：展示平台完整功能清单及当前账号授权状态
 // 编写时间：2026-07-10
 // 维护说明：权限判断统一委托 PermissionRepository，灰色入口不可绕过校验
 // -----------------------------------------------------------------------------
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
@@ -136,9 +137,13 @@ class AllFeaturesPage extends StatelessWidget {
                                 item: item,
                                 enabled: enabled,
                                 isFavorite: isFavorite,
-                                onFavorite: enabled || isFavorite
-                                    ? () => favorites.toggle(item.id)
-                                    : null,
+                                onFavorite: () {
+                                  if (!enabled) {
+                                    _showPermissionDeniedDialog(context);
+                                    return;
+                                  }
+                                  favorites.toggle(item.id);
+                                },
                               );
                             }, childCount: group.value.length),
                             gridDelegate:
@@ -182,13 +187,11 @@ class _AllFeatureTile extends StatelessWidget {
   final FeatureItem item;
   final bool enabled;
   final bool isFavorite;
-  final VoidCallback? onFavorite;
+  final VoidCallback onFavorite;
 
   void _open(BuildContext context) {
     if (!enabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.noFeaturePermission(item.title))),
-      );
+      _showPermissionDeniedDialog(context);
       return;
     }
 
@@ -214,6 +217,10 @@ class _AllFeatureTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayedAsFavorite = enabled && isFavorite;
+    final labelWeight = defaultTargetPlatform == TargetPlatform.iOS
+        ? FontWeight.w600
+        : FontWeight.w800;
     final iconColor = enabled
         ? AllFeaturesPage._enabledBlue
         : AllFeaturesPage._disabledGrey;
@@ -273,7 +280,7 @@ class _AllFeatureTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: textColor,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: labelWeight,
                         ),
                       ),
                     ],
@@ -287,13 +294,13 @@ class _AllFeatureTile extends StatelessWidget {
           top: 0,
           right: 0,
           child: IconButton(
-            tooltip: !enabled && !isFavorite
+            tooltip: !enabled
                 ? context.l10n.favoriteRequiresPermission
-                : isFavorite
+                : displayedAsFavorite
                 ? context.l10n.unfavoriteFeature
                 : context.l10n.favoriteFeature,
-            icon: Icon(isFavorite ? Icons.star : Icons.star_border),
-            color: isFavorite
+            icon: Icon(displayedAsFavorite ? Icons.star : Icons.star_border),
+            color: displayedAsFavorite
                 ? const Color(0xFF00E837)
                 : const Color(0xFFD6D6D6),
             iconSize: 22,
@@ -303,4 +310,19 @@ class _AllFeatureTile extends StatelessWidget {
       ],
     );
   }
+}
+
+Future<void> _showPermissionDeniedDialog(BuildContext context) {
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      content: Text(context.l10n.featurePermissionDenied),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: Text(context.l10n.acknowledge),
+        ),
+      ],
+    ),
+  );
 }

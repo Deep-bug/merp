@@ -44,10 +44,18 @@ class AppConfig {
     this.refreshTokenPath = '/api/v1/auth/refresh',
     this.logoutPath = '/api/v1/auth/logout',
     this.userInfoPath = '/api/v1/user/userInfo',
-    this.menuPath = '/auth/menus',
+    this.menuPath = '/api/v1/app/features',
+    this.menuAppId = const String.fromEnvironment(
+      'MENU_APP_ID',
+      defaultValue: 'merp',
+    ),
+    this.menuFeatureScope = const String.fromEnvironment(
+      'MENU_FEATURE_SCOPE',
+      defaultValue: 'at',
+    ),
     this.mockMenus = const bool.fromEnvironment(
       'MOCK_MENUS',
-      defaultValue: true,
+      defaultValue: false,
     ),
     this.mapProvider = 'baidu',
     this.androidMapApiKey = const String.fromEnvironment(
@@ -119,10 +127,16 @@ class AppConfig {
   /// 当前登录用户的完整资料接口。
   final String userInfoPath;
 
-  /// 菜单权限接口尚未包含在本次后端文档中，继续保留独立配置入口。
+  /// 当前登录用户的功能菜单接口。
   final String menuPath;
 
-  /// 后端菜单接口接通前默认使用本地完整菜单，并授予全部功能权限。
+  /// 菜单接口所属应用标识。
+  final String menuAppId;
+
+  /// 后端菜单范围参数 `sys_app_features`。
+  final String menuFeatureScope;
+
+  /// 本地开发兜底开关；QAS/生产环境应关闭并读取真实用户菜单。
   final bool mockMenus;
 
   /// 地图厂商标识。后续可改成 baidu/amap/tencent 等。

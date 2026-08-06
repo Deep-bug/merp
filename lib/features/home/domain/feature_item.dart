@@ -15,8 +15,11 @@ class FeatureItem {
     required this.title,
     required this.description,
     this.group = '',
+    this.groupCode = '',
+    this.groupSort = 0,
+    this.sort = 0,
+    this.isDefault = false,
     required this.icon,
-    this.iconUrl,
     required this.permissionCode,
     required this.launchMode,
     required this.route,
@@ -27,8 +30,11 @@ class FeatureItem {
   final String title;
   final String description;
   final String group;
+  final String groupCode;
+  final int groupSort;
+  final int sort;
+  final bool isDefault;
   final IconData icon;
-  final String? iconUrl;
   final String permissionCode;
   final FeatureLaunchMode launchMode;
   final String route;

@@ -304,12 +304,15 @@ try {
             $ExtraArguments = @("-d", $DeviceId) + $ExtraArguments
             Write-Host "使用 android 设备：$DeviceId"
         }
-        $RunArguments = @(
-            "run"
-            "--flavor", "qas"
-            "--debug"
-            "--target", "lib/main.dart"
-        ) + $ConfigArguments + $ExtraArguments
+        $RunArguments = @("run", "--flavor", "qas")
+        $HasExplicitBuildMode = $ExtraArguments | Where-Object {
+            $_ -in @("--debug", "--profile", "--jit-release", "--release")
+        }
+        if (-not $HasExplicitBuildMode) {
+            $RunArguments += "--debug"
+        }
+        $RunArguments += @("--target", "lib/main.dart")
+        $RunArguments += $ConfigArguments + $ExtraArguments
         Invoke-Flutter @RunArguments
         exit 0
     }
@@ -331,6 +334,8 @@ try {
             "--flavor", "qas"
             "--release"
             "--target", "lib/main.dart"
+            "--target-platform", "android-arm64"
+            "--split-per-abi"
         ) + $ConfigArguments + @(
             "--build-name", $VersionName
             "--build-number", $BuildNumber
@@ -344,6 +349,7 @@ try {
             "--flavor", "prd"
             "--release"
             "--target", "lib/main.dart"
+            "--target-platform", "android-arm64"
         ) + $ConfigArguments + @(
             "--build-name", $VersionName
             "--build-number", $BuildNumber

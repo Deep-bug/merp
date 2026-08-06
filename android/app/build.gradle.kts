@@ -95,6 +95,20 @@ android {
     }
 }
 
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        // Flutter 插件会在 NDK 过滤之后合并第三方 AAR 的原生库，因此还要在
+        // Release 最终包装阶段排除非 ARM64 目录。该规则同时覆盖 APK 和 AAB。
+        variant.packaging.jniLibs.excludes.addAll(
+            setOf(
+                "**/armeabi-v7a/**",
+                "**/x86/**",
+                "**/x86_64/**",
+            ),
+        )
+    }
+}
+
 gradle.taskGraph.whenReady {
     val buildsPrdRelease = gradle.startParameter.taskNames.any {
         it.contains("PrdRelease", ignoreCase = true)

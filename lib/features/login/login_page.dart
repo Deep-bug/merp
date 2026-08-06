@@ -75,7 +75,22 @@ class _LoginPageState extends State<LoginPage> {
     }
     setState(() => _submitting = false);
     if (ok) {
-      context.go(AppRoute.home);
+      final session = auth.session!;
+      final settings = AppScope.of(context).settingsController;
+      await settings.activateGestureScope(
+        userId: session.profile.id,
+        accountName: session.profile.accountName,
+      );
+      if (!mounted) {
+        return;
+      }
+      final requiresEnrollment = !settings.gesturePasswordConfigured;
+      auth.completeInteractiveLogin(
+        requiresGestureEnrollment: requiresEnrollment,
+      );
+      context.go(
+        requiresEnrollment ? AppRoute.gestureEnrollment : AppRoute.home,
+      );
       return;
     }
     _captchaController.clear();

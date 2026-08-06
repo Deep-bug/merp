@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:merp/features/home/data/feature_resolver.dart';
 import 'package:merp/features/home/domain/feature_item.dart';
@@ -23,7 +24,6 @@ void main() {
     expect(item.permissionCode, 'customer.backend.view');
     expect(item.route, '/legacy/customer');
     expect(item.legacyPath, '/new-customers');
-    expect(item.iconUrl, 'https://example.com/customer.png');
   });
 
   test('原生功能只允许使用客户端注册的可信路由', () {
@@ -45,13 +45,21 @@ void main() {
     expect(unknown.route, isEmpty);
   });
 
-  test('非 HTTP 图标地址不会进入图片加载组件', () {
+  test('后端图片地址会被忽略并使用客户端 Material Icons 映射', () {
     final item = resolver.resolve({
-      'id': 'customer',
-      'title': '客户',
-      'iconUrl': 'file:///private/icon.png',
+      'featureCode': 'wechat-eform',
+      'name': '电子表单',
+      'icon': 'img/funicon/wechat-eform.png',
+      'iconUrl': 'https://example.com/wechat-eform.png',
+      'target': 'merp/bpm/index.html',
+      'sort': 8,
+      'defaultFlag': true,
     });
 
-    expect(item.iconUrl, isNull);
+    expect(item.id, 'wechat-eform');
+    expect(item.legacyPath, 'merp/bpm/index.html');
+    expect(item.sort, 8);
+    expect(item.isDefault, isTrue);
+    expect(item.icon, Icons.account_tree_outlined);
   });
 }

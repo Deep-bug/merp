@@ -13,7 +13,13 @@ import '../../features/home/data/permission_repository.dart';
 import '../logging/app_logger.dart';
 import 'auth_repository.dart';
 
-enum AuthStatus { booting, restoreFailed, unauthenticated, authenticated }
+enum AuthStatus {
+  booting,
+  restoreFailed,
+  unauthenticated,
+  authenticatedPendingSecurity,
+  authenticated,
+}
 
 class AuthController extends ChangeNotifier {
   AuthController({
@@ -37,6 +43,7 @@ class AuthController extends ChangeNotifier {
   bool isProfileLoading = false;
   String? profileLoadError;
   int _sessionGeneration = 0;
+  bool gestureEnrollmentRequired = false;
 
   bool get isAuthenticated =>
       status == AuthStatus.authenticated && session != null;
@@ -49,12 +56,14 @@ class AuthController extends ChangeNotifier {
         status = AuthStatus.unauthenticated;
         _logger.info('auth', '本地无可恢复会话');
       } else {
+        gestureEnrollmentRequired = false;
         status = AuthStatus.authenticated;
         _sessionGeneration += 1;
         _logger.info('auth', '登录会话刷新恢复成功，开始后台加载会话数据');
       }
     } catch (error, stackTrace) {
       session = null;
+      gestureEnrollmentRequired = false;
       status = AuthStatus.restoreFailed;
       lastError = error.toString();
       _logger.error('auth', '恢复登录会话失败', error: error, stackTrace: stackTrace);
@@ -84,6 +93,7 @@ class AuthController extends ChangeNotifier {
       ]);
       _sessionGeneration += 1;
       session = null;
+      gestureEnrollmentRequired = false;
       captchaChallenge = null;
       captchaError = null;
       status = AuthStatus.unauthenticated;
@@ -136,6 +146,7 @@ class AuthController extends ChangeNotifier {
     }
 
     lastError = null;
+    gestureEnrollmentRequired = false;
     notifyListeners();
 
     try {
@@ -148,13 +159,14 @@ class AuthController extends ChangeNotifier {
       );
       captchaChallenge = null;
       captchaError = null;
-      status = AuthStatus.authenticated;
+      status = AuthStatus.authenticatedPendingSecurity;
       _sessionGeneration += 1;
       _logger.info('auth', '用户登录成功', fields: {'account': account.trim()});
       notifyListeners();
-      unawaited(reloadSessionData());
       return true;
     } catch (error, stackTrace) {
+      session = null;
+      gestureEnrollmentRequired = false;
       lastError = error.toString();
       status = AuthStatus.unauthenticated;
       _logger.warning(
@@ -168,6 +180,25 @@ class AuthController extends ChangeNotifier {
       unawaited(refreshCaptcha());
       return false;
     }
+  }
+
+  /// 账号密码登录完成后，由登录页在本地手势安全域准备完成时放行路由。
+  void completeInteractiveLogin({required bool requiresGestureEnrollment}) {
+    if (status != AuthStatus.authenticatedPendingSecurity || session == null) {
+      return;
+    }
+    gestureEnrollmentRequired = requiresGestureEnrollment;
+    status = AuthStatus.authenticated;
+    notifyListeners();
+    unawaited(reloadSessionData());
+  }
+
+  void completeGestureEnrollment() {
+    if (!gestureEnrollmentRequired) {
+      return;
+    }
+    gestureEnrollmentRequired = false;
+    notifyListeners();
   }
 
   /// 登录恢复后异步刷新用户资料和权限菜单；两者均只保存在当前进程内存中。
@@ -224,6 +255,7 @@ class AuthController extends ChangeNotifier {
     await _authRepository.logout();
     await _permissionRepository.clear();
     session = null;
+    gestureEnrollmentRequired = false;
     captchaChallenge = null;
     captchaError = null;
     status = AuthStatus.unauthenticated;
@@ -236,6 +268,7 @@ class AuthController extends ChangeNotifier {
     _sessionGeneration += 1;
     await _permissionRepository.clear();
     session = null;
+    gestureEnrollmentRequired = false;
     captchaChallenge = null;
     captchaError = null;
     status = AuthStatus.unauthenticated;

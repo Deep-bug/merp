@@ -70,7 +70,7 @@ class AppLogger extends ChangeNotifier {
     this.maxEntries = 200,
     this.enableDebugLogs = const bool.fromEnvironment(
       'ENABLE_LOG',
-      defaultValue: true,
+      defaultValue: false,
     ),
   }) : assert(maxEntries > 0);
 
@@ -200,7 +200,6 @@ class AppLogger extends ChangeNotifier {
 
   void _emit(AppLogEntry entry) {
     final text = entry.toText();
-    debugPrint(text);
     developer.log(
       text,
       name: 'MERP.${entry.category}',
@@ -210,7 +209,11 @@ class AppLogger extends ChangeNotifier {
       time: entry.timestamp,
       sequenceNumber: _incidentSequence,
     );
-    writePlatformLog(text);
+    // 普通调试日志只进入调试终端，避免一条日志重复输出，并避免在定位、
+    // 网络请求等高频链路中同步刷写磁盘。警告及错误仍保留到诊断文件。
+    if (entry.level.index >= AppLogLevel.warning.index) {
+      writePlatformLog(text);
+    }
   }
 
   int _developerLevel(AppLogLevel level) => switch (level) {

@@ -36,6 +36,9 @@ class AppRouter {
         observers: [AppRouteObserver(logger)],
         redirect: (context, state) {
           final isLoggingIn = state.uri.path == AppRoute.login;
+          final isGestureEnrollment =
+              state.uri.path == AppRoute.gesture &&
+              state.uri.queryParameters['mode'] == 'enrollment';
           final shouldStayOnSplash =
               authController.status == AuthStatus.booting ||
               authController.status == AuthStatus.restoreFailed;
@@ -43,8 +46,15 @@ class AppRouter {
           if (shouldStayOnSplash) {
             return state.uri.path == AppRoute.splash ? null : AppRoute.splash;
           }
+          if (authController.status ==
+              AuthStatus.authenticatedPendingSecurity) {
+            return isLoggingIn ? null : AppRoute.login;
+          }
           if (!authController.isAuthenticated) {
             return isLoggingIn ? null : AppRoute.login;
+          }
+          if (authController.gestureEnrollmentRequired) {
+            return isGestureEnrollment ? null : AppRoute.gestureEnrollment;
           }
           if (isLoggingIn || state.uri.path == AppRoute.splash) {
             return AppRoute.home;
@@ -85,7 +95,11 @@ class AppRouter {
           GoRoute(
             path: AppRoute.gesture,
             name: 'gesture-password',
-            builder: (context, state) => const GesturePasswordPage(),
+            builder: (context, state) => GesturePasswordPage(
+              mode: state.uri.queryParameters['mode'] == 'enrollment'
+                  ? GesturePasswordMode.enrollment
+                  : GesturePasswordMode.change,
+            ),
           ),
           GoRoute(
             path: AppRoute.resourceUpdate,
