@@ -15,10 +15,10 @@ import '../features/all_features/all_features_page.dart';
 import '../features/bridge_test/bridge_test_page.dart';
 import '../features/home/home_page.dart';
 import '../features/legacy/legacy_web_page.dart';
+import '../features/legal/privacy_policy_page.dart';
 import '../features/login/login_page.dart';
 import '../features/map/map_page.dart';
 import '../features/profile/profile_page.dart';
-import '../features/resources/resource_update_demo_page.dart';
 import '../features/settings/gesture_password_page.dart';
 import '../features/settings/log_console_page.dart';
 import '../features/settings/settings_page.dart';
@@ -36,6 +36,7 @@ class AppRouter {
         observers: [AppRouteObserver(logger)],
         redirect: (context, state) {
           final isLoggingIn = state.uri.path == AppRoute.login;
+          final isPrivacyPolicy = state.uri.path == AppRoute.privacyPolicy;
           final isGestureEnrollment =
               state.uri.path == AppRoute.gesture &&
               state.uri.queryParameters['mode'] == 'enrollment';
@@ -48,10 +49,10 @@ class AppRouter {
           }
           if (authController.status ==
               AuthStatus.authenticatedPendingSecurity) {
-            return isLoggingIn ? null : AppRoute.login;
+            return isLoggingIn || isPrivacyPolicy ? null : AppRoute.login;
           }
           if (!authController.isAuthenticated) {
-            return isLoggingIn ? null : AppRoute.login;
+            return isLoggingIn || isPrivacyPolicy ? null : AppRoute.login;
           }
           if (authController.gestureEnrollmentRequired) {
             return isGestureEnrollment ? null : AppRoute.gestureEnrollment;
@@ -71,6 +72,11 @@ class AppRouter {
             path: AppRoute.login,
             name: 'login',
             builder: (context, state) => const LoginPage(),
+          ),
+          GoRoute(
+            path: AppRoute.privacyPolicy,
+            name: 'privacy-policy',
+            builder: (context, state) => const PrivacyPolicyPage(),
           ),
           GoRoute(
             path: AppRoute.home,
@@ -100,11 +106,6 @@ class AppRouter {
                   ? GesturePasswordMode.enrollment
                   : GesturePasswordMode.change,
             ),
-          ),
-          GoRoute(
-            path: AppRoute.resourceUpdate,
-            name: 'resource-update',
-            builder: (context, state) => const ResourceUpdateDemoPage(),
           ),
           GoRoute(
             path: AppRoute.bridgeTest,

@@ -35,4 +35,15 @@ void main() {
     const url = 'https://example.test/eform.html#/home?task=1';
     expect(const AppConfig().legacyUri(url).toString(), url);
   });
+
+  test('keeps China DMZ as default and resolves the configured HK DMZ', () {
+    const config = AppConfig(
+      apiBaseUrl: 'https://china.example.com',
+      hkApiBaseUrl: 'https://hk.example.com',
+    );
+
+    expect(config.apiBaseUrlFor(ApiServer.china), 'https://china.example.com');
+    expect(config.apiBaseUrlFor(ApiServer.hk), 'https://hk.example.com');
+    expect(config.isApiServerAvailable(ApiServer.hk), isTrue);
+  });
 }

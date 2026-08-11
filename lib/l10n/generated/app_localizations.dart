@@ -188,6 +188,84 @@ abstract class AppLocalizations {
   /// **'登录失败'**
   String get loginFailed;
 
+  /// No description provided for @loginAccountRequiredTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入账号'**
+  String get loginAccountRequiredTitle;
+
+  /// No description provided for @loginAccountRequiredMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入您的登录账号后继续。'**
+  String get loginAccountRequiredMessage;
+
+  /// No description provided for @loginPasswordRequiredTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入密码'**
+  String get loginPasswordRequiredTitle;
+
+  /// No description provided for @loginPasswordRequiredMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入账号对应的登录密码后继续。'**
+  String get loginPasswordRequiredMessage;
+
+  /// No description provided for @loginCaptchaRequiredTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入验证码'**
+  String get loginCaptchaRequiredTitle;
+
+  /// No description provided for @loginCaptchaRequiredMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入右侧图片中的验证码后继续。'**
+  String get loginCaptchaRequiredMessage;
+
+  /// No description provided for @privacyConsentRequiredTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'请同意用户隐私协议'**
+  String get privacyConsentRequiredTitle;
+
+  /// No description provided for @privacyConsentRequiredMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'请勾选“我已阅读并同意《用户隐私协议》”后继续登录。'**
+  String get privacyConsentRequiredMessage;
+
+  /// No description provided for @captchaPreparingTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证码正在加载'**
+  String get captchaPreparingTitle;
+
+  /// No description provided for @captchaPreparingMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'请等待验证码加载完成，或点击验证码图片重新获取。'**
+  String get captchaPreparingMessage;
+
+  /// No description provided for @privacyPolicy.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户隐私协议'**
+  String get privacyPolicy;
+
+  /// No description provided for @privacyPolicyConsentPrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'我已阅读并同意'**
+  String get privacyPolicyConsentPrefix;
+
+  /// No description provided for @privacyPolicyDemoNotice.
+  ///
+  /// In zh, this message translates to:
+  /// **'以下为演示协议内容，正式发布前请由法务确认。'**
+  String get privacyPolicyDemoNotice;
+
   /// No description provided for @menu.
   ///
   /// In zh, this message translates to:
@@ -320,6 +398,24 @@ abstract class AppLocalizations {
   /// **'没有权限，无法使用'**
   String get featurePermissionDenied;
 
+  /// No description provided for @permissionDialogTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法使用'**
+  String get permissionDialogTitle;
+
+  /// No description provided for @featurePermissionDeniedMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前账号没有“{title}”的访问权限，请联系管理员开通后重试。'**
+  String featurePermissionDeniedMessage(String title);
+
+  /// No description provided for @favoritePermissionDeniedMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'“{title}”尚未授权，暂时不能添加到首页。'**
+  String favoritePermissionDeniedMessage(String title);
+
   /// No description provided for @favoriteFeatureOrder.
   ///
   /// In zh, this message translates to:
@@ -368,6 +464,30 @@ abstract class AppLocalizations {
   /// **'登出'**
   String get logout;
 
+  /// No description provided for @cancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get cancel;
+
+  /// No description provided for @logoutConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出当前账号？'**
+  String get logoutConfirmTitle;
+
+  /// No description provided for @logoutConfirmMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出后需要重新输入账号、密码和验证码登录。'**
+  String get logoutConfirmMessage;
+
+  /// No description provided for @logoutConfirmAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出登录'**
+  String get logoutConfirmAction;
+
   /// No description provided for @security.
   ///
   /// In zh, this message translates to:
@@ -391,6 +511,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'当前设备无法启用指纹解锁'**
   String get biometricUnavailable;
+
+  /// No description provided for @biometricUnavailableTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法启用此解锁方式'**
+  String get biometricUnavailableTitle;
 
   /// No description provided for @gestureUnlock.
   ///
@@ -476,6 +602,54 @@ abstract class AppLocalizations {
   /// **'设置语言'**
   String get language;
 
+  /// No description provided for @switchServer.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换服务器'**
+  String get switchServer;
+
+  /// No description provided for @currentServer.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前：{server}'**
+  String currentServer(String server);
+
+  /// No description provided for @selectServer.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择服务器'**
+  String get selectServer;
+
+  /// No description provided for @chinaDmz.
+  ///
+  /// In zh, this message translates to:
+  /// **'China DMZ'**
+  String get chinaDmz;
+
+  /// No description provided for @hkDmz.
+  ///
+  /// In zh, this message translates to:
+  /// **'HK DMZ'**
+  String get hkDmz;
+
+  /// No description provided for @confirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认'**
+  String get confirm;
+
+  /// No description provided for @serverSwitched.
+  ///
+  /// In zh, this message translates to:
+  /// **'已切换至 {server}'**
+  String serverSwitched(String server);
+
+  /// No description provided for @serverConfigurationInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器地址配置无效，请联系管理员。'**
+  String get serverConfigurationInvalid;
+
   /// No description provided for @simplifiedChinese.
   ///
   /// In zh, this message translates to:
@@ -487,18 +661,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'繁體中文'**
   String get traditionalChinese;
-
-  /// No description provided for @resourceUpdate.
-  ///
-  /// In zh, this message translates to:
-  /// **'静态资源热更新演示'**
-  String get resourceUpdate;
-
-  /// No description provided for @resourceUpdateSubtitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'本地模拟资源清单更新首页背景和图标颜色'**
-  String get resourceUpdateSubtitle;
 
   /// No description provided for @bridgeTest.
   ///
@@ -518,6 +680,12 @@ abstract class AppLocalizations {
   /// **'版本检测'**
   String get versionCheck;
 
+  /// No description provided for @versionCheckFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'版本检测失败，请稍后重试。'**
+  String get versionCheckFailed;
+
   /// No description provided for @currentVersion.
   ///
   /// In zh, this message translates to:
@@ -535,6 +703,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'发现新版本'**
   String get newVersion;
+
+  /// No description provided for @alreadyLatestVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'已是最新版本 {version}'**
+  String alreadyLatestVersion(String version);
 
   /// No description provided for @versionResult.
   ///
@@ -803,6 +977,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'故障编号：{id}'**
   String errorReference(String id);
+
+  /// No description provided for @viewErrorDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看详情'**
+  String get viewErrorDetails;
+
+  /// No description provided for @hideErrorDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起详情'**
+  String get hideErrorDetails;
+
+  /// No description provided for @copyErrorReference.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制故障编号'**
+  String get copyErrorReference;
+
+  /// No description provided for @errorReferenceCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'故障编号已复制'**
+  String get errorReferenceCopied;
 
   /// No description provided for @retry.
   ///
@@ -1104,143 +1302,47 @@ abstract class AppLocalizations {
   /// **'用户未同意定位隐私说明'**
   String get locationPrivacyDeclined;
 
-  /// No description provided for @resourceVersion.
+  /// No description provided for @locationFailedRetry.
   ///
   /// In zh, this message translates to:
-  /// **'当前资源版本'**
-  String get resourceVersion;
+  /// **'定位失败，请稍后重试'**
+  String get locationFailedRetry;
 
-  /// No description provided for @resourceSource.
+  /// No description provided for @scannerTitle.
   ///
   /// In zh, this message translates to:
-  /// **'资源来源'**
-  String get resourceSource;
+  /// **'扫码'**
+  String get scannerTitle;
 
-  /// No description provided for @resourceUpdatedAt.
+  /// No description provided for @scannerPermissionTitle.
   ///
   /// In zh, this message translates to:
-  /// **'更新时间'**
-  String get resourceUpdatedAt;
+  /// **'需要相机权限才能扫码'**
+  String get scannerPermissionTitle;
 
-  /// No description provided for @builtInResource.
+  /// No description provided for @scannerPermissionMessage.
   ///
   /// In zh, this message translates to:
-  /// **'内置资源'**
-  String get builtInResource;
+  /// **'请在系统设置中允许 MERP 使用相机。'**
+  String get scannerPermissionMessage;
 
-  /// No description provided for @applyEmerald.
+  /// No description provided for @scannerStartFailed.
   ///
   /// In zh, this message translates to:
-  /// **'应用绿色资源包'**
-  String get applyEmerald;
+  /// **'扫码相机启动失败'**
+  String get scannerStartFailed;
 
-  /// No description provided for @applyViolet.
+  /// No description provided for @scannerStartFailedMessage.
   ///
   /// In zh, this message translates to:
-  /// **'应用紫色资源包'**
-  String get applyViolet;
+  /// **'相机暂时无法使用，请稍后重试。'**
+  String get scannerStartFailedMessage;
 
-  /// No description provided for @resetResource.
+  /// No description provided for @scanOpenSettings.
   ///
   /// In zh, this message translates to:
-  /// **'重置资源'**
-  String get resetResource;
-
-  /// No description provided for @manualResourceJson.
-  ///
-  /// In zh, this message translates to:
-  /// **'手动资源清单 JSON'**
-  String get manualResourceJson;
-
-  /// No description provided for @resourceJsonHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'修改颜色值后点击“应用 JSON”，即可模拟后端下发资源清单。'**
-  String get resourceJsonHint;
-
-  /// No description provided for @applyJson.
-  ///
-  /// In zh, this message translates to:
-  /// **'应用 JSON'**
-  String get applyJson;
-
-  /// No description provided for @viewHome.
-  ///
-  /// In zh, this message translates to:
-  /// **'查看首页'**
-  String get viewHome;
-
-  /// No description provided for @resourceUpdateFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'资源更新失败：{error}'**
-  String resourceUpdateFailed(String error);
-
-  /// No description provided for @emeraldApplied.
-  ///
-  /// In zh, this message translates to:
-  /// **'已应用绿色资源包，返回首页查看变化'**
-  String get emeraldApplied;
-
-  /// No description provided for @violetApplied.
-  ///
-  /// In zh, this message translates to:
-  /// **'已应用紫色资源包，返回首页查看变化'**
-  String get violetApplied;
-
-  /// No description provided for @resourceReset.
-  ///
-  /// In zh, this message translates to:
-  /// **'已恢复内置默认资源'**
-  String get resourceReset;
-
-  /// No description provided for @jsonApplied.
-  ///
-  /// In zh, this message translates to:
-  /// **'已应用 JSON 资源清单，返回首页查看变化'**
-  String get jsonApplied;
-
-  /// No description provided for @sourceBuiltIn.
-  ///
-  /// In zh, this message translates to:
-  /// **'内置默认资源'**
-  String get sourceBuiltIn;
-
-  /// No description provided for @sourceCache.
-  ///
-  /// In zh, this message translates to:
-  /// **'本地缓存资源'**
-  String get sourceCache;
-
-  /// No description provided for @sourceCacheFallback.
-  ///
-  /// In zh, this message translates to:
-  /// **'缓存解析失败，已回退默认资源'**
-  String get sourceCacheFallback;
-
-  /// No description provided for @sourceManualJson.
-  ///
-  /// In zh, this message translates to:
-  /// **'手动粘贴 JSON'**
-  String get sourceManualJson;
-
-  /// No description provided for @sourceEmerald.
-  ///
-  /// In zh, this message translates to:
-  /// **'本地模拟绿色资源包'**
-  String get sourceEmerald;
-
-  /// No description provided for @sourceViolet.
-  ///
-  /// In zh, this message translates to:
-  /// **'本地模拟紫色资源包'**
-  String get sourceViolet;
-
-  /// No description provided for @sourceReset.
-  ///
-  /// In zh, this message translates to:
-  /// **'已重置为内置默认资源'**
-  String get sourceReset;
+  /// **'打开系统设置'**
+  String get scanOpenSettings;
 }
 
 class _AppLocalizationsDelegate

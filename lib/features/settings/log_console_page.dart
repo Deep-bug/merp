@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import '../../app/app_scope.dart';
 import '../../core/logging/app_logger.dart';
 import '../../l10n/l10n.dart';
+import '../../shared/app_notice.dart';
 
 class LogConsolePage extends StatelessWidget {
   const LogConsolePage({super.key});
@@ -58,9 +59,11 @@ class LogConsolePage extends StatelessWidget {
   Future<void> _copy(BuildContext context, AppLogger logger) async {
     await Clipboard.setData(ClipboardData(text: logger.exportText()));
     if (context.mounted) {
-      ScaffoldMessenger.of(
+      AppNotice.show(
         context,
-      ).showSnackBar(SnackBar(content: Text(context.l10n.logsCopied)));
+        message: context.l10n.logsCopied,
+        tone: AppNoticeTone.success,
+      );
     }
   }
 }

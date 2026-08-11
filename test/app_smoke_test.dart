@@ -22,7 +22,6 @@ import 'package:merp/core/device/location_service.dart';
 import 'package:merp/core/device/map_sdk_service.dart';
 import 'package:merp/core/logging/app_logger.dart';
 import 'package:merp/core/network/api_client.dart';
-import 'package:merp/core/resources/resource_update_controller.dart';
 import 'package:merp/features/home/data/permission_repository.dart';
 import 'package:merp/features/home/data/favorite_feature_controller.dart';
 import 'package:merp/features/settings/settings_controller.dart';
@@ -52,8 +51,6 @@ void main() {
       useSecureStorage: false,
     );
     await settings.load();
-    final resources = ResourceUpdateController(logger: logger);
-    await resources.load();
     final auth = AuthController(
       authRepository: AuthRepository(
         apiClient: apiClient,
@@ -80,7 +77,6 @@ void main() {
       permissionRepository: permissions,
       favoriteFeatureController: favorites,
       settingsController: settings,
-      resourceUpdateController: resources,
       cameraService: CameraService(),
       fileService: FileService(),
       deviceInfoService: DeviceInfoService(),

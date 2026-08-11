@@ -21,6 +21,7 @@ import '../device/camera_service.dart';
 import '../device/file_service.dart';
 import '../device/location_service.dart';
 import '../device/scanner_models.dart';
+import '../resources/runtime_resource_manifest.dart';
 
 /// MERP WebView 原生能力 Bridge。
 ///
@@ -307,8 +308,7 @@ class MerpNativeBridge {
   }
 
   Map<String, Object?> _resourceManifestPayload() {
-    final manifest = AppScope.of(context).resourceUpdateController.manifest;
-    return manifest.toJson();
+    return RuntimeResourceManifest.defaults().toJson();
   }
 
   Map<String, Object?> _localePayload() {

@@ -13,6 +13,7 @@ import '../../../core/auth/auth_models.dart';
 import '../../../l10n/l10n.dart';
 import '../../../routing/app_navigator.dart';
 import '../../../routing/app_routes.dart';
+import '../../../shared/app_dialog.dart';
 
 class HomeDrawer extends StatelessWidget {
   const HomeDrawer({
@@ -75,6 +76,27 @@ class HomeDrawer extends StatelessWidget {
                 label: context.l10n.logout,
                 icon: Icons.logout,
                 onTap: () async {
+                  final confirmed =
+                      await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AppDialog(
+                          tone: AppDialogTone.warning,
+                          icon: Icons.logout_rounded,
+                          title: context.l10n.logoutConfirmTitle,
+                          message: context.l10n.logoutConfirmMessage,
+                          secondaryLabel: context.l10n.cancel,
+                          onSecondary: () =>
+                              Navigator.of(dialogContext).pop(false),
+                          primaryLabel: context.l10n.logoutConfirmAction,
+                          primaryDestructive: true,
+                          onPrimary: () =>
+                              Navigator.of(dialogContext).pop(true),
+                        ),
+                      ) ??
+                      false;
+                  if (!confirmed || !context.mounted) {
+                    return;
+                  }
                   await auth.logout();
                   if (context.mounted) {
                     context.go(AppRoute.login);

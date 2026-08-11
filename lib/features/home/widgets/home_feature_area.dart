@@ -56,6 +56,7 @@ class HomeFeatureArea extends StatelessWidget {
     if (features.isEmpty && !hasAnyFeature) {
       return AppErrorView(
         icon: Icons.apps_outlined,
+        tone: AppErrorTone.info,
         title: context.l10n.noFeatures,
         message: context.l10n.noFeaturesMessage,
       );

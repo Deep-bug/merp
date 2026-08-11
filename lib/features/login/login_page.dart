@@ -12,6 +12,8 @@ import '../../app/app_scope.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../l10n/l10n.dart';
 import '../../routing/app_routes.dart';
+import '../../shared/app_dialog.dart';
+import '../../shared/app_notice.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, this.authController});
@@ -27,8 +29,12 @@ class _LoginPageState extends State<LoginPage> {
   final _accountController = TextEditingController(text: '');
   final _passwordController = TextEditingController(text: '');
   final _captchaController = TextEditingController(text: '');
+  final _accountFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
+  final _captchaFocusNode = FocusNode();
   AuthController? _authController;
   bool _captchaRequested = false;
+  bool _privacyAccepted = false;
   bool _submitting = false;
 
   @override
@@ -56,7 +62,83 @@ class _LoginPageState extends State<LoginPage> {
     _accountController.dispose();
     _passwordController.dispose();
     _captchaController.dispose();
+    _accountFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    _captchaFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLoginTap() async {
+    if (_submitting) {
+      return;
+    }
+    final auth = _authController!;
+    if (_accountController.text.trim().isEmpty) {
+      await _showLoginHint(
+        title: context.l10n.loginAccountRequiredTitle,
+        message: context.l10n.loginAccountRequiredMessage,
+        focusNode: _accountFocusNode,
+      );
+      return;
+    }
+    if (_passwordController.text.isEmpty) {
+      await _showLoginHint(
+        title: context.l10n.loginPasswordRequiredTitle,
+        message: context.l10n.loginPasswordRequiredMessage,
+        focusNode: _passwordFocusNode,
+      );
+      return;
+    }
+    if (_captchaController.text.trim().isEmpty) {
+      await _showLoginHint(
+        title: context.l10n.loginCaptchaRequiredTitle,
+        message: context.l10n.loginCaptchaRequiredMessage,
+        focusNode: _captchaFocusNode,
+      );
+      return;
+    }
+    if (!_privacyAccepted) {
+      await _showLoginHint(
+        title: context.l10n.privacyConsentRequiredTitle,
+        message: context.l10n.privacyConsentRequiredMessage,
+        icon: Icons.privacy_tip_outlined,
+      );
+      return;
+    }
+    if (auth.isCaptchaLoading || auth.captchaChallenge == null) {
+      if (!auth.isCaptchaLoading) {
+        auth.refreshCaptcha();
+      }
+      await _showLoginHint(
+        title: context.l10n.captchaPreparingTitle,
+        message: context.l10n.captchaPreparingMessage,
+        icon: Icons.refresh_rounded,
+      );
+      return;
+    }
+    await _submit();
+  }
+
+  Future<void> _showLoginHint({
+    required String title,
+    required String message,
+    FocusNode? focusNode,
+    IconData icon = Icons.info_outline_rounded,
+  }) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AppDialog(
+        tone: AppDialogTone.warning,
+        icon: icon,
+        title: title,
+        message: message,
+        primaryLabel: context.l10n.acknowledge,
+        onPrimary: () => Navigator.of(dialogContext).pop(),
+      ),
+    );
+    if (mounted && focusNode != null) {
+      focusNode.requestFocus();
+    }
   }
 
   Future<void> _submit() async {
@@ -94,8 +176,10 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
     _captchaController.clear();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(auth.lastError ?? context.l10n.loginFailed)),
+    AppNotice.show(
+      context,
+      message: auth.lastError ?? context.l10n.loginFailed,
+      tone: AppNoticeTone.error,
     );
   }
 
@@ -120,7 +204,8 @@ class _LoginPageState extends State<LoginPage> {
                   padding: const EdgeInsets.all(24),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minHeight: minimumHeight),
-                    child: Center(
+                    child: Align(
+                      alignment: const Alignment(0, -0.18),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 420),
                         child: AutofillGroup(
@@ -138,9 +223,10 @@ class _LoginPageState extends State<LoginPage> {
                                 context.l10n.workbench,
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
-                              const SizedBox(height: 28),
+                              const SizedBox(height: 24),
                               TextField(
                                 controller: _accountController,
+                                focusNode: _accountFocusNode,
                                 autofillHints: const [AutofillHints.username],
                                 textInputAction: TextInputAction.next,
                                 onSubmitted: (_) =>
@@ -153,6 +239,7 @@ class _LoginPageState extends State<LoginPage> {
                               const SizedBox(height: 16),
                               TextField(
                                 controller: _passwordController,
+                                focusNode: _passwordFocusNode,
                                 autofillHints: const [AutofillHints.password],
                                 textInputAction: TextInputAction.next,
                                 obscureText: true,
@@ -169,14 +256,11 @@ class _LoginPageState extends State<LoginPage> {
                                   Expanded(
                                     child: TextField(
                                       controller: _captchaController,
+                                      focusNode: _captchaFocusNode,
                                       textInputAction: TextInputAction.done,
                                       autocorrect: false,
                                       enableSuggestions: false,
-                                      onSubmitted: (_) {
-                                        if (_canSubmit(auth)) {
-                                          _submit();
-                                        }
-                                      },
+                                      onSubmitted: (_) => _handleLoginTap(),
                                       decoration: InputDecoration(
                                         labelText: context.l10n.captcha,
                                         prefixIcon: const Icon(
@@ -216,18 +300,32 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 24),
-                              FilledButton.icon(
-                                onPressed: _canSubmit(auth) ? _submit : null,
-                                icon: _submitting
-                                    ? const SizedBox.square(
-                                        dimension: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Icon(Icons.login),
-                                label: Text(context.l10n.login),
+                              const SizedBox(height: 20),
+                              _PrivacyConsent(
+                                accepted: _privacyAccepted,
+                                onChanged: (value) {
+                                  setState(() => _privacyAccepted = value);
+                                },
+                                onOpenPolicy: () =>
+                                    context.push(AppRoute.privacyPolicy),
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                height: 54,
+                                child: FilledButton.icon(
+                                  onPressed: _submitting
+                                      ? null
+                                      : _handleLoginTap,
+                                  icon: _submitting
+                                      ? const SizedBox.square(
+                                          dimension: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.login),
+                                  label: Text(context.l10n.login),
+                                ),
                               ),
                             ],
                           ),
@@ -242,12 +340,6 @@ class _LoginPageState extends State<LoginPage> {
         );
       },
     );
-  }
-
-  bool _canSubmit(AuthController auth) {
-    return !_submitting &&
-        !auth.isCaptchaLoading &&
-        auth.captchaChallenge != null;
   }
 
   Widget _buildCaptcha(BuildContext context, AuthController auth) {
@@ -294,6 +386,74 @@ class _LoginPageState extends State<LoginPage> {
           style: Theme.of(context).textTheme.labelSmall,
         ),
       ),
+    );
+  }
+}
+
+class _PrivacyConsent extends StatelessWidget {
+  const _PrivacyConsent({
+    required this.accepted,
+    required this.onChanged,
+    required this.onOpenPolicy,
+  });
+
+  final bool accepted;
+  final ValueChanged<bool> onChanged;
+  final VoidCallback onOpenPolicy;
+
+  @override
+  Widget build(BuildContext context) {
+    final textStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Checkbox(
+          value: accepted,
+          onChanged: (value) => onChanged(value ?? false),
+          visualDensity: VisualDensity.compact,
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                InkWell(
+                  onTap: () => onChanged(!accepted),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Text(
+                      context.l10n.privacyPolicyConsentPrefix,
+                      style: textStyle,
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: onOpenPolicy,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Text(
+                      '《${context.l10n.privacyPolicy}》',
+                      style: textStyle?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

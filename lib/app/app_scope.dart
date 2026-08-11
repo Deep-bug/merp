@@ -15,7 +15,7 @@ import '../core/device/file_service.dart';
 import '../core/device/location_service.dart';
 import '../core/device/map_sdk_service.dart';
 import '../core/logging/app_logger.dart';
-import '../core/resources/resource_update_controller.dart';
+import '../core/network/api_client.dart';
 import '../features/home/data/permission_repository.dart';
 import '../features/home/data/favorite_feature_controller.dart';
 import '../features/settings/settings_controller.dart';
@@ -28,11 +28,11 @@ class AppScope extends InheritedWidget {
   const AppScope({
     super.key,
     required this.config,
+    required this.apiClient,
     required this.authController,
     required this.permissionRepository,
     required this.favoriteFeatureController,
     required this.settingsController,
-    required this.resourceUpdateController,
     required this.cameraService,
     required this.fileService,
     required this.deviceInfoService,
@@ -43,11 +43,11 @@ class AppScope extends InheritedWidget {
   });
 
   final AppConfig config;
+  final ApiClient apiClient;
   final AuthController authController;
   final PermissionRepository permissionRepository;
   final FavoriteFeatureController favoriteFeatureController;
   final SettingsController settingsController;
-  final ResourceUpdateController resourceUpdateController;
   final CameraService cameraService;
   final FileService fileService;
   final DeviceInfoService deviceInfoService;
@@ -64,11 +64,11 @@ class AppScope extends InheritedWidget {
   @override
   bool updateShouldNotify(AppScope oldWidget) {
     return config != oldWidget.config ||
+        apiClient != oldWidget.apiClient ||
         authController != oldWidget.authController ||
         permissionRepository != oldWidget.permissionRepository ||
         favoriteFeatureController != oldWidget.favoriteFeatureController ||
         settingsController != oldWidget.settingsController ||
-        resourceUpdateController != oldWidget.resourceUpdateController ||
         cameraService != oldWidget.cameraService ||
         fileService != oldWidget.fileService ||
         deviceInfoService != oldWidget.deviceInfoService ||

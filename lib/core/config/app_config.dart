@@ -5,6 +5,22 @@
 // 维护说明：生产值使用 --dart-define 注入，禁止把真实密钥提交到仓库
 // -----------------------------------------------------------------------------
 
+enum ApiServer {
+  china('china'),
+  hk('hk');
+
+  const ApiServer(this.code);
+
+  final String code;
+
+  static ApiServer fromCode(String? code) {
+    return values.firstWhere(
+      (server) => server.code == code,
+      orElse: () => ApiServer.china,
+    );
+  }
+}
+
 /// 应用运行配置。
 ///
 /// 当前先使用常量默认值，真实企业环境建议通过 --dart-define 注入 dev/test/prod。
@@ -22,6 +38,10 @@ class AppConfig {
     this.apiBaseUrl = const String.fromEnvironment(
       'API_BASE_URL',
       defaultValue: 'http://10.146.152.51:31234',
+    ),
+    this.hkApiBaseUrl = const String.fromEnvironment(
+      'HK_API_BASE_URL',
+      defaultValue: '',
     ),
     this.legacyVueBaseUrl = 'https://erp.example.com/mobile',
     this.bridgeTestUrl = const String.fromEnvironment(
@@ -45,6 +65,7 @@ class AppConfig {
     this.logoutPath = '/api/v1/auth/logout',
     this.userInfoPath = '/api/v1/user/userInfo',
     this.menuPath = '/api/v1/app/features',
+    this.versionCheckPath = '/api/v1/app/version/check',
     this.menuAppId = const String.fromEnvironment(
       'MENU_APP_ID',
       defaultValue: 'merp',
@@ -101,6 +122,20 @@ class AppConfig {
   /// 后端 API 域名。真实接入时建议按 dev/test/prod 使用 --dart-define 注入。
   final String apiBaseUrl;
 
+  /// 香港 DMZ 的后端 API 域名；未配置时设置页不允许切换至该服务器。
+  final String hkApiBaseUrl;
+
+  bool isApiServerAvailable(ApiServer server) {
+    return apiBaseUrlFor(server).isNotEmpty;
+  }
+
+  String apiBaseUrlFor(ApiServer server) {
+    return switch (server) {
+      ApiServer.china => apiBaseUrl.trim(),
+      ApiServer.hk => hkApiBaseUrl.trim(),
+    };
+  }
+
   /// 旧 Vue2 移动端入口。每个 legacyPath 会拼接到这个地址后面。
   final String legacyVueBaseUrl;
 
@@ -129,6 +164,9 @@ class AppConfig {
 
   /// 当前登录用户的功能菜单接口。
   final String menuPath;
+
+  /// 应用版本检测接口。
+  final String versionCheckPath;
 
   /// 菜单接口所属应用标识。
   final String menuAppId;

@@ -12,6 +12,7 @@ import '../../app/app_scope.dart';
 import '../../l10n/l10n.dart';
 import '../../routing/app_navigator.dart';
 import '../../routing/app_routes.dart';
+import '../../shared/app_notice.dart';
 import 'pattern_lock_pad.dart';
 
 enum GesturePasswordMode { enrollment, change }
@@ -120,9 +121,11 @@ class _GesturePasswordPageState extends State<GesturePasswordPage> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(
+    AppNotice.show(
       context,
-    ).showSnackBar(SnackBar(content: Text(context.l10n.gestureUpdated)));
+      message: context.l10n.gestureUpdated,
+      tone: AppNoticeTone.success,
+    );
     if (widget.mode == GesturePasswordMode.enrollment) {
       AppScope.of(context).authController.completeGestureEnrollment();
       context.go(AppRoute.home);

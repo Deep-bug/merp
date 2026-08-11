@@ -37,7 +37,7 @@ class HomeHeader extends StatelessWidget {
             ),
           ),
           Text(
-            'MERP 2025',
+            'MERP 2026',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               color: brandColor,
               fontWeight: FontWeight.w800,

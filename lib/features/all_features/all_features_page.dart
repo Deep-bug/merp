@@ -12,6 +12,7 @@ import '../../app/app_scope.dart';
 import '../../l10n/l10n.dart';
 import '../../routing/app_navigator.dart';
 import '../../shared/adaptive_feature_grid.dart';
+import '../../shared/app_dialog.dart';
 import '../../shared/app_error_view.dart';
 import '../home/domain/feature_item.dart';
 import '../home/widgets/feature_icon.dart';
@@ -84,6 +85,7 @@ class AllFeaturesPage extends StatelessWidget {
                     hasScrollBody: false,
                     child: AppErrorView(
                       icon: Icons.apps_outlined,
+                      tone: AppErrorTone.info,
                       title: context.l10n.noFeatureList,
                       message: context.l10n.noFeatureListMessage,
                     ),
@@ -139,7 +141,11 @@ class AllFeaturesPage extends StatelessWidget {
                                 isFavorite: isFavorite,
                                 onFavorite: () {
                                   if (!enabled) {
-                                    _showPermissionDeniedDialog(context);
+                                    _showPermissionDeniedDialog(
+                                      context,
+                                      item: item,
+                                      forFavorite: true,
+                                    );
                                     return;
                                   }
                                   favorites.toggle(item.id);
@@ -191,7 +197,7 @@ class _AllFeatureTile extends StatelessWidget {
 
   void _open(BuildContext context) {
     if (!enabled) {
-      _showPermissionDeniedDialog(context);
+      _showPermissionDeniedDialog(context, item: item);
       return;
     }
 
@@ -312,17 +318,22 @@ class _AllFeatureTile extends StatelessWidget {
   }
 }
 
-Future<void> _showPermissionDeniedDialog(BuildContext context) {
+Future<void> _showPermissionDeniedDialog(
+  BuildContext context, {
+  required FeatureItem item,
+  bool forFavorite = false,
+}) {
   return showDialog<void>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      content: Text(context.l10n.featurePermissionDenied),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(),
-          child: Text(context.l10n.acknowledge),
-        ),
-      ],
+    builder: (dialogContext) => AppDialog(
+      tone: AppDialogTone.warning,
+      icon: Icons.lock_person_outlined,
+      title: context.l10n.permissionDialogTitle,
+      message: forFavorite
+          ? context.l10n.favoritePermissionDeniedMessage(item.title)
+          : context.l10n.featurePermissionDeniedMessage(item.title),
+      primaryLabel: context.l10n.acknowledge,
+      onPrimary: () => Navigator.of(dialogContext).pop(),
     ),
   );
 }

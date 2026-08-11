@@ -6,6 +6,10 @@
 // -----------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../l10n/l10n.dart';
+import 'app_notice.dart';
 
 enum AppErrorTone { info, warning, error }
 
@@ -51,15 +55,31 @@ class AppErrorView extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(color: toneColor.withValues(alpha: 0.12)),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // 统一错误/提示页入口：业务页面只传标题、提示文案和按钮，
                     // 具体排版、颜色和详情样式都在这里集中维护。
-                    Icon(icon, size: 48, color: toneColor),
+                    Align(
+                      child: Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: toneColor.withValues(alpha: 0.10),
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(icon, size: 32, color: toneColor),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       title,
@@ -75,38 +95,86 @@ class AppErrorView extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     if (detail != null && detail!.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: SelectableText(
-                          detail!,
-                          style: Theme.of(context).textTheme.bodySmall,
+                      const SizedBox(height: 10),
+                      Theme(
+                        data: Theme.of(
+                          context,
+                        ).copyWith(dividerColor: Colors.transparent),
+                        child: ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          childrenPadding: EdgeInsets.zero,
+                          dense: true,
+                          title: Text(
+                            context.l10n.viewErrorDetails,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: toneColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: SelectableText(
+                                detail!,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                     if (referenceId != null && referenceId!.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      SelectableText(
-                        '故障编号 / Incident: $referenceId',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: toneColor,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                    if (referenceId != null && referenceId!.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      SelectableText(
-                        '故障编号 / Incident: $referenceId',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: toneColor,
-                          fontWeight: FontWeight.w700,
+                      const SizedBox(height: 14),
+                      Material(
+                        color: toneColor.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () async {
+                            await Clipboard.setData(
+                              ClipboardData(text: referenceId!),
+                            );
+                            if (context.mounted) {
+                              AppNotice.show(
+                                context,
+                                message: context.l10n.errorReferenceCopied,
+                                tone: AppNoticeTone.success,
+                              );
+                            }
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    context.l10n.errorReference(referenceId!),
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: toneColor,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.copy_rounded,
+                                  size: 17,
+                                  color: toneColor,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ],

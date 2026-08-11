@@ -58,6 +58,45 @@ class AppLocalizationsZh extends AppLocalizations {
   String get loginFailed => '登录失败';
 
   @override
+  String get loginAccountRequiredTitle => '请输入账号';
+
+  @override
+  String get loginAccountRequiredMessage => '请输入您的登录账号后继续。';
+
+  @override
+  String get loginPasswordRequiredTitle => '请输入密码';
+
+  @override
+  String get loginPasswordRequiredMessage => '请输入账号对应的登录密码后继续。';
+
+  @override
+  String get loginCaptchaRequiredTitle => '请输入验证码';
+
+  @override
+  String get loginCaptchaRequiredMessage => '请输入右侧图片中的验证码后继续。';
+
+  @override
+  String get privacyConsentRequiredTitle => '请同意用户隐私协议';
+
+  @override
+  String get privacyConsentRequiredMessage => '请勾选“我已阅读并同意《用户隐私协议》”后继续登录。';
+
+  @override
+  String get captchaPreparingTitle => '验证码正在加载';
+
+  @override
+  String get captchaPreparingMessage => '请等待验证码加载完成，或点击验证码图片重新获取。';
+
+  @override
+  String get privacyPolicy => '用户隐私协议';
+
+  @override
+  String get privacyPolicyConsentPrefix => '我已阅读并同意';
+
+  @override
+  String get privacyPolicyDemoNotice => '以下为演示协议内容，正式发布前请由法务确认。';
+
+  @override
   String get menu => '菜单';
 
   @override
@@ -124,6 +163,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get featurePermissionDenied => '没有权限，无法使用';
 
   @override
+  String get permissionDialogTitle => '暂时无法使用';
+
+  @override
+  String featurePermissionDeniedMessage(String title) {
+    return '当前账号没有“$title”的访问权限，请联系管理员开通后重试。';
+  }
+
+  @override
+  String favoritePermissionDeniedMessage(String title) {
+    return '“$title”尚未授权，暂时不能添加到首页。';
+  }
+
+  @override
   String get favoriteFeatureOrder => '首页应用';
 
   @override
@@ -150,6 +202,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get logout => '登出';
 
   @override
+  String get cancel => '取消';
+
+  @override
+  String get logoutConfirmTitle => '退出当前账号？';
+
+  @override
+  String get logoutConfirmMessage => '退出后需要重新输入账号、密码和验证码登录。';
+
+  @override
+  String get logoutConfirmAction => '退出登录';
+
+  @override
   String get security => '安全';
 
   @override
@@ -160,6 +224,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get biometricUnavailable => '当前设备无法启用指纹解锁';
+
+  @override
+  String get biometricUnavailableTitle => '无法启用此解锁方式';
 
   @override
   String get gestureUnlock => '图形密码解锁';
@@ -204,16 +271,38 @@ class AppLocalizationsZh extends AppLocalizations {
   String get language => '设置语言';
 
   @override
+  String get switchServer => '切换服务器';
+
+  @override
+  String currentServer(String server) {
+    return '当前：$server';
+  }
+
+  @override
+  String get selectServer => '选择服务器';
+
+  @override
+  String get chinaDmz => 'China DMZ';
+
+  @override
+  String get hkDmz => 'HK DMZ';
+
+  @override
+  String get confirm => '确认';
+
+  @override
+  String serverSwitched(String server) {
+    return '已切换至 $server';
+  }
+
+  @override
+  String get serverConfigurationInvalid => '服务器地址配置无效，请联系管理员。';
+
+  @override
   String get simplifiedChinese => '简体中文';
 
   @override
   String get traditionalChinese => '繁體中文';
-
-  @override
-  String get resourceUpdate => '静态资源热更新演示';
-
-  @override
-  String get resourceUpdateSubtitle => '本地模拟资源清单更新首页背景和图标颜色';
 
   @override
   String get bridgeTest => 'WebView Bridge 测试';
@@ -225,6 +314,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get versionCheck => '版本检测';
 
   @override
+  String get versionCheckFailed => '版本检测失败，请稍后重试。';
+
+  @override
   String currentVersion(String version) {
     return '当前版本 $version';
   }
@@ -234,6 +326,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get newVersion => '发现新版本';
+
+  @override
+  String alreadyLatestVersion(String version) {
+    return '已是最新版本 $version';
+  }
 
   @override
   String versionResult(
@@ -376,6 +473,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String errorReference(String id) {
     return '故障编号：$id';
   }
+
+  @override
+  String get viewErrorDetails => '查看详情';
+
+  @override
+  String get hideErrorDetails => '收起详情';
+
+  @override
+  String get copyErrorReference => '复制故障编号';
+
+  @override
+  String get errorReferenceCopied => '故障编号已复制';
 
   @override
   String get retry => '重试';
@@ -535,75 +644,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get locationPrivacyDeclined => '用户未同意定位隐私说明';
 
   @override
-  String get resourceVersion => '当前资源版本';
+  String get locationFailedRetry => '定位失败，请稍后重试';
 
   @override
-  String get resourceSource => '资源来源';
+  String get scannerTitle => '扫码';
 
   @override
-  String get resourceUpdatedAt => '更新时间';
+  String get scannerPermissionTitle => '需要相机权限才能扫码';
 
   @override
-  String get builtInResource => '内置资源';
+  String get scannerPermissionMessage => '请在系统设置中允许 MERP 使用相机。';
 
   @override
-  String get applyEmerald => '应用绿色资源包';
+  String get scannerStartFailed => '扫码相机启动失败';
 
   @override
-  String get applyViolet => '应用紫色资源包';
+  String get scannerStartFailedMessage => '相机暂时无法使用，请稍后重试。';
 
   @override
-  String get resetResource => '重置资源';
-
-  @override
-  String get manualResourceJson => '手动资源清单 JSON';
-
-  @override
-  String get resourceJsonHint => '修改颜色值后点击“应用 JSON”，即可模拟后端下发资源清单。';
-
-  @override
-  String get applyJson => '应用 JSON';
-
-  @override
-  String get viewHome => '查看首页';
-
-  @override
-  String resourceUpdateFailed(String error) {
-    return '资源更新失败：$error';
-  }
-
-  @override
-  String get emeraldApplied => '已应用绿色资源包，返回首页查看变化';
-
-  @override
-  String get violetApplied => '已应用紫色资源包，返回首页查看变化';
-
-  @override
-  String get resourceReset => '已恢复内置默认资源';
-
-  @override
-  String get jsonApplied => '已应用 JSON 资源清单，返回首页查看变化';
-
-  @override
-  String get sourceBuiltIn => '内置默认资源';
-
-  @override
-  String get sourceCache => '本地缓存资源';
-
-  @override
-  String get sourceCacheFallback => '缓存解析失败，已回退默认资源';
-
-  @override
-  String get sourceManualJson => '手动粘贴 JSON';
-
-  @override
-  String get sourceEmerald => '本地模拟绿色资源包';
-
-  @override
-  String get sourceViolet => '本地模拟紫色资源包';
-
-  @override
-  String get sourceReset => '已重置为内置默认资源';
+  String get scanOpenSettings => '打开系统设置';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -651,6 +710,45 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get loginFailed => '登入失敗';
+
+  @override
+  String get loginAccountRequiredTitle => '請輸入帳號';
+
+  @override
+  String get loginAccountRequiredMessage => '請輸入您的登入帳號後繼續。';
+
+  @override
+  String get loginPasswordRequiredTitle => '請輸入密碼';
+
+  @override
+  String get loginPasswordRequiredMessage => '請輸入帳號對應的登入密碼後繼續。';
+
+  @override
+  String get loginCaptchaRequiredTitle => '請輸入驗證碼';
+
+  @override
+  String get loginCaptchaRequiredMessage => '請輸入右側圖片中的驗證碼後繼續。';
+
+  @override
+  String get privacyConsentRequiredTitle => '請同意使用者隱私協議';
+
+  @override
+  String get privacyConsentRequiredMessage => '請勾選「我已閱讀並同意《使用者隱私協議》」後繼續登入。';
+
+  @override
+  String get captchaPreparingTitle => '驗證碼正在載入';
+
+  @override
+  String get captchaPreparingMessage => '請等待驗證碼載入完成，或點選驗證碼圖片重新取得。';
+
+  @override
+  String get privacyPolicy => '使用者隱私協議';
+
+  @override
+  String get privacyPolicyConsentPrefix => '我已閱讀並同意';
+
+  @override
+  String get privacyPolicyDemoNotice => '以下為示範協議內容，正式發布前請由法務確認。';
 
   @override
   String get menu => '選單';
@@ -719,6 +817,19 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get featurePermissionDenied => '沒有權限，無法使用';
 
   @override
+  String get permissionDialogTitle => '暫時無法使用';
+
+  @override
+  String featurePermissionDeniedMessage(String title) {
+    return '目前帳號沒有「$title」的存取權限，請聯絡管理員開通後重試。';
+  }
+
+  @override
+  String favoritePermissionDeniedMessage(String title) {
+    return '「$title」尚未授權，暫時不能加入首頁。';
+  }
+
+  @override
   String get favoriteFeatureOrder => '首頁應用';
 
   @override
@@ -745,6 +856,18 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get logout => '登出';
 
   @override
+  String get cancel => '取消';
+
+  @override
+  String get logoutConfirmTitle => '登出目前帳號？';
+
+  @override
+  String get logoutConfirmMessage => '登出後需要重新輸入帳號、密碼和驗證碼登入。';
+
+  @override
+  String get logoutConfirmAction => '登出';
+
+  @override
   String get security => '安全';
 
   @override
@@ -755,6 +878,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get biometricUnavailable => '目前裝置無法啟用指紋解鎖';
+
+  @override
+  String get biometricUnavailableTitle => '無法啟用此解鎖方式';
 
   @override
   String get gestureUnlock => '圖形密碼解鎖';
@@ -799,16 +925,38 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get language => '設定語言';
 
   @override
+  String get switchServer => '切換伺服器';
+
+  @override
+  String currentServer(String server) {
+    return '目前：$server';
+  }
+
+  @override
+  String get selectServer => '選擇伺服器';
+
+  @override
+  String get chinaDmz => 'China DMZ';
+
+  @override
+  String get hkDmz => 'HK DMZ';
+
+  @override
+  String get confirm => '確認';
+
+  @override
+  String serverSwitched(String server) {
+    return '已切換至 $server';
+  }
+
+  @override
+  String get serverConfigurationInvalid => '伺服器地址設定無效，請聯絡管理員。';
+
+  @override
   String get simplifiedChinese => '简体中文';
 
   @override
   String get traditionalChinese => '繁體中文';
-
-  @override
-  String get resourceUpdate => '靜態資源熱更新示範';
-
-  @override
-  String get resourceUpdateSubtitle => '在本機模擬資源清單更新首頁背景和圖示顏色';
 
   @override
   String get bridgeTest => 'WebView Bridge 測試';
@@ -820,6 +968,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get versionCheck => '版本檢查';
 
   @override
+  String get versionCheckFailed => '版本檢查失敗，請稍後再試。';
+
+  @override
   String currentVersion(String version) {
     return '目前版本 $version';
   }
@@ -829,6 +980,11 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get newVersion => '發現新版本';
+
+  @override
+  String alreadyLatestVersion(String version) {
+    return '已是最新版本 $version';
+  }
 
   @override
   String versionResult(
@@ -971,6 +1127,18 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String errorReference(String id) {
     return '故障編號：$id';
   }
+
+  @override
+  String get viewErrorDetails => '查看詳細資料';
+
+  @override
+  String get hideErrorDetails => '收起詳細資料';
+
+  @override
+  String get copyErrorReference => '複製故障編號';
+
+  @override
+  String get errorReferenceCopied => '故障編號已複製';
 
   @override
   String get retry => '重試';
@@ -1130,73 +1298,23 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get locationPrivacyDeclined => '使用者未同意定位隱私說明';
 
   @override
-  String get resourceVersion => '目前資源版本';
+  String get locationFailedRetry => '定位失敗，請稍後重試';
 
   @override
-  String get resourceSource => '資源來源';
+  String get scannerTitle => '掃碼';
 
   @override
-  String get resourceUpdatedAt => '更新時間';
+  String get scannerPermissionTitle => '需要相機權限才能掃碼';
 
   @override
-  String get builtInResource => '內建資源';
+  String get scannerPermissionMessage => '請在系統設定中允許 MERP 使用相機。';
 
   @override
-  String get applyEmerald => '套用綠色資源包';
+  String get scannerStartFailed => '掃碼相機啟動失敗';
 
   @override
-  String get applyViolet => '套用紫色資源包';
+  String get scannerStartFailedMessage => '相機暫時無法使用，請稍後重試。';
 
   @override
-  String get resetResource => '重設資源';
-
-  @override
-  String get manualResourceJson => '手動資源清單 JSON';
-
-  @override
-  String get resourceJsonHint => '修改顏色值後點選「套用 JSON」，即可模擬後端下發資源清單。';
-
-  @override
-  String get applyJson => '套用 JSON';
-
-  @override
-  String get viewHome => '查看首頁';
-
-  @override
-  String resourceUpdateFailed(String error) {
-    return '資源更新失敗：$error';
-  }
-
-  @override
-  String get emeraldApplied => '已套用綠色資源包，返回首頁查看變更';
-
-  @override
-  String get violetApplied => '已套用紫色資源包，返回首頁查看變更';
-
-  @override
-  String get resourceReset => '已恢復內建預設資源';
-
-  @override
-  String get jsonApplied => '已套用 JSON 資源清單，返回首頁查看變更';
-
-  @override
-  String get sourceBuiltIn => '內建預設資源';
-
-  @override
-  String get sourceCache => '本機快取資源';
-
-  @override
-  String get sourceCacheFallback => '快取解析失敗，已回復預設資源';
-
-  @override
-  String get sourceManualJson => '手動貼上 JSON';
-
-  @override
-  String get sourceEmerald => '本機模擬綠色資源包';
-
-  @override
-  String get sourceViolet => '本機模擬紫色資源包';
-
-  @override
-  String get sourceReset => '已重設為內建預設資源';
+  String get scanOpenSettings => '開啟系統設定';
 }

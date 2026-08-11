@@ -17,7 +17,6 @@ import '../core/device/location_service.dart';
 import '../core/device/map_sdk_service.dart';
 import '../core/logging/app_logger.dart';
 import '../core/network/api_client.dart';
-import '../core/resources/resource_update_controller.dart';
 import '../features/home/data/permission_repository.dart';
 import '../features/home/data/favorite_feature_controller.dart';
 import '../features/settings/settings_controller.dart';
@@ -36,7 +35,6 @@ class AppDependencies {
     required this.permissionRepository,
     required this.favoriteFeatureController,
     required this.settingsController,
-    required this.resourceUpdateController,
     required this.cameraService,
     required this.fileService,
     required this.deviceInfoService,
@@ -52,7 +50,6 @@ class AppDependencies {
   final PermissionRepository permissionRepository;
   final FavoriteFeatureController favoriteFeatureController;
   final SettingsController settingsController;
-  final ResourceUpdateController resourceUpdateController;
   final CameraService cameraService;
   final FileService fileService;
   final DeviceInfoService deviceInfoService;
@@ -106,17 +103,25 @@ class AppDependencies {
       logger: logger,
       languageCodeProvider: () => settingsController.language.apiCode,
     );
-    final resourceUpdateController = ResourceUpdateController(logger: logger);
     final favoriteFeatureController = FavoriteFeatureController(logger: logger);
 
-    // 本地设置、运行时资源、地图 SDK 占位初始化互不依赖，可以并行加载。
+    // 本地设置、地图 SDK 占位初始化互不依赖，可以并行加载。
     // 后续真正接入地图 SDK 时，仍然建议把耗时授权/定位动作放到具体业务页再触发。
     await Future.wait([
       mapSdkService.initialize(),
       settingsController.load(),
-      resourceUpdateController.load(),
       favoriteFeatureController.load(),
     ]);
+    // 若旧版本曾保存 HK 选择、但当前构建尚未注入 HK 地址，则安全回退 China。
+    if (!config.isApiServerAvailable(settingsController.apiServer)) {
+      await settingsController.setApiServer(ApiServer.china);
+    }
+    final selectedApiBaseUrl = config.apiBaseUrlFor(
+      settingsController.apiServer,
+    );
+    if (selectedApiBaseUrl != config.apiBaseUrl) {
+      apiClient.updateBaseUrl(selectedApiBaseUrl);
+    }
 
     final authController = AuthController(
       authRepository: AuthRepository(
@@ -140,7 +145,6 @@ class AppDependencies {
       permissionRepository: permissionRepository,
       favoriteFeatureController: favoriteFeatureController,
       settingsController: settingsController,
-      resourceUpdateController: resourceUpdateController,
       cameraService: CameraService(),
       fileService: FileService(),
       deviceInfoService: DeviceInfoService(),
@@ -160,6 +164,5 @@ class AppDependencies {
     permissionRepository.dispose();
     favoriteFeatureController.dispose();
     settingsController.dispose();
-    resourceUpdateController.dispose();
   }
 }

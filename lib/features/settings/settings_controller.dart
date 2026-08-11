@@ -13,9 +13,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/network/api_client.dart';
 
 enum AppLanguage {
   zhHans('zh-CN', 'zh_CN', Locale('zh')),
@@ -61,6 +64,77 @@ class VersionCheckResult {
   final String latestVersion;
   final bool hasUpdate;
   final String message;
+
+  factory VersionCheckResult.fromResponse({
+    required Map<String, dynamic> response,
+    required String currentVersion,
+  }) {
+    final latestVersion = _readString(response, const [
+      'latestVersion',
+      'latest_version',
+      'versionName',
+      'version_name',
+      'version',
+    ]);
+    final hasUpdate =
+        _readBool(response, const [
+          'hasUpdate',
+          'has_update',
+          'needUpdate',
+          'need_update',
+          'updateAvailable',
+          'update_available',
+        ]) ??
+        (latestVersion != null && latestVersion != currentVersion);
+    return VersionCheckResult(
+      currentVersion: currentVersion,
+      latestVersion: latestVersion ?? currentVersion,
+      hasUpdate: hasUpdate,
+      message:
+          _readString(response, const [
+            'message',
+            'releaseNotes',
+            'release_notes',
+            'description',
+          ]) ??
+          (hasUpdate ? '发现新版本' : '当前已经是最新版本'),
+    );
+  }
+
+  static String? _readString(Map<String, dynamic> source, List<String> keys) {
+    for (final key in keys) {
+      final value = source[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+      if (value is num) {
+        return value.toString();
+      }
+    }
+    return null;
+  }
+
+  static bool? _readBool(Map<String, dynamic> source, List<String> keys) {
+    for (final key in keys) {
+      final value = source[key];
+      if (value is bool) {
+        return value;
+      }
+      if (value is num) {
+        return value != 0;
+      }
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (normalized == 'true' || normalized == '1') {
+          return true;
+        }
+        if (normalized == 'false' || normalized == '0') {
+          return false;
+        }
+      }
+    }
+    return null;
+  }
 }
 
 class SettingsController extends ChangeNotifier {
@@ -70,14 +144,19 @@ class SettingsController extends ChangeNotifier {
     LocalAuthentication? localAuthentication,
     FlutterSecureStorage? secureStorage,
     bool useSecureStorage = true,
+    Future<PackageInfo> Function()? packageInfoProvider,
+    TargetPlatform? platform,
   }) : _logger = logger,
        _localAuthentication = localAuthentication ?? LocalAuthentication(),
        _secureStorage = secureStorage ?? const FlutterSecureStorage(),
-       _useSecureStorage = useSecureStorage;
+       _useSecureStorage = useSecureStorage,
+       _packageInfoProvider = packageInfoProvider ?? PackageInfo.fromPlatform,
+       _platform = platform ?? defaultTargetPlatform;
 
   static const autoLockTimeout = Duration(seconds: 10);
   static const _autoLockKey = 'merp.settings.autoLockEnabled';
   static const _languageKey = 'merp.settings.language';
+  static const _apiServerKeyPrefix = 'merp.settings.apiServer';
   static const _gestureKeyPrefix = 'merp.security.gesture.v2';
   static const _gestureScopeKeyPrefix = 'merp.security.gesture.lastScope';
   static const _unlockMethodKeyPrefix = 'merp.security.unlockMethod.v1';
@@ -87,6 +166,8 @@ class SettingsController extends ChangeNotifier {
   final AppLogger _logger;
   final FlutterSecureStorage _secureStorage;
   final bool _useSecureStorage;
+  final Future<PackageInfo> Function() _packageInfoProvider;
+  final TargetPlatform _platform;
   final String environment;
 
   SharedPreferences? _preferences;
@@ -95,9 +176,12 @@ class SettingsController extends ChangeNotifier {
   String? _activeUnlockMethodKey;
   bool autoLockEnabled = false;
   AppLanguage language = AppLanguage.zhHans;
+  ApiServer apiServer = ApiServer.china;
   bool gesturePasswordConfigured = false;
   UnlockMethod unlockMethod = UnlockMethod.gesture;
   String? lastBiometricError;
+  String currentVersion = '1.0.0';
+  bool isVersionChecking = false;
 
   bool get biometricEnabled => unlockMethod != UnlockMethod.gesture;
 
@@ -105,12 +189,14 @@ class SettingsController extends ChangeNotifier {
     _preferences = await SharedPreferences.getInstance();
     autoLockEnabled = _preferences?.getBool(_autoLockKey) ?? false;
     language = AppLanguage.fromCode(_preferences?.getString(_languageKey));
+    apiServer = ApiServer.fromCode(_preferences?.getString(_apiServerKey));
     gesturePasswordConfigured = false;
     _logger.info(
       'settings',
       '本地设置加载完成',
       fields: {
         'language': language.code,
+        'apiServer': apiServer.code,
         'autoLock': autoLockEnabled,
         'unlockMethod': unlockMethod.code,
       },
@@ -160,6 +246,13 @@ class SettingsController extends ChangeNotifier {
     language = value;
     await _preferences?.setString(_languageKey, value.code);
     _logger.info('settings', '应用语言已变更', fields: {'locale': value.code});
+    notifyListeners();
+  }
+
+  Future<void> setApiServer(ApiServer value) async {
+    apiServer = value;
+    await _preferences?.setString(_apiServerKey, value.code);
+    _logger.info('settings', 'API 服务器设置已变更', fields: {'server': value.code});
     notifyListeners();
   }
 
@@ -269,17 +362,46 @@ class SettingsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<VersionCheckResult> checkVersion() async {
-    // 当前先保留后端接口接入点。真实环境建议调用 /app/version/check，
-    // 返回 latestVersion、downloadUrl、forceUpdate、releaseNotes 等字段。
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-    return const VersionCheckResult(
-      currentVersion: '1.0.0',
-      latestVersion: '1.0.0',
-      hasUpdate: false,
-      message: '当前已经是最新版本',
-    );
+  Future<VersionCheckResult> checkVersion({
+    required ApiClient apiClient,
+    required String versionCheckPath,
+  }) async {
+    if (isVersionChecking) {
+      throw StateError('版本检测正在进行中');
+    }
+    isVersionChecking = true;
+    notifyListeners();
+    try {
+      final package = await _packageInfoProvider();
+      final version = package.version.trim();
+      final versionCode = package.buildNumber.trim();
+      if (versionCode.isEmpty) {
+        throw StateError('未读取到应用版本构建号');
+      }
+      currentVersion = version;
+      final response = await apiClient.post<Map<String, dynamic>>(
+        versionCheckPath,
+        data: {
+          'platform': _versionPlatform,
+          'versionCode': versionCode,
+          'locale': language.apiCode,
+        },
+      );
+      return VersionCheckResult.fromResponse(
+        response: response,
+        currentVersion: version,
+      );
+    } finally {
+      isVersionChecking = false;
+      notifyListeners();
+    }
   }
+
+  String get _versionPlatform => switch (_platform) {
+    TargetPlatform.android => 'android',
+    TargetPlatform.iOS => 'ios',
+    _ => throw UnsupportedError('版本检测仅支持 Android 和 iOS'),
+  };
 
   Future<bool> authenticateWithBiometrics({UnlockMethod? method}) async {
     final selected = method ?? unlockMethod;
@@ -303,8 +425,8 @@ class SettingsController extends ChangeNotifier {
       return verified;
     } catch (error, stackTrace) {
       lastBiometricError = _localizedMessage(
-        '无法调起系统生物识别：$error',
-        '無法啟動系統生物辨識：$error',
+        '无法调起系统生物识别，请稍后重试',
+        '無法啟動系統生物辨識，請稍後重試',
       );
       _logger.error(
         'biometric',
@@ -335,8 +457,8 @@ class SettingsController extends ChangeNotifier {
       return true;
     } catch (error, stackTrace) {
       lastBiometricError = _localizedMessage(
-        '检查生物识别能力失败：$error',
-        '檢查生物辨識能力失敗：$error',
+        '检查生物识别能力失败，请稍后重试',
+        '檢查生物辨識能力失敗，請稍後重試',
       );
       _logger.error(
         'biometric',
@@ -350,6 +472,9 @@ class SettingsController extends ChangeNotifier {
 
   String get _lastGestureScopeKey =>
       '$_gestureScopeKeyPrefix.${environment.trim().toLowerCase()}';
+
+  String get _apiServerKey =>
+      '$_apiServerKeyPrefix.${environment.trim().toLowerCase()}';
 
   Future<void> _activateGestureIdentity(
     String identity, {

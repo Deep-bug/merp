@@ -4,5 +4,6 @@
   "MENU_APP_ID": "merp",
   "MENU_FEATURE_SCOPE": "at",
   "API_BASE_URL": "https://请替换为生产环境接口地址",
+  "HK_API_BASE_URL": "https://请替换为香港 DMZ 生产环境接口地址",
   "MOCK_MENUS": false
 }

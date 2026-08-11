@@ -8,9 +8,12 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
+import '../../core/config/app_config.dart';
 import '../../l10n/l10n.dart';
 import '../../routing/app_navigator.dart';
 import '../../routing/app_routes.dart';
+import '../../shared/app_dialog.dart';
+import '../../shared/app_notice.dart';
 import 'settings_controller.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -133,14 +136,15 @@ class SettingsPage extends StatelessWidget {
                       ),
                     ),
                     ListTile(
-                      leading: const Icon(Icons.dynamic_feed_outlined),
-                      title: Text(context.l10n.resourceUpdate),
-                      subtitle: Text(context.l10n.resourceUpdateSubtitle),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => AppNavigator.openSecondary(
-                        context,
-                        AppRoute.resourceUpdate,
+                      leading: const Icon(Icons.dns_outlined),
+                      title: Text(context.l10n.switchServer),
+                      subtitle: Text(
+                        context.l10n.currentServer(
+                          _apiServerLabel(context, settings.apiServer),
+                        ),
                       ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _selectApiServer(context, settings),
                     ),
                     ListTile(
                       leading: const Icon(
@@ -165,10 +169,21 @@ class SettingsPage extends StatelessWidget {
                     ListTile(
                       leading: const Icon(Icons.system_update_alt_outlined),
                       title: Text(context.l10n.versionCheck),
-                      subtitle: Text(context.l10n.currentVersion('1.0.0')),
+                      subtitle: Text(
+                        context.l10n.currentVersion(settings.currentVersion),
+                      ),
                       trailing: OutlinedButton(
-                        onPressed: () => _checkVersion(context, settings),
-                        child: Text(context.l10n.check),
+                        onPressed: settings.isVersionChecking
+                            ? null
+                            : () => _checkVersion(context, settings),
+                        child: settings.isVersionChecking
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(context.l10n.check),
                       ),
                     ),
                   ],
@@ -193,11 +208,18 @@ class SettingsPage extends StatelessWidget {
     if (!context.mounted || ok) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          settings.lastBiometricError ?? context.l10n.biometricUnavailable,
-        ),
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AppDialog(
+        tone: AppDialogTone.warning,
+        icon: method == UnlockMethod.face
+            ? Icons.face_outlined
+            : Icons.fingerprint,
+        title: context.l10n.biometricUnavailableTitle,
+        message:
+            settings.lastBiometricError ?? context.l10n.biometricUnavailable,
+        primaryLabel: context.l10n.acknowledge,
+        onPrimary: () => Navigator.of(dialogContext).pop(),
       ),
     );
   }
@@ -206,32 +228,127 @@ class SettingsPage extends StatelessWidget {
     BuildContext context,
     SettingsController settings,
   ) async {
-    final result = await settings.checkVersion();
+    final scope = AppScope.of(context);
+    VersionCheckResult result;
+    try {
+      result = await settings.checkVersion(
+        apiClient: scope.apiClient,
+        versionCheckPath: scope.config.versionCheckPath,
+      );
+    } catch (_) {
+      if (!context.mounted) {
+        return;
+      }
+      AppNotice.show(
+        context,
+        message: context.l10n.versionCheckFailed,
+        tone: AppNoticeTone.error,
+      );
+      return;
+    }
     if (!context.mounted) {
+      return;
+    }
+    if (!result.hasUpdate) {
+      AppNotice.show(
+        context,
+        message: context.l10n.alreadyLatestVersion(result.currentVersion),
+        tone: AppNoticeTone.success,
+      );
       return;
     }
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          result.hasUpdate
-              ? context.l10n.newVersion
-              : context.l10n.versionCheck,
+      builder: (dialogContext) => AppDialog(
+        tone: AppDialogTone.info,
+        icon: Icons.system_update_alt_rounded,
+        title: context.l10n.newVersion,
+        message: context.l10n.versionResult(
+          result.message,
+          result.currentVersion,
+          result.latestVersion,
         ),
-        content: Text(
-          context.l10n.versionResult(
-            result.message,
-            result.currentVersion,
-            result.latestVersion,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(context.l10n.acknowledge),
-          ),
-        ],
+        primaryLabel: context.l10n.acknowledge,
+        onPrimary: () => Navigator.of(dialogContext).pop(),
       ),
+    );
+  }
+
+  Future<void> _selectApiServer(
+    BuildContext context,
+    SettingsController settings,
+  ) async {
+    final scope = AppScope.of(context);
+    final config = scope.config;
+    var selected = settings.apiServer;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(context.l10n.selectServer),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioGroup<ApiServer>(
+                groupValue: selected,
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() => selected = value);
+                  }
+                },
+                child: Column(
+                  children: ApiServer.values.map((server) {
+                    final available = config.isApiServerAvailable(server);
+                    return RadioListTile<ApiServer>(
+                      value: server,
+                      title: Text(_apiServerLabel(context, server)),
+                      enabled: available,
+                      contentPadding: EdgeInsets.zero,
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(context.l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(context.l10n.confirm),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || selected == settings.apiServer) {
+      return;
+    }
+
+    final apiBaseUrl = config.apiBaseUrlFor(selected);
+    try {
+      scope.apiClient.updateBaseUrl(apiBaseUrl);
+      await settings.setApiServer(selected);
+    } on ArgumentError {
+      if (!context.mounted) {
+        return;
+      }
+      AppNotice.show(
+        context,
+        message: context.l10n.serverConfigurationInvalid,
+        tone: AppNoticeTone.error,
+      );
+      return;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    AppNotice.show(
+      context,
+      message: context.l10n.serverSwitched(_apiServerLabel(context, selected)),
+      tone: AppNoticeTone.success,
     );
   }
 }
@@ -275,6 +392,13 @@ String _languageLabel(BuildContext context, AppLanguage language) {
   return switch (language) {
     AppLanguage.zhHans => context.l10n.simplifiedChinese,
     AppLanguage.zhHant => context.l10n.traditionalChinese,
+  };
+}
+
+String _apiServerLabel(BuildContext context, ApiServer server) {
+  return switch (server) {
+    ApiServer.china => context.l10n.chinaDmz,
+    ApiServer.hk => context.l10n.hkDmz,
   };
 }
 

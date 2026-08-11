@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../l10n/l10n.dart';
+import '../shared/app_error_view.dart';
 import 'app_routes.dart';
 
 class ForbiddenPage extends StatelessWidget {
@@ -18,12 +19,13 @@ class ForbiddenPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.noPermission)),
-      body: Center(
-        child: FilledButton.icon(
-          onPressed: () => context.go(AppRoute.home),
-          icon: const Icon(Icons.arrow_back),
-          label: Text(context.l10n.returnWorkbench),
-        ),
+      body: AppErrorView(
+        icon: Icons.lock_person_outlined,
+        tone: AppErrorTone.warning,
+        title: context.l10n.permissionDialogTitle,
+        message: context.l10n.legacyForbiddenMessage,
+        primaryLabel: context.l10n.returnWorkbench,
+        onPrimary: () => context.go(AppRoute.home),
       ),
     );
   }

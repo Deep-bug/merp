@@ -5,6 +5,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/device/scanner_models.dart';
+import '../../l10n/l10n.dart';
 
 class BarcodeScannerPage extends StatefulWidget {
   const BarcodeScannerPage({super.key, this.formats = const []});
@@ -57,7 +58,7 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
       appBar: AppBar(
         foregroundColor: Colors.white,
         backgroundColor: Colors.black,
-        title: const Text('扫码'),
+        title: Text(context.l10n.scannerTitle),
         actions: [
           ValueListenableBuilder(
             valueListenable: _controller,
@@ -134,13 +135,17 @@ class _ScannerError extends StatelessWidget {
               const Icon(Icons.qr_code_scanner, color: Colors.white, size: 54),
               const SizedBox(height: 18),
               Text(
-                permissionDenied ? '需要相机权限才能扫码' : '扫码相机启动失败',
+                permissionDenied
+                    ? context.l10n.scannerPermissionTitle
+                    : context.l10n.scannerStartFailed,
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white, fontSize: 18),
               ),
               const SizedBox(height: 10),
               Text(
-                permissionDenied ? '请在系统设置中允许 MERP 使用相机。' : error.toString(),
+                permissionDenied
+                    ? context.l10n.scannerPermissionMessage
+                    : context.l10n.scannerStartFailedMessage,
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white70),
               ),
@@ -149,7 +154,7 @@ class _ScannerError extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: openAppSettings,
                   icon: const Icon(Icons.settings_outlined),
-                  label: const Text('打开系统设置'),
+                  label: Text(context.l10n.scanOpenSettings),
                 ),
               ],
             ],

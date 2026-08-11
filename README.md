@@ -222,7 +222,7 @@ merp/
 │   │   ├── logging/                          # 结构化日志、故障编号和全局异常捕获
 │   │   ├── network/                          # Dio、响应壳、异常和企业错误码
 │   │   ├── platform/                         # WebView 等平台能力判断
-│   │   └── resources/                        # 运行时静态资源清单和缓存控制
+│   │   └── resources/                        # 首页内置展示清单
 │   ├── features/                             # 按业务纵向拆分的功能模块
 │   │   ├── all_features/                     # 全部功能及权限状态
 │   │   ├── bridge_test/                      # Vue3 Bridge 真机验证页
@@ -235,7 +235,6 @@ merp/
 │   │   ├── login/                            # 登录页面
 │   │   ├── map/                              # 地图业务入口和 SDK 占位
 │   │   ├── profile/                          # 个人中心
-│   │   ├── resources/                        # 静态资源更新验证页面
 │   │   └── settings/                         # 指纹、锁屏、手势、语言、版本和日志
 │   ├── l10n/
 │   │   ├── arb/                              # 简体与繁体 ARB 文案源文件

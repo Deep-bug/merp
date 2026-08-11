@@ -16,6 +16,7 @@ import '../../core/device/location_service.dart';
 import '../../l10n/l10n.dart';
 import '../../routing/app_routes.dart';
 import '../../shared/app_error_view.dart';
+import '../../shared/app_notice.dart';
 import 'widgets/baidu_map_view.dart';
 
 enum _MapPageStatus {
@@ -205,16 +206,16 @@ class _MapPageState extends State<MapPage> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-          action: error.canOpenSettings
-              ? SnackBarAction(
-                  label: context.l10n.openSystemSettings,
-                  onPressed: locationService.openAppSettings,
-                )
-              : null,
-        ),
+      AppNotice.show(
+        context,
+        message: error.message,
+        tone: AppNoticeTone.warning,
+        actionLabel: error.canOpenSettings
+            ? context.l10n.openSystemSettings
+            : null,
+        onAction: error.canOpenSettings
+            ? locationService.openAppSettings
+            : null,
       );
     } catch (error, stackTrace) {
       logger.error(
@@ -227,9 +228,11 @@ class _MapPageState extends State<MapPage> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
+      AppNotice.show(
         context,
-      ).showSnackBar(const SnackBar(content: Text('定位失败，请稍后重试')));
+        message: context.l10n.locationFailedRetry,
+        tone: AppNoticeTone.error,
+      );
     } finally {
       if (mounted) {
         logger.info(

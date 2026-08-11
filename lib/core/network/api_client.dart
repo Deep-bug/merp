@@ -126,6 +126,25 @@ class ApiClient {
 
   Completer<AuthTokens?>? _refreshCompleter;
 
+  String get baseUrl => _dio.options.baseUrl;
+
+  /// 后续新建请求使用新的服务地址；已发送的请求保持原地址继续执行。
+  void updateBaseUrl(String value) {
+    final baseUrl = value.trim();
+    final uri = Uri.tryParse(baseUrl);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      throw ArgumentError.value(value, 'value', 'API 地址必须是完整的 http 或 https 地址');
+    }
+    if (uri.scheme != 'http' && uri.scheme != 'https') {
+      throw ArgumentError.value(value, 'value', 'API 地址仅支持 http 或 https');
+    }
+    if (_dio.options.baseUrl == baseUrl) {
+      return;
+    }
+    _dio.options.baseUrl = baseUrl;
+    _logger.info('http', 'API 服务地址已切换', fields: {'baseUrl': baseUrl});
+  }
+
   /// 刷新失败后通知认证控制器清理内存会话并触发路由回到登录页。
   SessionExpiredCallback? onSessionExpired;
 

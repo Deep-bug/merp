@@ -8,13 +8,13 @@
 abstract final class AppRoute {
   static const splash = '/splash';
   static const login = '/login';
+  static const privacyPolicy = '/privacy-policy';
   static const home = '/home';
   static const profile = '/profile';
   static const features = '/features';
   static const settings = '/settings';
   static const gesture = '/settings/gesture';
   static const gestureEnrollment = '/settings/gesture?mode=enrollment';
-  static const resourceUpdate = '/settings/resource-update';
   static const bridgeTest = '/settings/bridge-test';
   static const logs = '/settings/logs';
   static const map = '/native/map';

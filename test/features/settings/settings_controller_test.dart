@@ -1,8 +1,16 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merp/core/config/app_config.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:merp/core/logging/app_logger.dart';
+import 'package:merp/core/network/api_client.dart';
 import 'package:merp/features/settings/settings_controller.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../helpers/fake_http_adapter.dart';
+import '../../helpers/memory_token_store.dart';
 
 void main() {
   test('gesture passwords are isolated by environment and user', () async {
@@ -80,6 +88,91 @@ void main() {
     expect(await settings.setUnlockMethod(UnlockMethod.fingerprint), isFalse);
     expect(settings.unlockMethod, UnlockMethod.gesture);
     expect(settings.lastBiometricError, contains('指纹'));
+  });
+
+  test(
+    'persists the selected API server independently per environment',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final qasSettings = SettingsController(
+        logger: AppLogger(),
+        environment: 'qas',
+        useSecureStorage: false,
+      );
+      await qasSettings.load();
+      expect(qasSettings.apiServer, ApiServer.china);
+
+      await qasSettings.setApiServer(ApiServer.hk);
+
+      final restoredQasSettings = SettingsController(
+        logger: AppLogger(),
+        environment: 'qas',
+        useSecureStorage: false,
+      );
+      await restoredQasSettings.load();
+      expect(restoredQasSettings.apiServer, ApiServer.hk);
+
+      final prdSettings = SettingsController(
+        logger: AppLogger(),
+        environment: 'prd',
+        useSecureStorage: false,
+      );
+      await prdSettings.load();
+      expect(prdSettings.apiServer, ApiServer.china);
+    },
+  );
+
+  test('version check follows the backend parameter contract', () async {
+    SharedPreferences.setMockInitialValues({});
+    RequestOptions? captured;
+    final dio = Dio()
+      ..httpClientAdapter = FakeHttpAdapter((options) {
+        captured = options;
+        return jsonResponse({
+          'code': 0,
+          'data': {
+            'data': {
+              'latestVersion': '2.0.2',
+              'hasUpdate': true,
+              'message': '发现新版本',
+            },
+          },
+        });
+      });
+    final apiClient = ApiClient(
+      config: const AppConfig(),
+      tokenStore: MemoryTokenStore(),
+      logger: AppLogger(),
+      dio: dio,
+    );
+    final settings = SettingsController(
+      logger: AppLogger(),
+      useSecureStorage: false,
+      platform: TargetPlatform.iOS,
+      packageInfoProvider: () async => PackageInfo(
+        appName: 'MERP',
+        packageName: 'com.example.merp',
+        version: '2.0.1',
+        buildNumber: '202001',
+      ),
+    );
+    await settings.load();
+    await settings.setLanguage(AppLanguage.zhHant);
+
+    final result = await settings.checkVersion(
+      apiClient: apiClient,
+      versionCheckPath: '/api/v1/app/version/check',
+    );
+
+    expect(captured?.path, '/api/v1/app/version/check');
+    expect(captured?.data, {
+      'platform': 'ios',
+      'versionCode': '202001',
+      'locale': 'zh_TW',
+    });
+    expect(result.currentVersion, '2.0.1');
+    expect(result.latestVersion, '2.0.2');
+    expect(result.hasUpdate, isTrue);
   });
 }
 

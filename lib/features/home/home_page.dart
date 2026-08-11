@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
+import '../../core/resources/runtime_resource_manifest.dart';
 import '../../routing/app_navigator.dart';
 import '../../routing/app_routes.dart';
 import 'widgets/home_assistant_button.dart';
@@ -24,18 +25,15 @@ class HomePage extends StatelessWidget {
     final scope = AppScope.of(context);
     final auth = scope.authController;
     final permissions = scope.permissionRepository;
-    final resources = scope.resourceUpdateController;
+    final manifest = RuntimeResourceManifest.defaults();
 
     return AnimatedBuilder(
       animation: Listenable.merge([
         auth,
         permissions,
-        resources,
         scope.favoriteFeatureController,
       ]),
       builder: (context, _) {
-        final manifest = resources.manifest;
-
         return Scaffold(
           drawer: HomeDrawer(
             profile: auth.session?.profile,

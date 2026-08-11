@@ -42,11 +42,11 @@ class _MerpAppState extends State<MerpApp> {
 
     return AppScope(
       config: dependencies.config,
+      apiClient: dependencies.apiClient,
       authController: dependencies.authController,
       permissionRepository: dependencies.permissionRepository,
       favoriteFeatureController: dependencies.favoriteFeatureController,
       settingsController: dependencies.settingsController,
-      resourceUpdateController: dependencies.resourceUpdateController,
       cameraService: dependencies.cameraService,
       fileService: dependencies.fileService,
       deviceInfoService: dependencies.deviceInfoService,

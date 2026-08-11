@@ -78,6 +78,23 @@ void main() {
     expect(captured?.headers.containsKey('Authorization'), isFalse);
   });
 
+  test(
+    'updates the base URL for subsequent requests without clearing tokens',
+    () {
+      final client = ApiClient(
+        config: const AppConfig(apiBaseUrl: 'https://china.example.com'),
+        tokenStore: MemoryTokenStore(
+          const AuthTokens(accessToken: 'access-1', refreshToken: 'refresh-1'),
+        ),
+        logger: AppLogger(),
+      );
+
+      client.updateBaseUrl('https://hk.example.com');
+
+      expect(client.baseUrl, 'https://hk.example.com');
+    },
+  );
+
   test('concurrent 401 responses share one refresh and retry', () async {
     var refreshCalls = 0;
     RequestOptions? refreshRequest;
