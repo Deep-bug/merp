@@ -22,9 +22,18 @@ class FavoriteFeatureController extends ChangeNotifier {
   final AppLogger _logger;
   SharedPreferences? _preferences;
   List<String> _ids = [];
+  bool _developmentMockEnabled = false;
+  static const _developmentDefaultIds = [
+    'e-form',
+    'my-task',
+    'service-dispatch',
+    'sales-report',
+    'customer',
+    'field-work',
+  ];
 
-  List<String> get ids => List.unmodifiable(_ids);
-  bool isFavorite(String featureId) => _ids.contains(featureId);
+  List<String> get ids => List.unmodifiable(_effectiveIds);
+  bool isFavorite(String featureId) => _effectiveIds.contains(featureId);
 
   Future<void> load() async {
     _preferences ??= await SharedPreferences.getInstance();
@@ -39,7 +48,20 @@ class FavoriteFeatureController extends ChangeNotifier {
 
   List<FeatureItem> favoritesFrom(Iterable<FeatureItem> items) {
     final byId = {for (final item in items) item.id: item};
-    return _ids.map((id) => byId[id]).whereType<FeatureItem>().toList();
+    return _effectiveIds
+        .map((id) => byId[id])
+        .whereType<FeatureItem>()
+        .toList();
+  }
+
+  /// 仅为当前进程提供首页示例，不写入用户真实收藏记录。
+  void enableDevelopmentMockDefaults() {
+    if (_developmentMockEnabled) {
+      return;
+    }
+    _developmentMockEnabled = true;
+    _logger.warning('home.features', '开发 Mock 模式：已启用首页默认功能');
+    notifyListeners();
   }
 
   Future<void> toggle(String featureId) async {
@@ -86,4 +108,9 @@ class FavoriteFeatureController extends ChangeNotifier {
     );
     notifyListeners();
   }
+
+  List<String> get _effectiveIds => [
+    if (_developmentMockEnabled) ..._developmentDefaultIds,
+    ..._ids.where((id) => !_developmentDefaultIds.contains(id)),
+  ];
 }

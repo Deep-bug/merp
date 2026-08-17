@@ -12,13 +12,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../helpers/fake_http_adapter.dart';
 import '../../helpers/memory_token_store.dart';
 
+Future<PackageInfo> _testPackageInfo() async => PackageInfo(
+  appName: 'MERP',
+  packageName: 'com.example.merp',
+  version: '2.0.1',
+  buildNumber: '202001',
+);
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('gesture passwords are isolated by environment and user', () async {
     SharedPreferences.setMockInitialValues({});
     final settings = SettingsController(
       logger: AppLogger(),
       environment: 'qas',
       useSecureStorage: false,
+      packageInfoProvider: _testPackageInfo,
     );
     await settings.load();
 
@@ -56,6 +66,7 @@ void main() {
       logger: AppLogger(),
       environment: 'prd',
       useSecureStorage: false,
+      packageInfoProvider: _testPackageInfo,
     );
     await settings.load();
     await settings.activateGestureScope(
@@ -77,6 +88,7 @@ void main() {
       environment: 'qas',
       localAuthentication: _FaceOnlyLocalAuthentication(),
       useSecureStorage: false,
+      packageInfoProvider: _testPackageInfo,
     );
     await settings.load();
     await settings.activateGestureScope(
@@ -98,6 +110,7 @@ void main() {
         logger: AppLogger(),
         environment: 'qas',
         useSecureStorage: false,
+        packageInfoProvider: _testPackageInfo,
       );
       await qasSettings.load();
       expect(qasSettings.apiServer, ApiServer.china);
@@ -108,6 +121,7 @@ void main() {
         logger: AppLogger(),
         environment: 'qas',
         useSecureStorage: false,
+        packageInfoProvider: _testPackageInfo,
       );
       await restoredQasSettings.load();
       expect(restoredQasSettings.apiServer, ApiServer.hk);
@@ -116,6 +130,7 @@ void main() {
         logger: AppLogger(),
         environment: 'prd',
         useSecureStorage: false,
+        packageInfoProvider: _testPackageInfo,
       );
       await prdSettings.load();
       expect(prdSettings.apiServer, ApiServer.china);

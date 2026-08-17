@@ -5,6 +5,8 @@
 // 维护说明：生产值使用 --dart-define 注入，禁止把真实密钥提交到仓库
 // -----------------------------------------------------------------------------
 
+import 'package:flutter/foundation.dart';
+
 enum ApiServer {
   china('china'),
   hk('hk');
@@ -78,6 +80,10 @@ class AppConfig {
       'MOCK_MENUS',
       defaultValue: false,
     ),
+    this.devBypassLogin = const bool.fromEnvironment(
+      'DEV_BYPASS_LOGIN',
+      defaultValue: false,
+    ),
     this.mapProvider = 'baidu',
     this.androidMapApiKey = const String.fromEnvironment(
       'BAIDU_MAP_ANDROID_AK',
@@ -93,9 +99,9 @@ class AppConfig {
     ),
   });
 
-  static const supportedEnvironments = {'qas', 'prd'};
+  static const supportedEnvironments = {'qas', 'prd', 'mock'};
 
-  /// 部署环境，只允许 qas 或 prd。
+  /// 部署环境。mock 仅复用 QAS 配置进行本地 Debug，不对应可发布环境。
   final String appEnvironment;
 
   /// 后端认证接口的业务环境标识，当前默认固定为 merp。
@@ -104,7 +110,7 @@ class AppConfig {
   String get normalizedAppEnvironment {
     final value = appEnvironment.trim().toLowerCase();
     if (!supportedEnvironments.contains(value)) {
-      throw StateError('APP_ENV 只支持 qas 或 prd，当前值：$appEnvironment');
+      throw StateError('APP_ENV 只支持 qas、prd 或 mock，当前值：$appEnvironment');
     }
     return value;
   }
@@ -174,8 +180,20 @@ class AppConfig {
   /// 后端菜单范围参数 `sys_app_features`。
   final String menuFeatureScope;
 
-  /// 本地开发兜底开关；QAS/生产环境应关闭并读取真实用户菜单。
+  /// 本地 Mock 菜单开关；只有 mock Debug 环境可生效。
   final bool mockMenus;
+
+  /// 仅用于本机 mock Debug：不请求认证接口，直接进入本地 Mock 首页。
+  /// QAS、PRD 与所有 Release 构建均强制关闭，避免配置误带造成安全风险。
+  final bool devBypassLogin;
+
+  bool get isDevelopmentMockEnabled =>
+      devBypassLogin && kDebugMode && normalizedAppEnvironment == 'mock';
+
+  /// Mock 菜单同样只允许在独立 mock Debug 环境使用。
+  /// 即使旧电脑的 qas.local.json 遗留 MOCK_MENUS=true，QAS 仍会请求真实菜单。
+  bool get isMockMenuEnabled =>
+      mockMenus && kDebugMode && normalizedAppEnvironment == 'mock';
 
   /// 地图厂商标识。后续可改成 baidu/amap/tencent 等。
   final String mapProvider;

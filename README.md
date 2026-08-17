@@ -47,7 +47,7 @@ Xcode 和 CocoaPods；Windows 支持 Android 开发与打包，不能运行或�
 .\tool\app.cmd ide
 ```
 
-日常只运行 QAS：
+日常联调使用真实登录的 QAS：
 
 ```bash
 ./tool/app run qas android
@@ -55,6 +55,14 @@ Xcode 和 CocoaPods；Windows 支持 Android 开发与打包，不能运行或�
 
 # 指定设备
 ./tool/app run qas android -d <device-id>
+```
+
+内网不可用、仅需查看首页或页面排版时，使用独立 Mock 启动项。它复用 QAS 的
+地址与原生 Flavor，但不请求登录、用户资料和菜单接口：
+
+```bash
+./tool/app run mock android
+./tool/app run mock ios
 ```
 
 Windows 使用相同参数，把入口替换为 `.\tool\app.cmd`：
@@ -148,9 +156,12 @@ CI=true BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build prd android
 
 环境配置：
 
-- QAS 使用 `config/qas.json`，现有 QAS API 地址已迁移。默认关闭高频 Debug/Info
+- QAS 使用 `config/qas.json`，现有 QAS API 地址已迁移，始终走真实登录与真实菜单。
+  默认关闭高频 Debug/Info
   追踪，只保留警告、错误、故障编号和应用内诊断信息；需要排查接口时可在
   `config/qas.local.json` 中临时设置 `"ENABLE_LOG": true`。
+  VS Code 可直接按 F5 启动并在「调试控制台」查看日志；日志使用标准 ANSI 前景色，
+  Error 为红色、Warning 为黄色。终端任务仅作为无需断点时的备用启动方式。
 - PRD 使用 `config/prd.json`，生产 API 尚不能从仓库确认，当前留空并在构建前拦截。
 - 本地或 CI 可生成被 Git 忽略的 `config/prd.local.json` 覆盖生产配置。
 - 百度地图 AK 放在 `config/baidu_map.local.json`；WebView 私有参数放在
@@ -321,7 +332,7 @@ Splash 阶段明确不做这些事：
 
 如果冷启动刷新 Token 时遇到断网、超时或服务端 `5xx`，应用会保留 refresh token 并停留在启动恢复页供用户重试；只有服务端明确返回 `400/401/403` 表示 refresh token 无效时，才清理本地 Token 并进入登录页。
 
-QAS 和生产配置默认使用真实菜单接口。请求参数由 `MENU_APP_ID=merp` 和 `MENU_FEATURE_SCOPE=at` 配置；仅离线开发时可临时设置 `MOCK_MENUS=true` 使用本地完整菜单。当前暂不使用接口返回的 `icon` 或 `iconUrl`，功能图标统一根据 `featureCode` 从客户端 `FeatureRegistry` 映射为 Material Icons，未知功能显示通用应用图标。
+QAS 和生产配置默认使用真实菜单接口。请求参数由 `MENU_APP_ID=merp` 和 `MENU_FEATURE_SCOPE=at` 配置；离线排版开发请使用 `./tool/app run mock <android|ios>`，不要在 QAS 本地配置中打开 `MOCK_MENUS`。当前暂不使用接口返回的 `icon` 或 `iconUrl`，功能图标统一根据 `featureCode` 从客户端 `FeatureRegistry` 映射为 Material Icons，未知功能显示通用应用图标。
 
 这样的分层能保证启动体验稳定，也能满足隐私合规：地图展示在进入地图页后才初始化，精确定位在用户点击定位按钮后才触发。
 
@@ -384,6 +395,8 @@ lib/features/inventory/
 ## 结构化日志
 
 `AppLogger` 默认只记录警告和错误，并保留最近 200 条到内存环形缓冲区。系统设置中的“诊断日志”可查看、复制和清空日志。开启 `ENABLE_LOG` 后，Debug/Info 会写入调试终端和内存，但不会同步刷写诊断文件；只有警告和错误会落盘，避免高频日志阻塞 UI 线程。
+
+开启 HTTP 日志后，VS Code 调试控制台会输出请求 URL、查询参数、请求体、响应状态、响应头、响应体、耗时和请求编号；错误会以红色、警告以黄色显示。密码、Token、验证码、Cookie 与图片 Base64 始终会被替换为 `<redacted>`，不会出现在控制台或诊断文件中。`I/flutter` 是 Android 自动添加的运输前缀，不影响后方 MERP 日志正文的级别颜色。
 
 ```dart
 logger.info(
@@ -465,8 +478,9 @@ final incidentId = logger.error(
 
 ## 环境配置
 
-应用环境只允许 `qas` 和 `prd`。`APP_ENV` 用于选择部署环境并隔离两套环境的
-安全 Token；`AUTH_ENVIRONMENT` 是认证接口业务参数，默认固定为 `merp`。
+应用环境支持 `qas`、`mock` 和 `prd`。`APP_ENV` 用于选择部署环境并隔离安全
+Token；`AUTH_ENVIRONMENT` 是认证接口业务参数，默认固定为 `merp`。其中 `mock`
+仅能用于 Debug 启动，复用 QAS 的原生 Flavor 与地址配置，不能构建或发布。
 
 QAS 使用已提交的 `config/qas.json`。日常运行统一使用：
 
@@ -475,10 +489,19 @@ QAS 使用已提交的 `config/qas.json`。日常运行统一使用：
 ./tool/app run qas ios
 ```
 
+Mock 启动会跳过登录、用户资料及后端菜单加载，展示本地开发用户、完整菜单、默认
+收藏和示例待办角标：
+
+```bash
+./tool/app run mock android
+./tool/app run mock ios
+```
+
 `./tool/bootstrap` 会自动生成以下 Git 忽略文件，不存在本机密钥时内容为安全空值：
 
 ```text
 config/qas.local.json
+config/mock.local.json
 config/baidu_map.local.json
 config/webview.local.json
 ```
@@ -497,8 +520,8 @@ PRD 首次构建时创建 `config/prd.local.json` 并填写真实生产地址；
 ./tool/app build prd ios
 ```
 
-所有 `*.local.json` 均已加入 Git 忽略。QAS/PRD 使用独立包标识和安全存储命名空间，
-不会互相读取 refresh token；首次进入某个环境需要在该环境登录一次。
+所有 `*.local.json` 均已加入 Git 忽略。QAS、Mock 与 PRD 使用独立安全存储命名空间，
+不会互相读取 refresh token；QAS/PRD 首次进入各自环境需要登录一次，Mock 不保存登录会话。
 
 百度地图当前接入 Android/iOS 基础地图与按需精确定位，不包含 Search SDK。真实 AK 放在 Git 忽略的
 `config/baidu_map.local.json`，由 `tool/app` 和 Local IDE配置自动注入。

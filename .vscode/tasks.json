@@ -1,0 +1,83 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "MERP: QAS Android HTTP Logs (Terminal)",
+      "type": "shell",
+      "command": "./tool/app",
+      "args": [
+        "run",
+        "qas",
+        "android",
+        "--dart-define=ENABLE_LOG=true"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "clear": true,
+        "group": "merp-http-log"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "MERP: QAS iOS HTTP Logs (Terminal)",
+      "type": "shell",
+      "command": "./tool/app",
+      "args": [
+        "run",
+        "qas",
+        "ios",
+        "--dart-define=ENABLE_LOG=true"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "clear": true,
+        "group": "merp-http-log"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "MERP: MOCK Android Debug (Terminal)",
+      "type": "shell",
+      "command": "./tool/app",
+      "args": ["run", "mock", "android"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "clear": true,
+        "group": "merp-mock"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "MERP: MOCK iOS Debug (Terminal)",
+      "type": "shell",
+      "command": "./tool/app",
+      "args": ["run", "mock", "ios"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "clear": true,
+        "group": "merp-mock"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

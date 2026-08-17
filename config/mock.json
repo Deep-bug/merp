@@ -1,0 +1,11 @@
+{
+  "APP_ENV": "mock",
+  "AUTH_ENVIRONMENT": "merp",
+  "MENU_APP_ID": "merp",
+  "MENU_FEATURE_SCOPE": "at",
+  "API_BASE_URL": "http://10.146.152.51:31234",
+  "HK_API_BASE_URL": "http://10.146.152.51:31234",
+  "DEV_BYPASS_LOGIN": true,
+  "MOCK_MENUS": true,
+  "ENABLE_LOG": true
+}

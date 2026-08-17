@@ -20,6 +20,8 @@ usage() {
   ./tool/app test
   ./tool/app run qas android [Flutter 额外参数]
   ./tool/app run qas ios [Flutter 额外参数]
+  ./tool/app run mock android [Flutter 额外参数]
+  ./tool/app run mock ios [Flutter 额外参数]
   ./tool/app build qas android [Flutter 额外参数]
   ./tool/app build qas ios [Flutter 额外参数]
   ./tool/app build prd android [Flutter 额外参数]
@@ -92,12 +94,22 @@ project_build_number() {
 
 config_args() {
   local environment="$1"
-  local base_file="$ROOT_DIR/config/$environment.json"
-  local override_file="$ROOT_DIR/config/$environment.local.json"
+  local base_environment="$environment"
+  if [[ "$environment" == "mock" ]]; then
+    # mock 复用 QAS 地址与本机覆盖，最后再由 mock.json 覆盖 APP_ENV 与 Mock 开关。
+    base_environment="qas"
+  fi
+  local base_file="$ROOT_DIR/config/$base_environment.json"
+  local override_file="$ROOT_DIR/config/$base_environment.local.json"
 
   [[ -f "$base_file" ]] || fail "缺少环境配置：$base_file"
   CONFIG_ARGUMENTS=("--dart-define-from-file=$base_file")
   [[ -f "$override_file" ]] && CONFIG_ARGUMENTS+=("--dart-define-from-file=$override_file")
+  if [[ "$environment" == "mock" ]]; then
+    CONFIG_ARGUMENTS+=("--dart-define-from-file=$ROOT_DIR/config/mock.json")
+    [[ -f "$ROOT_DIR/config/mock.local.json" ]] &&
+      CONFIG_ARGUMENTS+=("--dart-define-from-file=$ROOT_DIR/config/mock.local.json")
+  fi
   [[ -f "$ROOT_DIR/config/baidu_map.local.json" ]] &&
     CONFIG_ARGUMENTS+=("--dart-define-from-file=$ROOT_DIR/config/baidu_map.local.json")
   [[ -f "$ROOT_DIR/config/webview.local.json" ]] &&
@@ -219,12 +231,15 @@ esac
 
 ENVIRONMENT="${2:-}"
 PLATFORM="${3:-}"
-[[ "$ENVIRONMENT" == "qas" || "$ENVIRONMENT" == "prd" ]] ||
-  fail "环境只能是 qas 或 prd。"
+[[ "$ENVIRONMENT" == "qas" || "$ENVIRONMENT" == "prd" || "$ENVIRONMENT" == "mock" ]] ||
+  fail "环境只能是 qas、mock 或 prd。"
 [[ "$PLATFORM" == "android" || "$PLATFORM" == "ios" ]] ||
   fail "平台只能是 android 或 ios。"
 if [[ "$COMMAND" == "run" && "$ENVIRONMENT" == "prd" ]]; then
   fail "不提供 run prd；本地日常运行固定使用 QAS。"
+fi
+if [[ "$COMMAND" == "build" && "$ENVIRONMENT" == "mock" ]]; then
+  fail "mock 仅用于 Debug 启动，不允许构建或发布。"
 fi
 
 shift 3

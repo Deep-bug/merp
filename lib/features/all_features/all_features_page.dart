@@ -14,6 +14,7 @@ import '../../routing/app_navigator.dart';
 import '../../shared/adaptive_feature_grid.dart';
 import '../../shared/app_dialog.dart';
 import '../../shared/app_error_view.dart';
+import '../../shared/widgets/feature_badge.dart';
 import '../home/domain/feature_item.dart';
 import '../home/widgets/feature_icon.dart';
 import 'widgets/favorite_feature_sort_section.dart';
@@ -29,9 +30,10 @@ class AllFeaturesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final permissions = AppScope.of(context).permissionRepository;
     final favorites = AppScope.of(context).favoriteFeatureController;
+    final badges = AppScope.of(context).featureBadgeController;
 
     return AnimatedBuilder(
-      animation: Listenable.merge([permissions, favorites]),
+      animation: Listenable.merge([permissions, favorites, badges]),
       builder: (context, _) {
         final favoriteItems = favorites.favoritesFrom(
           permissions.authorizedFeatures,
@@ -139,6 +141,9 @@ class AllFeaturesPage extends StatelessWidget {
                                 item: item,
                                 enabled: enabled,
                                 isFavorite: isFavorite,
+                                badgeCount: enabled
+                                    ? badges.countFor(item.id)
+                                    : 0,
                                 onFavorite: () {
                                   if (!enabled) {
                                     _showPermissionDeniedDialog(
@@ -187,12 +192,14 @@ class _AllFeatureTile extends StatelessWidget {
     required this.item,
     required this.enabled,
     required this.isFavorite,
+    required this.badgeCount,
     required this.onFavorite,
   });
 
   final FeatureItem item;
   final bool enabled;
   final bool isFavorite;
+  final int badgeCount;
   final VoidCallback onFavorite;
 
   void _open(BuildContext context) {
@@ -298,7 +305,7 @@ class _AllFeatureTile extends StatelessWidget {
         ),
         Positioned(
           top: 0,
-          right: 0,
+          left: 0,
           child: IconButton(
             tooltip: !enabled
                 ? context.l10n.favoriteRequiresPermission
@@ -313,6 +320,7 @@ class _AllFeatureTile extends StatelessWidget {
             onPressed: onFavorite,
           ),
         ),
+        Positioned(top: 6, right: 6, child: FeatureBadge(count: badgeCount)),
       ],
     );
   }

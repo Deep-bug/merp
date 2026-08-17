@@ -55,7 +55,7 @@ class AdaptiveFeatureGridMetrics {
     return _resolve(
       context,
       availableWidth,
-      baseExtent: 138,
+      baseExtent: 116,
       extentPerScaleStep: 40,
       maxExtent: 182,
     );

@@ -63,7 +63,10 @@ class ApiClient {
             '请求开始',
             fields: {
               'method': options.method,
-              'path': options.path,
+              'url': options.uri.toString(),
+              'query': options.queryParameters,
+              'headers': options.headers,
+              'body': options.data,
               'requestId': options.headers['X-Request-Id'],
               'skipAuth': skipAuth,
             },
@@ -101,11 +104,14 @@ class ApiClient {
             error: effectiveError.error,
             fields: {
               'method': effectiveError.requestOptions.method,
-              'path': effectiveError.requestOptions.path,
+              'url': effectiveError.requestOptions.uri.toString(),
               'statusCode': effectiveError.response?.statusCode,
               'durationMs': _durationMs(effectiveError.requestOptions),
               'requestId':
                   effectiveError.requestOptions.headers['X-Request-Id'],
+              'query': effectiveError.requestOptions.queryParameters,
+              'requestBody': effectiveError.requestOptions.data,
+              'responseBody': effectiveError.response?.data,
             },
           );
           handler.next(effectiveError);
@@ -396,11 +402,11 @@ class ApiClient {
       return ApiResponse.unwrap<T>(response.data, path: path);
     } on ApiException catch (error, stackTrace) {
       final incidentId = _logRequestError(error, stackTrace, path);
-      throw error.withIncidentId(incidentId);
+      throw incidentId == null ? error : error.withIncidentId(incidentId);
     } on DioException catch (error) {
       final mapped = _fromDioException(error, path);
       final incidentId = _logRequestError(mapped, error.stackTrace, path);
-      throw mapped.withIncidentId(incidentId);
+      throw incidentId == null ? mapped : mapped.withIncidentId(incidentId);
     } catch (error, stackTrace) {
       final exception = ApiException(
         errorCode: AppErrorCode.clientUnknown,
@@ -409,7 +415,9 @@ class ApiClient {
         raw: error,
       );
       final incidentId = _logRequestError(exception, stackTrace, path);
-      throw exception.withIncidentId(incidentId);
+      throw incidentId == null
+          ? exception
+          : exception.withIncidentId(incidentId);
     }
   }
 
@@ -507,30 +515,50 @@ class ApiClient {
       '请求完成',
       fields: {
         'method': response.requestOptions.method,
-        'path': response.requestOptions.path,
+        'url': response.requestOptions.uri.toString(),
         'statusCode': response.statusCode,
         'durationMs': _durationMs(response.requestOptions),
         'requestId': response.requestOptions.headers['X-Request-Id'],
+        'responseHeaders': response.headers.map,
+        'responseBody': response.data,
       },
     );
   }
 
-  String _logRequestError(
+  String? _logRequestError(
     ApiException error,
     StackTrace stackTrace,
     String path,
   ) {
+    final fields = {
+      'path': path,
+      'errorCode': error.errorCode.code,
+      'httpStatusCode': error.httpStatusCode,
+      'traceId': error.traceId,
+    };
+    if (_isRecoverableNetworkError(error.errorCode)) {
+      _logger.warning(
+        'http',
+        error.message,
+        error: error.raw ?? error,
+        stackTrace: stackTrace,
+        fields: fields,
+      );
+      return null;
+    }
     return _logger.error(
       'http',
       error.message,
       error: error.raw ?? error,
       stackTrace: stackTrace,
-      fields: {
-        'path': path,
-        'errorCode': error.errorCode.code,
-        'httpStatusCode': error.httpStatusCode,
-        'traceId': error.traceId,
-      },
+      fields: fields,
     );
   }
+
+  bool _isRecoverableNetworkError(AppErrorCode code) => switch (code) {
+    AppErrorCode.clientTimeout ||
+    AppErrorCode.clientNetworkUnavailable ||
+    AppErrorCode.clientCancelled => true,
+    _ => false,
+  };
 }

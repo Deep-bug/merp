@@ -20,10 +20,14 @@ void main() {
     );
   });
 
-  test('uses independent token namespaces for qas and prd', () {
+  test('uses independent token namespaces for qas, mock and prd', () {
     expect(
       const AppConfig(appEnvironment: 'qas').tokenStorageNamespace,
       'merp_qas_auth',
+    );
+    expect(
+      const AppConfig(appEnvironment: 'mock').tokenStorageNamespace,
+      'merp_mock_auth',
     );
     expect(
       const AppConfig(appEnvironment: 'prd').tokenStorageNamespace,
@@ -46,4 +50,26 @@ void main() {
     expect(config.apiBaseUrlFor(ApiServer.hk), 'https://hk.example.com');
     expect(config.isApiServerAvailable(ApiServer.hk), isTrue);
   });
+
+  test(
+    'only enables login bypass for the dedicated mock debug environment',
+    () {
+      const config = AppConfig(appEnvironment: 'mock', devBypassLogin: true);
+      expect(config.isDevelopmentMockEnabled, isTrue);
+      expect(
+        const AppConfig(
+          appEnvironment: 'qas',
+          devBypassLogin: true,
+        ).isDevelopmentMockEnabled,
+        isFalse,
+      );
+      expect(
+        const AppConfig(
+          appEnvironment: 'qas',
+          mockMenus: true,
+        ).isMockMenuEnabled,
+        isFalse,
+      );
+    },
+  );
 }

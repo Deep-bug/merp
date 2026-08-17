@@ -16,8 +16,10 @@ import '../core/device/location_service.dart';
 import '../core/device/map_sdk_service.dart';
 import '../core/logging/app_logger.dart';
 import '../core/network/api_client.dart';
+import '../core/platform/web_data_cleaner.dart';
 import '../features/home/data/permission_repository.dart';
 import '../features/home/data/favorite_feature_controller.dart';
+import '../features/home/data/feature_badge_controller.dart';
 import '../features/settings/settings_controller.dart';
 
 /// 应用级依赖容器。
@@ -32,6 +34,8 @@ class AppScope extends InheritedWidget {
     required this.authController,
     required this.permissionRepository,
     required this.favoriteFeatureController,
+    required this.featureBadgeController,
+    required this.webDataCleaner,
     required this.settingsController,
     required this.cameraService,
     required this.fileService,
@@ -47,6 +51,8 @@ class AppScope extends InheritedWidget {
   final AuthController authController;
   final PermissionRepository permissionRepository;
   final FavoriteFeatureController favoriteFeatureController;
+  final FeatureBadgeController featureBadgeController;
+  final WebDataCleaner webDataCleaner;
   final SettingsController settingsController;
   final CameraService cameraService;
   final FileService fileService;
@@ -68,6 +74,8 @@ class AppScope extends InheritedWidget {
         authController != oldWidget.authController ||
         permissionRepository != oldWidget.permissionRepository ||
         favoriteFeatureController != oldWidget.favoriteFeatureController ||
+        featureBadgeController != oldWidget.featureBadgeController ||
+        webDataCleaner != oldWidget.webDataCleaner ||
         settingsController != oldWidget.settingsController ||
         cameraService != oldWidget.cameraService ||
         fileService != oldWidget.fileService ||

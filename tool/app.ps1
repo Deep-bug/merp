@@ -13,6 +13,7 @@ function Show-Usage {
   .\tool\app.cmd analyze
   .\tool\app.cmd test
   .\tool\app.cmd run qas android [Flutter 额外参数]
+  .\tool\app.cmd run mock android [Flutter 额外参数]
   .\tool\app.cmd build qas android [Flutter 额外参数]
   .\tool\app.cmd build prd android [Flutter 额外参数]
 
@@ -132,16 +133,19 @@ function Ensure-AndroidJava {
 function Get-ConfigArguments {
     param([Parameter(Mandatory = $true)][string]$Name)
 
-    $BaseFile = Join-Path $RootDir "config\$Name.json"
+    $BaseEnvironment = if ($Name -eq "mock") { "qas" } else { $Name }
+    $BaseFile = Join-Path $RootDir "config\$BaseEnvironment.json"
     if (-not (Test-Path -LiteralPath $BaseFile -PathType Leaf)) {
         Fail "缺少环境配置：$BaseFile"
     }
     $Result = @("--dart-define-from-file=$BaseFile")
-    foreach ($RelativePath in @(
-        "config\$Name.local.json"
-        "config\baidu_map.local.json"
-        "config\webview.local.json"
-    )) {
+    $RelativePaths = @("config\$BaseEnvironment.local.json")
+    if ($Name -eq "mock") {
+        # mock 覆盖 QAS 的 APP_ENV 与 Mock 开关，同时继续复用 QAS 本机地址配置。
+        $RelativePaths += @("config\mock.json", "config\mock.local.json")
+    }
+    $RelativePaths += @("config\baidu_map.local.json", "config\webview.local.json")
+    foreach ($RelativePath in $RelativePaths) {
         $Candidate = Join-Path $RootDir $RelativePath
         if (Test-Path -LiteralPath $Candidate -PathType Leaf) {
             $Result += "--dart-define-from-file=$Candidate"
@@ -282,14 +286,17 @@ $EnvironmentName = if ($args.Count -ge 2) { [string]$args[1] } else { "" }
 $Platform = if ($args.Count -ge 3) { [string]$args[2] } else { "" }
 $ExtraArguments = if ($args.Count -gt 3) { @($args[3..($args.Count - 1)]) } else { @() }
 
-if ($EnvironmentName -notin @("qas", "prd")) {
-    Fail "环境只能是 qas 或 prd。"
+if ($EnvironmentName -notin @("qas", "mock", "prd")) {
+    Fail "环境只能是 qas、mock 或 prd。"
 }
 if ($Platform -ne "android") {
     Fail "Windows 脚本只支持 Android；iOS 运行和打包必须在 macOS 执行。"
 }
 if ($Command -eq "run" -and $EnvironmentName -eq "prd") {
-    Fail "不提供 run prd；本地日常运行固定使用 QAS。"
+  Fail "不提供 run prd；本地日常运行固定使用 QAS。"
+}
+if ($Command -eq "build" -and $EnvironmentName -eq "mock") {
+    Fail "mock 仅用于 Debug 启动，不允许构建或发布。"
 }
 
 Ensure-Fvm

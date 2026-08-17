@@ -196,7 +196,10 @@ PermissionRepository _repository(
 }) {
   final logger = AppLogger();
   final client = ApiClient(
-    config: AppConfig(mockMenus: mockMenus),
+    config: AppConfig(
+      appEnvironment: mockMenus ? 'mock' : 'qas',
+      mockMenus: mockMenus,
+    ),
     tokenStore: MemoryTokenStore(
       const AuthTokens(accessToken: 'access-1', refreshToken: 'refresh-1'),
     ),

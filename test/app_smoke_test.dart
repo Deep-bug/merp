@@ -22,8 +22,10 @@ import 'package:merp/core/device/location_service.dart';
 import 'package:merp/core/device/map_sdk_service.dart';
 import 'package:merp/core/logging/app_logger.dart';
 import 'package:merp/core/network/api_client.dart';
+import 'package:merp/core/platform/web_data_cleaner.dart';
 import 'package:merp/features/home/data/permission_repository.dart';
 import 'package:merp/features/home/data/favorite_feature_controller.dart';
+import 'package:merp/features/home/data/feature_badge_controller.dart';
 import 'package:merp/features/settings/settings_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -45,6 +47,8 @@ void main() {
       logger: logger,
     );
     final favorites = FavoriteFeatureController(logger: logger);
+    final badges = FeatureBadgeController(logger: logger);
+    final webDataCleaner = WebDataCleaner(logger: logger);
     await favorites.load();
     final settings = SettingsController(
       logger: logger,
@@ -76,6 +80,8 @@ void main() {
       authController: auth,
       permissionRepository: permissions,
       favoriteFeatureController: favorites,
+      featureBadgeController: badges,
+      webDataCleaner: webDataCleaner,
       settingsController: settings,
       cameraService: CameraService(),
       fileService: FileService(),

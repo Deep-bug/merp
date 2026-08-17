@@ -6,7 +6,6 @@
 // -----------------------------------------------------------------------------
 
 import 'dart:convert';
-import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
 
@@ -57,6 +56,58 @@ class AppLogEntry {
       buffer.write('\n$stackTrace');
     }
     return buffer.toString();
+  }
+
+  /// 面向 VS Code / flutter run 控制台的单行输出；诊断文件仍使用 [toText]。
+  String toConsoleText({bool useAnsiColors = false}) {
+    final time =
+        '${timestamp.hour.toString().padLeft(2, '0')}:'
+        '${timestamp.minute.toString().padLeft(2, '0')}:'
+        '${timestamp.second.toString().padLeft(2, '0')}';
+    final label = _consoleLabel(level);
+    final buffer = StringBuffer('$time $label [$category] $message');
+    if (incidentId != null) {
+      buffer.write(' incidentId=$incidentId');
+    }
+    if (fields.isNotEmpty) {
+      buffer.write(' fields=${jsonEncode(fields)}');
+    }
+    if (error != null) {
+      buffer.write(' error=${_compact(error.toString(), 360)}');
+    }
+    if (stackTrace != null) {
+      // 控制台只保留概要，完整堆栈仍会写入诊断日志，避免一条异常淹没后续请求。
+      buffer.write(' stack=已记录');
+    }
+    if (!useAnsiColors) {
+      return buffer.toString();
+    }
+    return '${_ansiColor(level)}${buffer.toString()}\x1B[0m';
+  }
+
+  static String _ansiColor(AppLogLevel level) => switch (level) {
+    // VS Code Debug Console 对标准 ANSI 前景色的支持最稳定。这里刻意只使用
+    // 30~37 / 90~97 前景色，不使用 40~47 / 100~107 背景色或 24-bit 色值。
+    AppLogLevel.debug => '\x1B[36m', // cyan
+    AppLogLevel.info => '\x1B[90m', // bright black / gray
+    AppLogLevel.warning => '\x1B[33m', // yellow
+    AppLogLevel.error => '\x1B[31m', // red
+    AppLogLevel.fatal => '\x1B[91m', // bright red
+  };
+
+  static String _consoleLabel(AppLogLevel level) => switch (level) {
+    AppLogLevel.debug => '[DEBUG]',
+    AppLogLevel.info => '[INFO]',
+    AppLogLevel.warning => '[WARN]',
+    AppLogLevel.error => '[ERROR]',
+    AppLogLevel.fatal => '[FATAL]',
+  };
+
+  static String _compact(String value, int maxLength) {
+    final oneLine = value.replaceAll(RegExp(r'\s+'), ' ');
+    return oneLine.length <= maxLength
+        ? oneLine
+        : '${oneLine.substring(0, maxLength)}…';
   }
 }
 
@@ -200,14 +251,11 @@ class AppLogger extends ChangeNotifier {
 
   void _emit(AppLogEntry entry) {
     final text = entry.toText();
-    developer.log(
-      text,
-      name: 'MERP.${entry.category}',
-      level: _developerLevel(entry.level),
-      error: entry.error,
-      stackTrace: entry.stackTrace,
-      time: entry.timestamp,
-      sequenceNumber: _incidentSequence,
+    // 不使用 developer.log：Dart 调试器会额外插入 [MERP.xxx] 并按自己的
+    // 规则染色，导致一条日志混入两种颜色、时间位置也不稳定。
+    debugPrintSynchronously(
+      entry.toConsoleText(useAnsiColors: _useAnsiConsoleColors),
+      wrapWidth: 100000,
     );
     // 普通调试日志只进入调试终端，避免一条日志重复输出，并避免在定位、
     // 网络请求等高频链路中同步刷写磁盘。警告及错误仍保留到诊断文件。
@@ -216,13 +264,7 @@ class AppLogger extends ChangeNotifier {
     }
   }
 
-  int _developerLevel(AppLogLevel level) => switch (level) {
-    AppLogLevel.debug => 500,
-    AppLogLevel.info => 800,
-    AppLogLevel.warning => 900,
-    AppLogLevel.error => 1000,
-    AppLogLevel.fatal => 1200,
-  };
+  bool get _useAnsiConsoleColors => !kIsWeb && kDebugMode;
 
   String _nextIncidentId(DateTime now) {
     _incidentSequence = (_incidentSequence + 1) % 10000;
@@ -285,7 +327,7 @@ class AppLogger extends ChangeNotifier {
   }
 
   static final RegExp _sensitiveKey = RegExp(
-    r'(authorization|token|password|secret|base64|cookie)',
+    r'(authorization|token|password|secret|base64|cookie|captcha|verification)',
     caseSensitive: false,
   );
 }

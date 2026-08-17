@@ -4,6 +4,7 @@ Set-StrictMode -Version Latest
 $ToolDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RootDir = Split-Path -Parent $ToolDir
 $LocalRunFile = Join-Path $RootDir ".run\MERP_QAS_Android_Local.run.xml"
+$MockLocalRunFile = Join-Path $RootDir ".run\MERP_Mock_Android_Local.run.xml"
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 function Write-Utf8NoBom {
@@ -29,6 +30,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $RootDir ".run") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $RootDir "config") | Out-Null
 
 Ensure-LocalJson -Path (Join-Path $RootDir "config\qas.local.json")
+Ensure-LocalJson -Path (Join-Path $RootDir "config\mock.local.json")
 Ensure-LocalJson -Path (Join-Path $RootDir "config\baidu_map.local.json")
 Ensure-LocalJson -Path (Join-Path $RootDir "config\webview.local.json")
 
@@ -53,4 +55,26 @@ $Xml = @"
 
 Write-Utf8NoBom -Path $LocalRunFile -Content ($Xml + [Environment]::NewLine)
 Write-Host "  [已生成] .run\MERP_QAS_Android_Local.run.xml"
+
+$MockAdditionalArguments = @(
+    "--dart-define-from-file=config/qas.json"
+    "--dart-define-from-file=config/qas.local.json"
+    "--dart-define-from-file=config/mock.json"
+    "--dart-define-from-file=config/mock.local.json"
+    "--dart-define-from-file=config/baidu_map.local.json"
+    "--dart-define-from-file=config/webview.local.json"
+) -join " "
+$MockEscapedArguments = [System.Security.SecurityElement]::Escape($MockAdditionalArguments)
+$MockXml = @"
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="MERP MOCK Android (Local)" type="FlutterRunConfigurationType" factoryName="Flutter">
+    <option name="additionalArgs" value="$MockEscapedArguments" />
+    <option name="buildFlavor" value="qas" />
+    <option name="filePath" value="`$PROJECT_DIR`$/lib/main.dart" />
+    <method v="2" />
+  </configuration>
+</component>
+"@
+Write-Utf8NoBom -Path $MockLocalRunFile -Content ($MockXml + [Environment]::NewLine)
+Write-Host "  [已生成] .run\MERP_Mock_Android_Local.run.xml"
 Write-Host "IDE 本地配置完成。共享配置不依赖密钥，本地配置会加载本机覆盖文件。"

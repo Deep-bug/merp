@@ -15,7 +15,7 @@ import '../features/all_features/all_features_page.dart';
 import '../features/bridge_test/bridge_test_page.dart';
 import '../features/home/home_page.dart';
 import '../features/legacy/legacy_web_page.dart';
-import '../features/legal/privacy_policy_page.dart';
+import '../features/legal/legal_statement_page.dart';
 import '../features/login/login_page.dart';
 import '../features/map/map_page.dart';
 import '../features/profile/profile_page.dart';
@@ -36,7 +36,9 @@ class AppRouter {
         observers: [AppRouteObserver(logger)],
         redirect: (context, state) {
           final isLoggingIn = state.uri.path == AppRoute.login;
-          final isPrivacyPolicy = state.uri.path == AppRoute.privacyPolicy;
+          final isLegalStatement =
+              state.uri.path == AppRoute.copyrightDisclaimer ||
+              state.uri.path == AppRoute.personalDataStatement;
           final isGestureEnrollment =
               state.uri.path == AppRoute.gesture &&
               state.uri.queryParameters['mode'] == 'enrollment';
@@ -49,10 +51,10 @@ class AppRouter {
           }
           if (authController.status ==
               AuthStatus.authenticatedPendingSecurity) {
-            return isLoggingIn || isPrivacyPolicy ? null : AppRoute.login;
+            return isLoggingIn || isLegalStatement ? null : AppRoute.login;
           }
           if (!authController.isAuthenticated) {
-            return isLoggingIn || isPrivacyPolicy ? null : AppRoute.login;
+            return isLoggingIn || isLegalStatement ? null : AppRoute.login;
           }
           if (authController.gestureEnrollmentRequired) {
             return isGestureEnrollment ? null : AppRoute.gestureEnrollment;
@@ -74,9 +76,18 @@ class AppRouter {
             builder: (context, state) => const LoginPage(),
           ),
           GoRoute(
-            path: AppRoute.privacyPolicy,
-            name: 'privacy-policy',
-            builder: (context, state) => const PrivacyPolicyPage(),
+            path: AppRoute.copyrightDisclaimer,
+            name: 'copyright-disclaimer',
+            builder: (context, state) => const LegalStatementPage(
+              type: LegalStatementType.copyrightDisclaimer,
+            ),
+          ),
+          GoRoute(
+            path: AppRoute.personalDataStatement,
+            name: 'personal-data-statement',
+            builder: (context, state) => const LegalStatementPage(
+              type: LegalStatementType.personalDataStatement,
+            ),
           ),
           GoRoute(
             path: AppRoute.home,

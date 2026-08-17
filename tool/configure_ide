@@ -5,6 +5,7 @@ set -euo pipefail
 TOOL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$TOOL_DIR/.." && pwd)"
 LOCAL_RUN_FILE="$ROOT_DIR/.run/MERP_QAS_Android_Local.run.xml"
+MOCK_LOCAL_RUN_FILE="$ROOT_DIR/.run/MERP_Mock_Android_Local.run.xml"
 
 ensure_local_json() {
   local target="$1"
@@ -25,6 +26,7 @@ mkdir -p "$ROOT_DIR/.run" "$ROOT_DIR/config"
 # 这些文件均被 Git 忽略。空值保证新电脑首次启动不会因为可选文件缺失而失败，
 # 开发者随后可以直接填写本机 AK、私有 WebView 地址或 QAS 覆盖值。
 ensure_local_json "$ROOT_DIR/config/qas.local.json" '{}'
+ensure_local_json "$ROOT_DIR/config/mock.local.json" '{}'
 ensure_local_json "$ROOT_DIR/config/baidu_map.local.json" '{}'
 ensure_local_json "$ROOT_DIR/config/webview.local.json" '{}'
 
@@ -37,6 +39,7 @@ ADDITIONAL_ARGS=(
 ARGS_TEXT="${ADDITIONAL_ARGS[*]}"
 ESCAPED_ARGS="$(xml_escape "$ARGS_TEXT")"
 TEMP_RUN_FILE="$LOCAL_RUN_FILE.tmp.$$"
+MOCK_TEMP_RUN_FILE="$MOCK_LOCAL_RUN_FILE.tmp.$$"
 
 {
   printf '%s\n' '<component name="ProjectRunConfigurationManager">'
@@ -51,5 +54,29 @@ TEMP_RUN_FILE="$LOCAL_RUN_FILE.tmp.$$"
 } >"$TEMP_RUN_FILE"
 mv "$TEMP_RUN_FILE" "$LOCAL_RUN_FILE"
 
+MOCK_ADDITIONAL_ARGS=(
+  "--dart-define-from-file=config/qas.json"
+  "--dart-define-from-file=config/qas.local.json"
+  "--dart-define-from-file=config/mock.json"
+  "--dart-define-from-file=config/mock.local.json"
+  "--dart-define-from-file=config/baidu_map.local.json"
+  "--dart-define-from-file=config/webview.local.json"
+)
+MOCK_ARGS_TEXT="${MOCK_ADDITIONAL_ARGS[*]}"
+MOCK_ESCAPED_ARGS="$(xml_escape "$MOCK_ARGS_TEXT")"
+{
+  printf '%s\n' '<component name="ProjectRunConfigurationManager">'
+  printf '%s\n' \
+    '  <configuration default="false" name="MERP MOCK Android (Local)" type="FlutterRunConfigurationType" factoryName="Flutter">'
+  printf '    <option name="additionalArgs" value="%s" />\n' "$MOCK_ESCAPED_ARGS"
+  printf '%s\n' '    <option name="buildFlavor" value="qas" />'
+  printf '%s\n' '    <option name="filePath" value="$PROJECT_DIR$/lib/main.dart" />'
+  printf '%s\n' '    <method v="2" />'
+  printf '%s\n' '  </configuration>'
+  printf '%s\n' '</component>'
+} >"$MOCK_TEMP_RUN_FILE"
+mv "$MOCK_TEMP_RUN_FILE" "$MOCK_LOCAL_RUN_FILE"
+
 printf '  [已生成] .run/MERP_QAS_Android_Local.run.xml\n'
+printf '  [已生成] .run/MERP_Mock_Android_Local.run.xml\n'
 printf 'IDE 本地配置完成。共享配置不依赖密钥，本地配置会加载本机覆盖文件。\n'

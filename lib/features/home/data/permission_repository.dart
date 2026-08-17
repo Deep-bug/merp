@@ -97,6 +97,27 @@ class PermissionRepository extends ChangeNotifier {
     }
   }
 
+  /// 开发 Mock 会话不依赖 Token 与后端菜单，直接授予本地完整功能目录。
+  Future<void> loadDevelopmentMockMenu() async {
+    final generation = ++_requestGeneration;
+    _status = PermissionLoadStatus.loading;
+    _loadError = null;
+    notifyListeners();
+    final snapshot = _mockSnapshot();
+    if (generation != _requestGeneration) {
+      return;
+    }
+    _allFeatures
+      ..clear()
+      ..addAll(snapshot.features);
+    _allowedFeatureIds
+      ..clear()
+      ..addAll(snapshot.authorizedFeatureIds);
+    _status = PermissionLoadStatus.loaded;
+    _logger.warning('permission', '开发 Mock 模式：已加载本地完整菜单');
+    notifyListeners();
+  }
+
   Future<void> clear() async {
     _requestGeneration += 1;
     _allFeatures
@@ -111,7 +132,7 @@ class PermissionRepository extends ChangeNotifier {
   Future<_PermissionSnapshot> _loadPermissionSnapshotFromBackend(
     AuthSession _,
   ) async {
-    if (_apiClient.config.mockMenus) {
+    if (_apiClient.config.isMockMenuEnabled) {
       _logger.info('permission', '使用本地 Mock 菜单，默认授予全部应用权限');
       return _mockSnapshot();
     }

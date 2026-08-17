@@ -99,9 +99,9 @@ class _LoginPageState extends State<LoginPage> {
     }
     if (!_privacyAccepted) {
       await _showLoginHint(
-        title: context.l10n.privacyConsentRequiredTitle,
-        message: context.l10n.privacyConsentRequiredMessage,
-        icon: Icons.privacy_tip_outlined,
+        title: context.l10n.legalConsentRequiredTitle,
+        message: context.l10n.legalConsentRequiredMessage,
+        icon: Icons.gavel_outlined,
       );
       return;
     }
@@ -306,8 +306,11 @@ class _LoginPageState extends State<LoginPage> {
                                 onChanged: (value) {
                                   setState(() => _privacyAccepted = value);
                                 },
-                                onOpenPolicy: () =>
-                                    context.push(AppRoute.privacyPolicy),
+                                onOpenCopyright: () =>
+                                    context.push(AppRoute.copyrightDisclaimer),
+                                onOpenPersonalData: () => context.push(
+                                  AppRoute.personalDataStatement,
+                                ),
                               ),
                               const SizedBox(height: 12),
                               SizedBox(
@@ -394,12 +397,14 @@ class _PrivacyConsent extends StatelessWidget {
   const _PrivacyConsent({
     required this.accepted,
     required this.onChanged,
-    required this.onOpenPolicy,
+    required this.onOpenCopyright,
+    required this.onOpenPersonalData,
   });
 
   final bool accepted;
   final ValueChanged<bool> onChanged;
-  final VoidCallback onOpenPolicy;
+  final VoidCallback onOpenCopyright;
+  final VoidCallback onOpenPersonalData;
 
   @override
   Widget build(BuildContext context) {
@@ -428,18 +433,34 @@ class _PrivacyConsent extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2),
                     child: Text(
-                      context.l10n.privacyPolicyConsentPrefix,
+                      context.l10n.legalConsentPrefix,
                       style: textStyle,
                     ),
                   ),
                 ),
                 InkWell(
-                  onTap: onOpenPolicy,
+                  onTap: onOpenCopyright,
                   borderRadius: BorderRadius.circular(4),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2),
                     child: Text(
-                      '《${context.l10n.privacyPolicy}》',
+                      '《${context.l10n.copyrightDisclaimer}》',
+                      style: textStyle?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: onOpenPersonalData,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Text(
+                      '《${context.l10n.personalDataStatement}》',
                       style: textStyle?.copyWith(
                         color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.w600,

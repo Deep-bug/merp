@@ -224,17 +224,17 @@ abstract class AppLocalizations {
   /// **'请输入右侧图片中的验证码后继续。'**
   String get loginCaptchaRequiredMessage;
 
-  /// No description provided for @privacyConsentRequiredTitle.
+  /// No description provided for @legalConsentRequiredTitle.
   ///
   /// In zh, this message translates to:
-  /// **'请同意用户隐私协议'**
-  String get privacyConsentRequiredTitle;
+  /// **'请同意相关声明'**
+  String get legalConsentRequiredTitle;
 
-  /// No description provided for @privacyConsentRequiredMessage.
+  /// No description provided for @legalConsentRequiredMessage.
   ///
   /// In zh, this message translates to:
-  /// **'请勾选“我已阅读并同意《用户隐私协议》”后继续登录。'**
-  String get privacyConsentRequiredMessage;
+  /// **'请勾选“我已阅读并同意《版权及免责声明》《个资法声明》”后继续登录。'**
+  String get legalConsentRequiredMessage;
 
   /// No description provided for @captchaPreparingTitle.
   ///
@@ -248,23 +248,23 @@ abstract class AppLocalizations {
   /// **'请等待验证码加载完成，或点击验证码图片重新获取。'**
   String get captchaPreparingMessage;
 
-  /// No description provided for @privacyPolicy.
+  /// No description provided for @copyrightDisclaimer.
   ///
   /// In zh, this message translates to:
-  /// **'用户隐私协议'**
-  String get privacyPolicy;
+  /// **'版权及免责声明'**
+  String get copyrightDisclaimer;
 
-  /// No description provided for @privacyPolicyConsentPrefix.
+  /// No description provided for @personalDataStatement.
+  ///
+  /// In zh, this message translates to:
+  /// **'个资法声明'**
+  String get personalDataStatement;
+
+  /// No description provided for @legalConsentPrefix.
   ///
   /// In zh, this message translates to:
   /// **'我已阅读并同意'**
-  String get privacyPolicyConsentPrefix;
-
-  /// No description provided for @privacyPolicyDemoNotice.
-  ///
-  /// In zh, this message translates to:
-  /// **'以下为演示协议内容，正式发布前请由法务确认。'**
-  String get privacyPolicyDemoNotice;
+  String get legalConsentPrefix;
 
   /// No description provided for @menu.
   ///
@@ -607,6 +607,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'切换服务器'**
   String get switchServer;
+
+  /// No description provided for @clearWebData.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除 Web 页面与数据'**
+  String get clearWebData;
+
+  /// No description provided for @clearWebDataSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除旧页面资源、网页登录状态和离线数据'**
+  String get clearWebDataSubtitle;
+
+  /// No description provided for @clearWebDataConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除 Web 页面与数据？'**
+  String get clearWebDataConfirmTitle;
+
+  /// No description provided for @clearWebDataConfirmMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'将清除旧 Vue 页面缓存、H5 登录状态、草稿和离线数据，但不会退出 MERP App 登录。'**
+  String get clearWebDataConfirmMessage;
+
+  /// No description provided for @clearWebDataAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即清除'**
+  String get clearWebDataAction;
+
+  /// No description provided for @clearWebDataSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'Web 页面与数据已清除，请重新打开业务页面。'**
+  String get clearWebDataSuccess;
+
+  /// No description provided for @clearWebDataFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除 Web 页面与数据失败，请稍后重试。'**
+  String get clearWebDataFailed;
 
   /// No description provided for @currentServer.
   ///

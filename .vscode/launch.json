@@ -2,39 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "MERP QAS Android Debug",
-      "request": "launch",
-      "type": "dart",
-      "flutterMode": "debug",
-      "program": "lib/main.dart",
-      "toolArgs": [
-        "--flavor",
-        "qas",
-        "--dart-define-from-file=config/qas.json"
-      ],
-      "presentation": {
-        "group": "mobile",
-        "order": 1
-      }
-    },
-    {
-      "name": "MERP QAS Android Profile",
-      "request": "launch",
-      "type": "dart",
-      "flutterMode": "profile",
-      "program": "lib/main.dart",
-      "toolArgs": [
-        "--flavor",
-        "qas",
-        "--dart-define-from-file=config/qas.json"
-      ],
-      "presentation": {
-        "group": "mobile",
-        "order": 2
-      }
-    },
-    {
-      "name": "MERP QAS Android Debug (Local)",
+      "name": "MERP QAS Android Debug (Local + HTTP Logs)",
       "request": "launch",
       "type": "dart",
       "flutterMode": "debug",
@@ -45,31 +13,13 @@
         "--dart-define-from-file=config/qas.json",
         "--dart-define-from-file=config/qas.local.json",
         "--dart-define-from-file=config/baidu_map.local.json",
-        "--dart-define-from-file=config/webview.local.json"
+        "--dart-define-from-file=config/webview.local.json",
+        "--dart-define=ENABLE_LOG=true"
       ],
-      "presentation": {
-        "group": "mobile-local",
-        "order": 3
-      }
+      "presentation": { "group": "qas", "order": 1 }
     },
     {
-      "name": "MERP QAS iOS Debug",
-      "request": "launch",
-      "type": "dart",
-      "flutterMode": "debug",
-      "program": "lib/main.dart",
-      "toolArgs": [
-        "--flavor",
-        "qas",
-        "--dart-define-from-file=config/qas.json"
-      ],
-      "presentation": {
-        "group": "mobile",
-        "order": 4
-      }
-    },
-    {
-      "name": "MERP QAS iOS Debug (Local)",
+      "name": "MERP QAS iOS Debug (Local + HTTP Logs)",
       "request": "launch",
       "type": "dart",
       "flutterMode": "debug",
@@ -80,27 +30,108 @@
         "--dart-define-from-file=config/qas.json",
         "--dart-define-from-file=config/qas.local.json",
         "--dart-define-from-file=config/baidu_map.local.json",
-        "--dart-define-from-file=config/webview.local.json"
+        "--dart-define-from-file=config/webview.local.json",
+        "--dart-define=ENABLE_LOG=true"
       ],
-      "presentation": {
-        "group": "mobile-local",
-        "order": 5
-      }
+      "presentation": { "group": "qas", "order": 2 }
     },
     {
-      "name": "MERP QAS Web Chrome",
+      "name": "MERP MOCK Android Debug (QAS + Mock Login)",
       "request": "launch",
       "type": "dart",
       "flutterMode": "debug",
       "program": "lib/main.dart",
-      "deviceId": "chrome",
       "toolArgs": [
-        "--dart-define-from-file=config/qas.json"
+        "--flavor",
+        "qas",
+        "--dart-define-from-file=config/qas.json",
+        "--dart-define-from-file=config/qas.local.json",
+        "--dart-define-from-file=config/mock.json",
+        "--dart-define-from-file=config/baidu_map.local.json",
+        "--dart-define-from-file=config/webview.local.json"
       ],
-      "presentation": {
-        "group": "web",
-        "order": 6
-      }
+      "presentation": { "group": "mock", "order": 3 }
+    },
+    {
+      "name": "MERP MOCK iOS Debug (QAS + Mock Login)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--flavor",
+        "qas",
+        "--dart-define-from-file=config/qas.json",
+        "--dart-define-from-file=config/qas.local.json",
+        "--dart-define-from-file=config/mock.json",
+        "--dart-define-from-file=config/baidu_map.local.json",
+        "--dart-define-from-file=config/webview.local.json"
+      ],
+      "presentation": { "group": "mock", "order": 4 }
+    },
+    {
+      "name": "MERP QAS Android Release (Baidu Map)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--flavor",
+        "qas",
+        "--dart-define-from-file=config/qas.json",
+        "--dart-define-from-file=config/qas.local.json",
+        "--dart-define-from-file=config/baidu_map.local.json",
+        "--dart-define-from-file=config/webview.local.json"
+      ],
+      "presentation": { "group": "qas", "order": 5 }
+    },
+    {
+      "name": "MERP QAS iOS Release (Baidu Map)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--flavor",
+        "qas",
+        "--dart-define-from-file=config/qas.json",
+        "--dart-define-from-file=config/qas.local.json",
+        "--dart-define-from-file=config/baidu_map.local.json",
+        "--dart-define-from-file=config/webview.local.json"
+      ],
+      "presentation": { "group": "qas", "order": 6 }
+    },
+    {
+      "name": "MERP PRD Android Debug (Production Config)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--flavor",
+        "prd",
+        "--dart-define-from-file=config/prd.json",
+        "--dart-define-from-file=config/prd.local.json",
+        "--dart-define-from-file=config/baidu_map.local.json",
+        "--dart-define-from-file=config/webview.local.json"
+      ],
+      "presentation": { "group": "prd", "order": 7 }
+    },
+    {
+      "name": "MERP PRD iOS Debug (Production Config)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--flavor",
+        "prd",
+        "--dart-define-from-file=config/prd.json",
+        "--dart-define-from-file=config/prd.local.json",
+        "--dart-define-from-file=config/baidu_map.local.json",
+        "--dart-define-from-file=config/webview.local.json"
+      ],
+      "presentation": { "group": "prd", "order": 8 }
     }
   ]
 }

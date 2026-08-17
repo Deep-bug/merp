@@ -28,6 +28,8 @@ class HomeDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = AppScope.of(context).authController;
+    //为了取出版本号
+    final settings = AppScope.of(context).settingsController;
 
     return Drawer(
       width: MediaQuery.sizeOf(context).width * 0.62,
@@ -61,7 +63,11 @@ class HomeDrawer extends StatelessWidget {
               if (profile?.accountName.isNotEmpty == true)
                 _DrawerProfileText(profile!.accountName),
               const SizedBox(height: 26),
-              const _VersionBadge(version: '3.0.2'),
+              AnimatedBuilder(
+                animation: settings,
+                builder: (context, _) =>
+                    _VersionBadge(version: settings.currentVersion),
+              ),
               const SizedBox(height: 72),
               _DrawerAction(
                 label: context.l10n.systemSettings,

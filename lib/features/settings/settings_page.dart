@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/config/app_config.dart';
+import '../../core/platform/web_data_cleaner.dart';
 import '../../l10n/l10n.dart';
 import '../../routing/app_navigator.dart';
 import '../../routing/app_routes.dart';
@@ -24,9 +25,10 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = AppScope.of(context).settingsController;
+    final webDataCleaner = AppScope.of(context).webDataCleaner;
 
     return AnimatedBuilder(
-      animation: settings,
+      animation: Listenable.merge([settings, webDataCleaner]),
       builder: (context, _) {
         return Scaffold(
           backgroundColor: Colors.white,
@@ -145,6 +147,39 @@ class SettingsPage extends StatelessWidget {
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => _selectApiServer(context, settings),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.cleaning_services_outlined),
+                      title: Text(context.l10n.clearWebData),
+                      subtitle: Text(context.l10n.clearWebDataSubtitle),
+                      trailing: webDataCleaner.isClearing
+                          ? const SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.chevron_right),
+                      enabled: !webDataCleaner.isClearing,
+                      onTap: webDataCleaner.isClearing
+                          ? null
+                          : () => _clearWebData(context, webDataCleaner),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.copyright_outlined),
+                      title: Text(context.l10n.copyrightDisclaimer),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => AppNavigator.openSecondary(
+                        context,
+                        AppRoute.copyrightDisclaimer,
+                      ),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.privacy_tip_outlined),
+                      title: Text(context.l10n.personalDataStatement),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => AppNavigator.openSecondary(
+                        context,
+                        AppRoute.personalDataStatement,
+                      ),
                     ),
                     ListTile(
                       leading: const Icon(
@@ -348,6 +383,51 @@ class SettingsPage extends StatelessWidget {
     AppNotice.show(
       context,
       message: context.l10n.serverSwitched(_apiServerLabel(context, selected)),
+      tone: AppNoticeTone.success,
+    );
+  }
+
+  static Future<void> _clearWebData(
+    BuildContext context,
+    WebDataCleaner webDataCleaner,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AppDialog(
+        tone: AppDialogTone.warning,
+        icon: Icons.cleaning_services_outlined,
+        title: context.l10n.clearWebDataConfirmTitle,
+        message: context.l10n.clearWebDataConfirmMessage,
+        secondaryLabel: context.l10n.cancel,
+        onSecondary: () => Navigator.of(dialogContext).pop(false),
+        primaryLabel: context.l10n.clearWebDataAction,
+        primaryDestructive: true,
+        onPrimary: () => Navigator.of(dialogContext).pop(true),
+      ),
+    );
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+
+    try {
+      await webDataCleaner.clearAllWebData();
+    } catch (_) {
+      if (!context.mounted) {
+        return;
+      }
+      AppNotice.show(
+        context,
+        message: context.l10n.clearWebDataFailed,
+        tone: AppNoticeTone.error,
+      );
+      return;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    AppNotice.show(
+      context,
+      message: context.l10n.clearWebDataSuccess,
       tone: AppNoticeTone.success,
     );
   }

@@ -8,7 +8,8 @@
 abstract final class AppRoute {
   static const splash = '/splash';
   static const login = '/login';
-  static const privacyPolicy = '/privacy-policy';
+  static const copyrightDisclaimer = '/legal/copyright-disclaimer';
+  static const personalDataStatement = '/legal/personal-data-statement';
   static const home = '/home';
   static const profile = '/profile';
   static const features = '/features';

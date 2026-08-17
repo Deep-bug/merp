@@ -17,8 +17,10 @@ import '../core/device/location_service.dart';
 import '../core/device/map_sdk_service.dart';
 import '../core/logging/app_logger.dart';
 import '../core/network/api_client.dart';
+import '../core/platform/web_data_cleaner.dart';
 import '../features/home/data/permission_repository.dart';
 import '../features/home/data/favorite_feature_controller.dart';
+import '../features/home/data/feature_badge_controller.dart';
 import '../features/settings/settings_controller.dart';
 
 /// 应用级依赖容器。
@@ -34,6 +36,8 @@ class AppDependencies {
     required this.authController,
     required this.permissionRepository,
     required this.favoriteFeatureController,
+    required this.featureBadgeController,
+    required this.webDataCleaner,
     required this.settingsController,
     required this.cameraService,
     required this.fileService,
@@ -49,6 +53,8 @@ class AppDependencies {
   final AuthController authController;
   final PermissionRepository permissionRepository;
   final FavoriteFeatureController favoriteFeatureController;
+  final FeatureBadgeController featureBadgeController;
+  final WebDataCleaner webDataCleaner;
   final SettingsController settingsController;
   final CameraService cameraService;
   final FileService fileService;
@@ -104,6 +110,8 @@ class AppDependencies {
       languageCodeProvider: () => settingsController.language.apiCode,
     );
     final favoriteFeatureController = FavoriteFeatureController(logger: logger);
+    final featureBadgeController = FeatureBadgeController(logger: logger);
+    final webDataCleaner = WebDataCleaner(logger: logger);
 
     // 本地设置、地图 SDK 占位初始化互不依赖，可以并行加载。
     // 后续真正接入地图 SDK 时，仍然建议把耗时授权/定位动作放到具体业务页再触发。
@@ -130,11 +138,18 @@ class AppDependencies {
         logger: logger,
       ),
       permissionRepository: permissionRepository,
+      webDataCleaner: webDataCleaner,
       logger: logger,
     );
     // 网络层只通过回调通知认证状态失效，避免 ApiClient 反向依赖 Controller。
     apiClient.onSessionExpired = authController.handleSessionExpired;
-    await authController.restoreSession();
+    if (config.isDevelopmentMockEnabled) {
+      favoriteFeatureController.enableDevelopmentMockDefaults();
+      featureBadgeController.enableDevelopmentMockCounts();
+      await authController.enterDevelopmentMockSession();
+    } else {
+      await authController.restoreSession();
+    }
 
     logger.info('bootstrap', '应用依赖初始化完成');
     return AppDependencies(
@@ -144,6 +159,8 @@ class AppDependencies {
       authController: authController,
       permissionRepository: permissionRepository,
       favoriteFeatureController: favoriteFeatureController,
+      featureBadgeController: featureBadgeController,
+      webDataCleaner: webDataCleaner,
       settingsController: settingsController,
       cameraService: CameraService(),
       fileService: FileService(),
@@ -163,6 +180,8 @@ class AppDependencies {
     authController.dispose();
     permissionRepository.dispose();
     favoriteFeatureController.dispose();
+    featureBadgeController.dispose();
+    webDataCleaner.dispose();
     settingsController.dispose();
   }
 }

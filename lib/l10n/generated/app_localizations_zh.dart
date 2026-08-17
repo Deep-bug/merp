@@ -76,10 +76,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get loginCaptchaRequiredMessage => '请输入右侧图片中的验证码后继续。';
 
   @override
-  String get privacyConsentRequiredTitle => '请同意用户隐私协议';
+  String get legalConsentRequiredTitle => '请同意相关声明';
 
   @override
-  String get privacyConsentRequiredMessage => '请勾选“我已阅读并同意《用户隐私协议》”后继续登录。';
+  String get legalConsentRequiredMessage =>
+      '请勾选“我已阅读并同意《版权及免责声明》《个资法声明》”后继续登录。';
 
   @override
   String get captchaPreparingTitle => '验证码正在加载';
@@ -88,13 +89,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get captchaPreparingMessage => '请等待验证码加载完成，或点击验证码图片重新获取。';
 
   @override
-  String get privacyPolicy => '用户隐私协议';
+  String get copyrightDisclaimer => '版权及免责声明';
 
   @override
-  String get privacyPolicyConsentPrefix => '我已阅读并同意';
+  String get personalDataStatement => '个资法声明';
 
   @override
-  String get privacyPolicyDemoNotice => '以下为演示协议内容，正式发布前请由法务确认。';
+  String get legalConsentPrefix => '我已阅读并同意';
 
   @override
   String get menu => '菜单';
@@ -272,6 +273,28 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get switchServer => '切换服务器';
+
+  @override
+  String get clearWebData => '清除 Web 页面与数据';
+
+  @override
+  String get clearWebDataSubtitle => '清除旧页面资源、网页登录状态和离线数据';
+
+  @override
+  String get clearWebDataConfirmTitle => '清除 Web 页面与数据？';
+
+  @override
+  String get clearWebDataConfirmMessage =>
+      '将清除旧 Vue 页面缓存、H5 登录状态、草稿和离线数据，但不会退出 MERP App 登录。';
+
+  @override
+  String get clearWebDataAction => '立即清除';
+
+  @override
+  String get clearWebDataSuccess => 'Web 页面与数据已清除，请重新打开业务页面。';
+
+  @override
+  String get clearWebDataFailed => '清除 Web 页面与数据失败，请稍后重试。';
 
   @override
   String currentServer(String server) {
@@ -730,10 +753,11 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get loginCaptchaRequiredMessage => '請輸入右側圖片中的驗證碼後繼續。';
 
   @override
-  String get privacyConsentRequiredTitle => '請同意使用者隱私協議';
+  String get legalConsentRequiredTitle => '請同意相關聲明';
 
   @override
-  String get privacyConsentRequiredMessage => '請勾選「我已閱讀並同意《使用者隱私協議》」後繼續登入。';
+  String get legalConsentRequiredMessage =>
+      '請勾選「我已閱讀並同意《版權及免責聲明》《個資法聲明》」後繼續登入。';
 
   @override
   String get captchaPreparingTitle => '驗證碼正在載入';
@@ -742,13 +766,13 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get captchaPreparingMessage => '請等待驗證碼載入完成，或點選驗證碼圖片重新取得。';
 
   @override
-  String get privacyPolicy => '使用者隱私協議';
+  String get copyrightDisclaimer => '版權及免責聲明';
 
   @override
-  String get privacyPolicyConsentPrefix => '我已閱讀並同意';
+  String get personalDataStatement => '個資法聲明';
 
   @override
-  String get privacyPolicyDemoNotice => '以下為示範協議內容，正式發布前請由法務確認。';
+  String get legalConsentPrefix => '我已閱讀並同意';
 
   @override
   String get menu => '選單';
@@ -926,6 +950,28 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get switchServer => '切換伺服器';
+
+  @override
+  String get clearWebData => '清除 Web 頁面與資料';
+
+  @override
+  String get clearWebDataSubtitle => '清除舊頁面資源、網頁登入狀態和離線資料';
+
+  @override
+  String get clearWebDataConfirmTitle => '清除 Web 頁面與資料？';
+
+  @override
+  String get clearWebDataConfirmMessage =>
+      '將清除舊 Vue 頁面快取、H5 登入狀態、草稿和離線資料，但不會登出 MERP App。';
+
+  @override
+  String get clearWebDataAction => '立即清除';
+
+  @override
+  String get clearWebDataSuccess => 'Web 頁面與資料已清除，請重新開啟業務頁面。';
+
+  @override
+  String get clearWebDataFailed => '清除 Web 頁面與資料失敗，請稍後再試。';
 
   @override
   String currentServer(String server) {

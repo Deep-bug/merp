@@ -43,6 +43,7 @@ migrate_working_dir/
 /config/environment.*.local.json
 /config/webview.local.json
 /config/qas.local.json
+/config/mock.local.json
 /config/prd.local.json
 
 # Android production signing files must remain local or in the CI secret store.

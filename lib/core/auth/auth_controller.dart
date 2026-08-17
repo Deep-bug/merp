@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../features/home/data/permission_repository.dart';
 import '../logging/app_logger.dart';
+import '../platform/web_data_cleaner.dart';
 import 'auth_repository.dart';
 
 enum AuthStatus {
@@ -26,12 +27,15 @@ class AuthController extends ChangeNotifier {
     required AuthRepository authRepository,
     required PermissionRepository permissionRepository,
     required AppLogger logger,
+    WebDataCleaner? webDataCleaner,
   }) : _authRepository = authRepository,
        _permissionRepository = permissionRepository,
+       _webDataCleaner = webDataCleaner,
        _logger = logger;
 
   final AuthRepository _authRepository;
   final PermissionRepository _permissionRepository;
+  final WebDataCleaner? _webDataCleaner;
   final AppLogger _logger;
 
   AuthStatus status = AuthStatus.booting;
@@ -74,6 +78,29 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// 只允许由依赖装配层在 QAS Debug 的显式开发开关下调用。
+  /// Mock 会话不持久化 Token，也不会访问用户资料或认证接口。
+  Future<void> enterDevelopmentMockSession() async {
+    _sessionGeneration += 1;
+    gestureEnrollmentRequired = false;
+    lastError = null;
+    captchaChallenge = null;
+    captchaError = null;
+    session = const AuthSession(
+      tokens: AuthTokens(accessToken: 'development-mock-token'),
+      profile: UserProfile(
+        id: 'development-mock-user',
+        accountName: 'mock.user',
+        displayName: '开发测试用户',
+        department: 'MERP Development',
+      ),
+    );
+    status = AuthStatus.authenticated;
+    _logger.warning('auth', '开发 Mock 模式：已跳过真实登录与会话恢复');
+    notifyListeners();
+    await _permissionRepository.loadDevelopmentMockMenu();
+  }
+
   Future<void> retryRestoreSession() async {
     status = AuthStatus.booting;
     lastError = null;
@@ -91,6 +118,7 @@ class AuthController extends ChangeNotifier {
         _authRepository.clearLocalSession(),
         _permissionRepository.clear(),
       ]);
+      await _clearWebDataAfterSignOut();
       _sessionGeneration += 1;
       session = null;
       gestureEnrollmentRequired = false;
@@ -254,6 +282,7 @@ class AuthController extends ChangeNotifier {
     _sessionGeneration += 1;
     await _authRepository.logout();
     await _permissionRepository.clear();
+    await _clearWebDataAfterSignOut();
     session = null;
     gestureEnrollmentRequired = false;
     captchaChallenge = null;
@@ -267,6 +296,7 @@ class AuthController extends ChangeNotifier {
   Future<void> handleSessionExpired() async {
     _sessionGeneration += 1;
     await _permissionRepository.clear();
+    await _clearWebDataAfterSignOut();
     session = null;
     gestureEnrollmentRequired = false;
     captchaChallenge = null;
@@ -275,5 +305,25 @@ class AuthController extends ChangeNotifier {
     lastError = '登录已过期，请重新登录';
     _logger.warning('auth', '刷新令牌失效，已退出当前会话');
     notifyListeners();
+  }
+
+  /// App 会话退出时同步移除 WebView 的 Cookie、缓存与 H5 本地数据，避免
+  /// 下一位用户误用上一位用户的网页会话。原生清理失败不能阻断 App Token
+  /// 和权限的退出流程，因此仅记录告警，用户仍可正常回到登录页。
+  Future<void> _clearWebDataAfterSignOut() async {
+    final cleaner = _webDataCleaner;
+    if (cleaner == null) {
+      return;
+    }
+    try {
+      await cleaner.clearAllWebData();
+    } catch (error, stackTrace) {
+      _logger.warning(
+        'auth',
+        '登录会话已退出，但 WebView 数据清理失败',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 }

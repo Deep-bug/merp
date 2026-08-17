@@ -14,6 +14,7 @@ import '../../../routing/app_navigator.dart';
 import '../../../routing/app_routes.dart';
 import '../../../shared/adaptive_feature_grid.dart';
 import '../../../shared/app_error_view.dart';
+import '../../../shared/widgets/feature_badge.dart';
 import '../data/permission_repository.dart';
 import '../domain/feature_item.dart';
 import 'feature_icon.dart';
@@ -27,6 +28,7 @@ class HomeFeatureArea extends StatelessWidget {
     required this.loadStatus,
     required this.onRetry,
     required this.iconColor,
+    this.badgeCountFor,
   });
 
   final List<FeatureItem> features;
@@ -35,6 +37,7 @@ class HomeFeatureArea extends StatelessWidget {
   final PermissionLoadStatus loadStatus;
   final Future<void> Function() onRetry;
   final Color iconColor;
+  final int Function(String featureId)? badgeCountFor;
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +104,11 @@ class HomeFeatureArea extends StatelessWidget {
               ),
               itemBuilder: (context, index) => index == features.length
                   ? _MoreFeatureTile(iconColor: iconColor)
-                  : _FeatureTile(item: features[index], iconColor: iconColor),
+                  : _FeatureTile(
+                      item: features[index],
+                      iconColor: iconColor,
+                      badgeCount: badgeCountFor?.call(features[index].id) ?? 0,
+                    ),
             );
           },
         ),
@@ -144,10 +151,15 @@ class _FeatureLoadingSkeleton extends StatelessWidget {
 }
 
 class _FeatureTile extends StatelessWidget {
-  const _FeatureTile({required this.item, required this.iconColor});
+  const _FeatureTile({
+    required this.item,
+    required this.iconColor,
+    required this.badgeCount,
+  });
 
   final FeatureItem item;
   final Color iconColor;
+  final int badgeCount;
 
   void _open(BuildContext context) {
     final permissions = AppScope.of(context).permissionRepository;
@@ -168,6 +180,7 @@ class _FeatureTile extends StatelessWidget {
       item: item,
       label: item.title,
       iconColor: iconColor,
+      badgeCount: badgeCount,
       onTap: () => _open(context),
     );
   }
@@ -198,6 +211,7 @@ class HomeFeatureCard extends StatelessWidget {
     required this.label,
     required this.iconColor,
     required this.onTap,
+    this.badgeCount = 0,
     this.compact = false,
   }) : assert(icon != null || item != null);
 
@@ -206,84 +220,113 @@ class HomeFeatureCard extends StatelessWidget {
   final String label;
   final Color iconColor;
   final VoidCallback onTap;
+  final int badgeCount;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final iconContainerSize = compact ? 36.0 : 54.0;
-    final iconSize = compact ? 24.0 : 36.0;
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    final useLargeTextLayout = !compact && textScale > 1.25;
+    final iconContainerSize = compact
+        ? 36.0
+        : useLargeTextLayout
+        ? 44.0
+        : 54.0;
+    final iconSize = compact
+        ? 24.0
+        : useLargeTextLayout
+        ? 30.0
+        : 36.0;
+    final verticalPadding = compact
+        ? 6.0
+        : useLargeTextLayout
+        ? 5.0
+        : 13.0;
+    final labelGap = compact
+        ? 6.0
+        : useLargeTextLayout
+        ? 6.0
+        : 12.0;
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final labelWeight = isIos ? FontWeight.w600 : FontWeight.w800;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: compact ? const Color(0xFF8FE4E8) : const Color(0xFFF2F5F8),
-          width: compact ? 1.5 : 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF29435C).withValues(alpha: 0.12),
-            blurRadius: compact ? 8 : 18,
-            offset: Offset(0, compact ? 4 : 10),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: onTap,
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: compact ? 4 : 8,
-              vertical: compact ? 6 : 13,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: compact
+                  ? const Color(0xFF8FE4E8)
+                  : const Color(0xFFF2F5F8),
+              width: compact ? 1.5 : 1,
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: iconContainerSize,
-                  height: iconContainerSize,
-                  decoration: compact
-                      ? null
-                      : BoxDecoration(
-                          color: iconColor.withValues(alpha: 0.10),
-                          shape: BoxShape.circle,
-                        ),
-                  child: item == null
-                      ? Icon(icon, size: iconSize, color: iconColor)
-                      : FeatureIcon(
-                          item: item!,
-                          size: iconSize,
-                          color: iconColor,
-                        ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF29435C).withValues(alpha: 0.12),
+                blurRadius: compact ? 8 : 18,
+                offset: Offset(0, compact ? 4 : 10),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: onTap,
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 4 : 8,
+                  vertical: verticalPadding,
                 ),
-                SizedBox(height: compact ? 6 : 12),
-                Text(
-                  label,
-                  maxLines: 2,
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
-                  style: compact
-                      ? Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: const Color(0xFF2E2F33),
-                          height: 1.12,
-                          fontSize: isIos ? 13 : null,
-                          fontWeight: labelWeight,
-                        )
-                      : Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: const Color(0xFF2E2F33),
-                          fontWeight: labelWeight,
-                        ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: iconContainerSize,
+                      height: iconContainerSize,
+                      decoration: compact
+                          ? null
+                          : BoxDecoration(
+                              color: iconColor.withValues(alpha: 0.10),
+                              shape: BoxShape.circle,
+                            ),
+                      child: item == null
+                          ? Icon(icon, size: iconSize, color: iconColor)
+                          : FeatureIcon(
+                              item: item!,
+                              size: iconSize,
+                              color: iconColor,
+                            ),
+                    ),
+                    SizedBox(height: labelGap),
+                    Text(
+                      label,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      style: compact
+                          ? Theme.of(context).textTheme.labelMedium?.copyWith(
+                              color: const Color(0xFF2E2F33),
+                              height: 1.12,
+                              fontSize: isIos ? 13 : null,
+                              fontWeight: labelWeight,
+                            )
+                          : Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: const Color(0xFF2E2F33),
+                              fontWeight: labelWeight,
+                            ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
-      ),
+        Positioned(top: 6, right: 6, child: FeatureBadge(count: badgeCount)),
+      ],
     );
   }
 }

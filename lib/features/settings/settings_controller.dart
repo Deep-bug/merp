@@ -188,6 +188,8 @@ class SettingsController extends ChangeNotifier {
   Future<void> load() async {
     _preferences = await SharedPreferences.getInstance();
     autoLockEnabled = _preferences?.getBool(_autoLockKey) ?? false;
+    final package = await _packageInfoProvider();
+    currentVersion = package.version.trim();
     language = AppLanguage.fromCode(_preferences?.getString(_languageKey));
     apiServer = ApiServer.fromCode(_preferences?.getString(_apiServerKey));
     gesturePasswordConfigured = false;

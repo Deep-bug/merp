@@ -72,6 +72,8 @@ class HomePage extends StatelessWidget {
                             loadStatus: permissions.status,
                             onRetry: auth.reloadSessionData,
                             iconColor: manifest.iconColor,
+                            badgeCountFor:
+                                scope.featureBadgeController.countFor,
                           ),
                         ),
                       ),

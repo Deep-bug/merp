@@ -48,4 +48,23 @@ void main() {
     expect(logger.entries, hasLength(1));
     expect(logger.entries.single.level, AppLogLevel.warning);
   });
+
+  test(
+    'formats colored console logs as one line without changing export text',
+    () {
+      final logger = AppLogger(enableDebugLogs: true);
+      logger.error(
+        'http',
+        '请求失败',
+        fields: {'captchaCode': '1234', 'statusCode': 500},
+      );
+
+      final entry = logger.entries.single;
+      expect(entry.toConsoleText(useAnsiColors: true), contains('[ERROR]'));
+      expect(entry.toConsoleText(), contains('"statusCode":500'));
+      expect(entry.toConsoleText(), contains('<redacted>'));
+      expect(entry.toConsoleText(), isNot(contains('\n')));
+      expect(entry.toText(), isNot(contains('\x1B[')));
+    },
+  );
 }
