@@ -53,11 +53,12 @@ class ApiClient {
               options.headers['Authorization'] = 'Bearer ${tokens.accessToken}';
             }
           }
-
-          options.headers['X-Client'] = 'merp-flutter';
+          //取包名
+          options.headers['X-Client'] = 'merptest';
           options.headers['Accept-Language'] = _localeProvider();
           options.headers['X-Request-Id'] ??= _requestId();
           options.extra[_startedAtKey] = DateTime.now();
+
           _logger.debug(
             'http',
             '请求开始',

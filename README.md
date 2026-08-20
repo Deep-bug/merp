@@ -140,6 +140,7 @@ Windows 对应为 `.\tool\app.cmd analyze` 和 `.\tool\app.cmd test`。
 # QAS 测试包
 ./tool/app build qas android  # arm64-v8a release APK
 ./tool/app build qas ios      # development IPA
+IOS_OTA_BASE_URL=https://example.com/merp/ios ./tool/app build qas ios-ota
 
 # PRD 正式包，本地需输入 prd 二次确认
 ./tool/app build prd android  # arm64-v8a release AAB
@@ -148,6 +149,12 @@ Windows 对应为 `.\tool\app.cmd analyze` 和 `.\tool\app.cmd test`。
 # CI 无交互执行示例
 CI=true BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build prd android
 ```
+
+`ios-ota` 会构建 Ad Hoc IPA，并在 `build/ios/ota/qas` 生成可放到服务器的
+`manifest.plist`。`IOS_OTA_BASE_URL` 必须填写服务器上最终存放 IPA 和 plist 的
+HTTPS 目录，例如 `https://example.com/merp/ios`。生成后把该目录下的 IPA 和
+`manifest.plist` 一起上传到服务器，安装链接格式为
+`itms-services://?action=download-manifest&url=https://example.com/merp/ios/manifest.plist`。
 
 命令会统一注入 Flavor、`config/<env>.json`、本地地图/WebView 配置、版本号和
 构建编号，并在成功后打印实际产物的完整路径、环境、版本和 Git 提交。PRD 不提供
@@ -538,6 +545,7 @@ PRD 首次构建时创建 `config/prd.local.json` 并填写真实生产地址；
 ./tool/app test
 ./tool/app build qas android
 ./tool/app build qas ios
+IOS_OTA_BASE_URL=https://example.com/merp/ios ./tool/app build qas ios-ota
 ```
 
 提交前必须保证格式化、静态分析和自动化测试通过；涉及 Android 权限、启动图、WebView 或插件升级时，还需构建 APK 并在 API 24 设备验证。

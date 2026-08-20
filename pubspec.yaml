@@ -2,7 +2,7 @@ name: merp
 description: "MERP 企业移动应用外壳。"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -81,6 +81,7 @@ flutter:
   generate: true
 
   assets:
+    - assets/branding/
     - assets/legal/
 
   # To add assets to your application, add an assets section, like this:
@@ -115,11 +116,11 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
 flutter_native_splash:
-  color: "#EAF4FF"
-  image: docs/assets/merp_app_icon.png
+  background_image: assets/branding/splash_background.png
   android: true
   ios: true
   web: false
+  fullscreen: true
   android_12:
     color: "#EAF4FF"
-    image: docs/assets/merp_app_icon.png
+    image: assets/branding/splash_logo.png

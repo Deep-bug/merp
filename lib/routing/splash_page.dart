@@ -49,128 +49,145 @@ class SplashPage extends StatelessWidget {
   }
 
   Widget _buildLoadingPage(BuildContext context) {
+    return _SplashLoadingPage(
+      message: isBootstrapping
+          ? context.l10n.loadingWorkbench
+          : context.l10n.restoringSession,
+    );
+  }
+}
+
+class _SplashLoadingPage extends StatefulWidget {
+  const _SplashLoadingPage({required this.message});
+
+  final String message;
+
+  @override
+  State<_SplashLoadingPage> createState() => _SplashLoadingPageState();
+}
+
+class _SplashLoadingPageState extends State<_SplashLoadingPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFFEAF4FF),
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const _MerpLaunchMark(size: 108),
-                const SizedBox(height: 26),
-                Text(
-                  'MERP 2025',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: const Color(0xFF1A67C9),
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  context.l10n.workbench,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFF49657D),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 30),
-                const SizedBox(
-                  width: 34,
-                  height: 34,
-                  child: CircularProgressIndicator(strokeWidth: 3),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  isBootstrapping
-                      ? context.l10n.loadingWorkbench
-                      : context.l10n.restoringSession,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFF6B7D8E),
-                  ),
-                ),
-              ],
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'assets/branding/test.png',
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x33FFFFFF),
+                  Color(0x00FFFFFF),
+                  Color(0x55FFFFFF),
+                ],
+              ),
             ),
           ),
-        ),
+          SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'MERP 2026',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            color: const Color(0xFF1768C6),
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0,
+                          ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      widget.message,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF49657D),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    _LoadingDots(
+                      animation: _controller,
+                      reduceMotion: reduceMotion,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _MerpLaunchMark extends StatelessWidget {
-  const _MerpLaunchMark({required this.size});
+class _LoadingDots extends StatelessWidget {
+  const _LoadingDots({required this.animation, required this.reduceMotion});
 
-  final double size;
+  final Animation<double> animation;
+  final bool reduceMotion;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2F80ED), Color(0xFF38BDF8)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1A67C9).withValues(alpha: 0.26),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(
-            right: -16,
-            bottom: -10,
-            child: Icon(
-              Icons.cloud,
-              size: size * 0.58,
-              color: Colors.white.withValues(alpha: 0.20),
-            ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'MERP',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: size * 0.22,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
-                ),
-              ),
-              SizedBox(height: size * 0.05),
-              Container(
-                width: size * 0.46,
-                height: size * 0.18,
-                alignment: Alignment.center,
+    if (reduceMotion) {
+      return const SizedBox(
+        width: 32,
+        height: 32,
+        child: CircularProgressIndicator(strokeWidth: 3),
+      );
+    }
+
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (index) {
+            final phase = (animation.value + index * 0.22) % 1.0;
+            final opacity = 0.35 + phase * 0.65;
+            final size = 7.0 + phase * 3.0;
+            return Container(
+              width: 18,
+              alignment: Alignment.center,
+              child: Container(
+                width: size,
+                height: size,
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(size * 0.09),
-                ),
-                child: Text(
-                  'ERP',
-                  style: TextStyle(
-                    color: const Color(0xFF1A67C9),
-                    fontSize: size * 0.10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0,
-                  ),
+                  color: const Color(0xFF1768C6).withValues(alpha: opacity),
+                  shape: BoxShape.circle,
                 ),
               ),
-            ],
-          ),
-        ],
-      ),
+            );
+          }),
+        );
+      },
     );
   }
 }

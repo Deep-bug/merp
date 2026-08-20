@@ -24,11 +24,16 @@ usage() {
   ./tool/app run mock ios [Flutter 额外参数]
   ./tool/app build qas android [Flutter 额外参数]
   ./tool/app build qas ios [Flutter 额外参数]
+  IOS_OTA_BASE_URL=https://example.com/merp/ios ./tool/app build qas ios-ota [Flutter 额外参数]
   ./tool/app build prd android [Flutter 额外参数]
   ./tool/app build prd ios [Flutter 额外参数]
 
 版本覆盖：
   BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build qas android
+
+iOS OTA：
+  ios-ota 会构建 Ad Hoc IPA，并在 build/ios/ota/qas 生成 manifest.plist。
+  IOS_OTA_BASE_URL 必须填写服务器上存放 IPA 和 plist 的 HTTPS 目录。
 HELP
 }
 
@@ -166,6 +171,16 @@ select_device() {
   ' "$platform" <<<"$devices_json"
 }
 
+latest_artifact() {
+  local marker="$1"
+  local extension="$2"
+  local artifact
+
+  artifact="$(find "$ROOT_DIR/build" -type f -name "*.$extension" -newer "$marker" -print 2>/dev/null | head -n 1)"
+  [[ -n "$artifact" ]] || fail "构建命令结束，但没有找到本次生成的 .$extension 产物。"
+  printf '%s/%s\n' "$(cd "$(dirname "$artifact")" && pwd)" "$(basename "$artifact")"
+}
+
 print_artifact() {
   local environment="$1"
   local platform="$2"
@@ -175,9 +190,7 @@ print_artifact() {
   local extension="$6"
   local artifact
 
-  artifact="$(find "$ROOT_DIR/build" -type f -name "*.$extension" -newer "$marker" -print 2>/dev/null | head -n 1)"
-  [[ -n "$artifact" ]] || fail "构建命令结束，但没有找到本次生成的 .$extension 产物。"
-  artifact="$(cd "$(dirname "$artifact")" && pwd)/$(basename "$artifact")"
+  artifact="$(latest_artifact "$marker" "$extension")"
 
   printf '\n✓ 构建成功\n'
   printf '环境：%s\n' "$environment"
@@ -185,6 +198,42 @@ print_artifact() {
   printf '版本：%s+%s\n' "$version_name" "$build_number"
   printf '提交：%s\n' "$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || printf unknown)"
   printf '产物：%s\n' "$artifact"
+}
+
+generate_ios_ota_package() {
+  local environment="$1"
+  local version_name="$2"
+  local build_number="$3"
+  local marker="$4"
+  local base_url="${IOS_OTA_BASE_URL:-}"
+  local title="${IOS_OTA_TITLE:-MERP QAS}"
+  local source_ipa
+  local output_dir
+  local ipa_name
+  local ota_ipa
+  local manifest
+  local ipa_url
+
+  [[ -n "$base_url" ]] ||
+    fail "ios-ota 需要设置 IOS_OTA_BASE_URL，例如：IOS_OTA_BASE_URL=https://example.com/merp/ios ./tool/app build qas ios-ota"
+  [[ "$base_url" == https://* ]] ||
+    fail "IOS_OTA_BASE_URL 必须是 HTTPS 地址，iOS OTA 安装不接受普通 HTTP。"
+
+  source_ipa="$(latest_artifact "$marker" ipa)"
+  output_dir="$ROOT_DIR/build/ios/ota/$environment"
+  ipa_name="merp-$environment-$version_name-$build_number.ipa"
+  ota_ipa="$output_dir/$ipa_name"
+  manifest="$output_dir/manifest.plist"
+  ipa_url="${base_url%/}/$ipa_name"
+
+  mkdir -p "$output_dir"
+  cp "$source_ipa" "$ota_ipa"
+  ruby "$TOOL_DIR/generate_ios_ota_manifest.rb" "$ota_ipa" "$manifest" "$ipa_url" "$title"
+
+  printf '\n✓ iOS OTA 文件已生成\n'
+  printf 'IPA：%s\n' "$ota_ipa"
+  printf 'Plist：%s\n' "$manifest"
+  printf '安装链接：itms-services://?action=download-manifest&url=%s/manifest.plist\n' "${base_url%/}"
 }
 
 COMMAND="${1:-}"
@@ -233,8 +282,20 @@ ENVIRONMENT="${2:-}"
 PLATFORM="${3:-}"
 [[ "$ENVIRONMENT" == "qas" || "$ENVIRONMENT" == "prd" || "$ENVIRONMENT" == "mock" ]] ||
   fail "环境只能是 qas、mock 或 prd。"
-[[ "$PLATFORM" == "android" || "$PLATFORM" == "ios" ]] ||
-  fail "平台只能是 android 或 ios。"
+[[ "$PLATFORM" == "android" || "$PLATFORM" == "ios" || "$PLATFORM" == "ios-ota" ]] ||
+  fail "平台只能是 android、ios 或 ios-ota。"
+if [[ "$COMMAND" == "run" && "$PLATFORM" == "ios-ota" ]]; then
+  fail "ios-ota 只用于 build，运行调试请使用 ios。"
+fi
+if [[ "$COMMAND" == "build" && "$PLATFORM" == "ios-ota" && "$ENVIRONMENT" != "qas" ]]; then
+  fail "ios-ota 当前只用于 QAS 测试分发；PRD 请走 app-store 构建。"
+fi
+if [[ "$COMMAND" == "build" && "$PLATFORM" == "ios-ota" ]]; then
+  [[ -n "${IOS_OTA_BASE_URL:-}" ]] ||
+    fail "ios-ota 需要设置 IOS_OTA_BASE_URL，例如：IOS_OTA_BASE_URL=https://example.com/merp/ios ./tool/app build qas ios-ota"
+  [[ "${IOS_OTA_BASE_URL:-}" == https://* ]] ||
+    fail "IOS_OTA_BASE_URL 必须是 HTTPS 地址，iOS OTA 安装不接受普通 HTTP。"
+fi
 if [[ "$COMMAND" == "run" && "$ENVIRONMENT" == "prd" ]]; then
   fail "不提供 run prd；本地日常运行固定使用 QAS。"
 fi
@@ -310,11 +371,18 @@ elif [[ "$PLATFORM" == "android" ]]; then
     --build-number "$BUILD_NUMBER" "${EXTRA_ARGUMENTS[@]:1}"
   print_artifact prd android "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" aab
 elif [[ "$ENVIRONMENT" == "qas" ]]; then
+  EXPORT_METHOD="development"
+  if [[ "$PLATFORM" == "ios-ota" ]]; then
+    EXPORT_METHOD="ad-hoc"
+  fi
   flutter build ipa --flavor qas --release --target lib/main.dart \
-    --export-method development "${CONFIG_ARGUMENTS[@]}" \
+    --export-method "$EXPORT_METHOD" "${CONFIG_ARGUMENTS[@]}" \
     --build-name "$VERSION_NAME" --build-number "$BUILD_NUMBER" \
     "${EXTRA_ARGUMENTS[@]:1}"
   print_artifact qas ios "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" ipa
+  if [[ "$PLATFORM" == "ios-ota" ]]; then
+    generate_ios_ota_package qas "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER"
+  fi
 else
   flutter build ipa --flavor prd --release --target lib/main.dart \
     --export-method app-store "${CONFIG_ARGUMENTS[@]}" \
