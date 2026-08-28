@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // 文件：settings_controller.dart
-// 作用：管理语言、安全策略、生物识别、手势密码和版本检测等系统设置
+// 作用：管理语言、安全策略、生物识别、手势密码和版本展示等系统设置
 // 编写时间：2026-07-10
 // 维护说明：持久化键与安全策略集中在此，页面只负责展示和触发意图
 // -----------------------------------------------------------------------------
@@ -18,7 +18,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/logging/app_logger.dart';
-import '../../core/network/api_client.dart';
 
 enum AppLanguage {
   zhHans('zh-CN', 'zh_CN', Locale('zh')),
@@ -52,91 +51,6 @@ enum UnlockMethod {
   }
 }
 
-class VersionCheckResult {
-  const VersionCheckResult({
-    required this.currentVersion,
-    required this.latestVersion,
-    required this.hasUpdate,
-    required this.message,
-  });
-
-  final String currentVersion;
-  final String latestVersion;
-  final bool hasUpdate;
-  final String message;
-
-  factory VersionCheckResult.fromResponse({
-    required Map<String, dynamic> response,
-    required String currentVersion,
-  }) {
-    final latestVersion = _readString(response, const [
-      'latestVersion',
-      'latest_version',
-      'versionName',
-      'version_name',
-      'version',
-    ]);
-    final hasUpdate =
-        _readBool(response, const [
-          'hasUpdate',
-          'has_update',
-          'needUpdate',
-          'need_update',
-          'updateAvailable',
-          'update_available',
-        ]) ??
-        (latestVersion != null && latestVersion != currentVersion);
-    return VersionCheckResult(
-      currentVersion: currentVersion,
-      latestVersion: latestVersion ?? currentVersion,
-      hasUpdate: hasUpdate,
-      message:
-          _readString(response, const [
-            'message',
-            'releaseNotes',
-            'release_notes',
-            'description',
-          ]) ??
-          (hasUpdate ? '发现新版本' : '当前已经是最新版本'),
-    );
-  }
-
-  static String? _readString(Map<String, dynamic> source, List<String> keys) {
-    for (final key in keys) {
-      final value = source[key];
-      if (value is String && value.trim().isNotEmpty) {
-        return value.trim();
-      }
-      if (value is num) {
-        return value.toString();
-      }
-    }
-    return null;
-  }
-
-  static bool? _readBool(Map<String, dynamic> source, List<String> keys) {
-    for (final key in keys) {
-      final value = source[key];
-      if (value is bool) {
-        return value;
-      }
-      if (value is num) {
-        return value != 0;
-      }
-      if (value is String) {
-        final normalized = value.trim().toLowerCase();
-        if (normalized == 'true' || normalized == '1') {
-          return true;
-        }
-        if (normalized == 'false' || normalized == '0') {
-          return false;
-        }
-      }
-    }
-    return null;
-  }
-}
-
 class SettingsController extends ChangeNotifier {
   SettingsController({
     required AppLogger logger,
@@ -145,13 +59,11 @@ class SettingsController extends ChangeNotifier {
     FlutterSecureStorage? secureStorage,
     bool useSecureStorage = true,
     Future<PackageInfo> Function()? packageInfoProvider,
-    TargetPlatform? platform,
   }) : _logger = logger,
        _localAuthentication = localAuthentication ?? LocalAuthentication(),
        _secureStorage = secureStorage ?? const FlutterSecureStorage(),
        _useSecureStorage = useSecureStorage,
-       _packageInfoProvider = packageInfoProvider ?? PackageInfo.fromPlatform,
-       _platform = platform ?? defaultTargetPlatform;
+       _packageInfoProvider = packageInfoProvider ?? PackageInfo.fromPlatform;
 
   static const autoLockTimeout = Duration(seconds: 10);
   static const _autoLockKey = 'merp.settings.autoLockEnabled';
@@ -167,7 +79,6 @@ class SettingsController extends ChangeNotifier {
   final FlutterSecureStorage _secureStorage;
   final bool _useSecureStorage;
   final Future<PackageInfo> Function() _packageInfoProvider;
-  final TargetPlatform _platform;
   final String environment;
 
   SharedPreferences? _preferences;
@@ -181,7 +92,6 @@ class SettingsController extends ChangeNotifier {
   UnlockMethod unlockMethod = UnlockMethod.gesture;
   String? lastBiometricError;
   String currentVersion = '1.0.0';
-  bool isVersionChecking = false;
 
   bool get biometricEnabled => unlockMethod != UnlockMethod.gesture;
 
@@ -363,47 +273,6 @@ class SettingsController extends ChangeNotifier {
     unlockMethod = UnlockMethod.gesture;
     notifyListeners();
   }
-
-  Future<VersionCheckResult> checkVersion({
-    required ApiClient apiClient,
-    required String versionCheckPath,
-  }) async {
-    if (isVersionChecking) {
-      throw StateError('版本检测正在进行中');
-    }
-    isVersionChecking = true;
-    notifyListeners();
-    try {
-      final package = await _packageInfoProvider();
-      final version = package.version.trim();
-      final versionCode = package.buildNumber.trim();
-      if (versionCode.isEmpty) {
-        throw StateError('未读取到应用版本构建号');
-      }
-      currentVersion = version;
-      final response = await apiClient.post<Map<String, dynamic>>(
-        versionCheckPath,
-        data: {
-          'platform': _versionPlatform,
-          'versionCode': versionCode,
-          'locale': language.apiCode,
-        },
-      );
-      return VersionCheckResult.fromResponse(
-        response: response,
-        currentVersion: version,
-      );
-    } finally {
-      isVersionChecking = false;
-      notifyListeners();
-    }
-  }
-
-  String get _versionPlatform => switch (_platform) {
-    TargetPlatform.android => 'android',
-    TargetPlatform.iOS => 'ios',
-    _ => throw UnsupportedError('版本检测仅支持 Android 和 iOS'),
-  };
 
   Future<bool> authenticateWithBiometrics({UnlockMethod? method}) async {
     final selected = method ?? unlockMethod;

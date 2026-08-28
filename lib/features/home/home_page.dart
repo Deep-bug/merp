@@ -34,6 +34,14 @@ class HomePage extends StatelessWidget {
         scope.favoriteFeatureController,
       ]),
       builder: (context, _) {
+        final assistantFeatures = permissions.authorizedFeatures.where(
+          (feature) => feature.id == 'ai-search',
+        );
+        final assistantFeature = assistantFeatures.isEmpty
+            ? null
+            : assistantFeatures.first;
+        final assistantRoute = assistantFeature?.route.trim();
+
         return Scaffold(
           drawer: HomeDrawer(
             profile: auth.session?.profile,
@@ -80,11 +88,17 @@ class HomePage extends StatelessWidget {
                     ],
                   ),
                 ),
-                Positioned(
-                  right: 18,
-                  bottom: 18,
-                  child: HomeAssistantButton(iconColor: manifest.iconColor),
-                ),
+                if (assistantFeature != null &&
+                    assistantRoute != null &&
+                    assistantRoute.isNotEmpty)
+                  Positioned.fill(
+                    child: HomeAssistantOverlay(
+                      iconColor: manifest.iconColor,
+                      semanticLabel: assistantFeature.title,
+                      onTap: () =>
+                          AppNavigator.openFeature(context, assistantRoute),
+                    ),
+                  ),
               ],
             ),
           ),

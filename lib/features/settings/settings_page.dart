@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/config/app_config.dart';
 import '../../core/platform/web_data_cleaner.dart';
+import '../app_update/app_update_controller.dart';
 import '../../l10n/l10n.dart';
 import '../../routing/app_navigator.dart';
 import '../../routing/app_routes.dart';
@@ -26,9 +27,10 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = AppScope.of(context).settingsController;
     final webDataCleaner = AppScope.of(context).webDataCleaner;
+    final appUpdate = AppScope.of(context).appUpdateController;
 
     return AnimatedBuilder(
-      animation: Listenable.merge([settings, webDataCleaner]),
+      animation: Listenable.merge([settings, webDataCleaner, appUpdate]),
       builder: (context, _) {
         return Scaffold(
           backgroundColor: Colors.white,
@@ -208,10 +210,10 @@ class SettingsPage extends StatelessWidget {
                         context.l10n.currentVersion(settings.currentVersion),
                       ),
                       trailing: OutlinedButton(
-                        onPressed: settings.isVersionChecking
+                        onPressed: appUpdate.isChecking
                             ? null
-                            : () => _checkVersion(context, settings),
-                        child: settings.isVersionChecking
+                            : () => _checkVersion(context, appUpdate),
+                        child: appUpdate.isChecking
                             ? const SizedBox.square(
                                 dimension: 18,
                                 child: CircularProgressIndicator(
@@ -261,15 +263,10 @@ class SettingsPage extends StatelessWidget {
 
   Future<void> _checkVersion(
     BuildContext context,
-    SettingsController settings,
+    AppUpdateController appUpdate,
   ) async {
-    final scope = AppScope.of(context);
-    VersionCheckResult result;
     try {
-      result = await settings.checkVersion(
-        apiClient: scope.apiClient,
-        versionCheckPath: scope.config.versionCheckPath,
-      );
+      await appUpdate.checkManually();
     } catch (_) {
       if (!context.mounted) {
         return;
@@ -284,12 +281,22 @@ class SettingsPage extends StatelessWidget {
     if (!context.mounted) {
       return;
     }
-    if (!result.hasUpdate) {
+    if (appUpdate.status == AppUpdateStatus.upToDate) {
       AppNotice.show(
         context,
-        message: context.l10n.alreadyLatestVersion(result.currentVersion),
+        message: context.l10n.alreadyLatestVersion(
+          appUpdate.currentVersionName,
+        ),
         tone: AppNoticeTone.success,
       );
+      return;
+    }
+    // 强制升级由全局 AppUpdateGate 接管；设置页面不再叠加普通弹窗。
+    if (appUpdate.isForceUpdateActive) {
+      return;
+    }
+    final info = appUpdate.updateInfo;
+    if (info == null || appUpdate.status != AppUpdateStatus.optionalUpdate) {
       return;
     }
     showDialog<void>(
@@ -299,9 +306,9 @@ class SettingsPage extends StatelessWidget {
         icon: Icons.system_update_alt_rounded,
         title: context.l10n.newVersion,
         message: context.l10n.versionResult(
-          result.message,
-          result.currentVersion,
-          result.latestVersion,
+          info.releaseNotes,
+          appUpdate.currentVersionName,
+          info.latestVersionName,
         ),
         primaryLabel: context.l10n.acknowledge,
         onPrimary: () => Navigator.of(dialogContext).pop(),

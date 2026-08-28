@@ -14,6 +14,42 @@ import WebKit
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     configureWebDataChannel(with: engineBridge.pluginRegistry)
+    configureAppUpdateChannel(with: engineBridge.pluginRegistry)
+  }
+
+  /// iOS 企业分发由系统处理下载和安装；Flutter 只负责打开 itms-services 链接。
+  private func configureAppUpdateChannel(with registry: FlutterPluginRegistry) {
+    guard let registrar = registry.registrar(forPlugin: "MerpAppUpdater") else {
+      return
+    }
+    let channel = FlutterMethodChannel(
+      name: "com.delta.merpdelta/app_update",
+      binaryMessenger: registrar.messenger()
+    )
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "openEnterpriseInstall" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      guard
+        let arguments = call.arguments as? [String: Any],
+        let value = arguments["url"] as? String,
+        let url = URL(string: value),
+        url.scheme == "itms-services" || url.scheme == "https"
+      else {
+        result(
+          FlutterError(
+            code: "ENTERPRISE_INSTALL_URL_INVALID",
+            message: "企业安装链接格式不正确",
+            details: nil
+          )
+        )
+        return
+      }
+      UIApplication.shared.open(url, options: [:]) { opened in
+        result(opened)
+      }
+    }
   }
 
   /// 清理 WKWebView 的网站数据，不会触碰 Keychain、UserDefaults 或 Flutter 的

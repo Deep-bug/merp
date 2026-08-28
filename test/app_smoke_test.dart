@@ -23,6 +23,10 @@ import 'package:merp/core/device/map_sdk_service.dart';
 import 'package:merp/core/logging/app_logger.dart';
 import 'package:merp/core/network/api_client.dart';
 import 'package:merp/core/platform/web_data_cleaner.dart';
+import 'package:merp/features/app_update/app_update_controller.dart';
+import 'package:merp/features/app_update/app_update_info.dart';
+import 'package:merp/features/app_update/app_update_platform.dart';
+import 'package:merp/features/app_update/app_update_repository.dart';
 import 'package:merp/features/home/data/permission_repository.dart';
 import 'package:merp/features/home/data/favorite_feature_controller.dart';
 import 'package:merp/features/home/data/feature_badge_controller.dart';
@@ -49,6 +53,13 @@ void main() {
     final favorites = FavoriteFeatureController(logger: logger);
     final badges = FeatureBadgeController(logger: logger);
     final webDataCleaner = WebDataCleaner(logger: logger);
+    final appUpdate = AppUpdateController(
+      repository: _UnusedUpdateRepository(),
+      platformService: _UnusedUpdatePlatform(),
+      logger: logger,
+      localeProvider: () => 'zh_CN',
+      platform: TargetPlatform.android,
+    );
     await favorites.load();
     final settings = SettingsController(
       logger: logger,
@@ -81,6 +92,7 @@ void main() {
       permissionRepository: permissions,
       favoriteFeatureController: favorites,
       featureBadgeController: badges,
+      appUpdateController: appUpdate,
       webDataCleaner: webDataCleaner,
       settingsController: settings,
       cameraService: CameraService(),
@@ -105,4 +117,36 @@ void main() {
     expect(find.text('登入'), findsOneWidget);
     expect(find.text('驗證碼'), findsOneWidget);
   });
+}
+
+class _UnusedUpdateRepository implements AppUpdateRepositoryContract {
+  @override
+  Future<AppUpdateInfo> checkVersion({
+    required String platform,
+    required int versionCode,
+    required String locale,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> downloadPackage({
+    required Uri url,
+    required String savePath,
+    required void Function(int received, int total) onProgress,
+  }) {
+    throw UnimplementedError();
+  }
+}
+
+class _UnusedUpdatePlatform implements AppUpdatePlatform {
+  @override
+  Future<AndroidInstallResult> installAndroidPackage(String filePath) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> openIosEnterpriseInstall(Uri url) {
+    throw UnimplementedError();
+  }
 }

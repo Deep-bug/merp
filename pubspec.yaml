@@ -82,6 +82,7 @@ flutter:
 
   assets:
     - assets/branding/
+    - assets/images/assistant/
     - assets/legal/
 
   # To add assets to your application, add an assets section, like this:

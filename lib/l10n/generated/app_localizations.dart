@@ -762,6 +762,90 @@ abstract class AppLocalizations {
     String latestVersion,
   );
 
+  /// No description provided for @forceUpdateTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'发现必要更新'**
+  String get forceUpdateTitle;
+
+  /// No description provided for @forceUpdateMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前版本过低，需要升级后才能继续使用。'**
+  String get forceUpdateMessage;
+
+  /// No description provided for @updateVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'新版本 {version}'**
+  String updateVersion(String version);
+
+  /// No description provided for @updateNotes.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新内容'**
+  String get updateNotes;
+
+  /// No description provided for @downloadingUpdate.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在下载新版本'**
+  String get downloadingUpdate;
+
+  /// No description provided for @downloadedSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'已下载 {size}'**
+  String downloadedSize(String size);
+
+  /// No description provided for @downloadUpdate.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载更新'**
+  String get downloadUpdate;
+
+  /// No description provided for @retryDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新下载'**
+  String get retryDownload;
+
+  /// No description provided for @continueInstall.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续安装'**
+  String get continueInstall;
+
+  /// No description provided for @openInstallAgain.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新打开安装'**
+  String get openInstallAgain;
+
+  /// No description provided for @mockDownloadComplete.
+  ///
+  /// In zh, this message translates to:
+  /// **'模拟下载已完成，本次不会创建安装包或打开系统安装器。'**
+  String get mockDownloadComplete;
+
+  /// No description provided for @updateNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即更新'**
+  String get updateNow;
+
+  /// No description provided for @updateFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'升级未完成，请检查网络后重试。'**
+  String get updateFailed;
+
+  /// No description provided for @installPermissionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'请在系统设置中允许 MERP 安装应用，然后返回继续安装。'**
+  String get installPermissionHint;
+
   /// No description provided for @diagnosticLogs.
   ///
   /// In zh, this message translates to:

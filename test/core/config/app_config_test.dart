@@ -72,4 +72,21 @@ void main() {
       );
     },
   );
+
+  test('only enables update simulation for the mock debug environment', () {
+    expect(
+      const AppConfig(
+        appEnvironment: 'mock',
+        mockAppUpdate: true,
+      ).isMockAppUpdateEnabled,
+      isTrue,
+    );
+    expect(
+      const AppConfig(
+        appEnvironment: 'qas',
+        mockAppUpdate: true,
+      ).isMockAppUpdateEnabled,
+      isFalse,
+    );
+  });
 }

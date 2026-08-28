@@ -186,8 +186,11 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final auth = _authController!;
+    final settings = AppScope.of(context).settingsController;
     return ListenableBuilder(
-      listenable: auth,
+      // 版本号来自 SettingsController 的 PackageInfo 读取结果。登录页也
+      // 监听它，以免应用启动时先短暂显示默认版本号。
+      listenable: Listenable.merge([auth, settings]),
       builder: (context, _) {
         return Scaffold(
           resizeToAvoidBottomInset: true,
@@ -205,7 +208,8 @@ class _LoginPageState extends State<LoginPage> {
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minHeight: minimumHeight),
                     child: Align(
-                      alignment: const Alignment(0, -0.18),
+                      // 将登录内容略微上移，为表单与协议区保留更舒适的空间。
+                      alignment: const Alignment(0, -0.28),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 420),
                         child: AutofillGroup(
@@ -213,17 +217,55 @@ class _LoginPageState extends State<LoginPage> {
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Text(
-                                'MERP',
-                                style: Theme.of(context).textTheme.displaySmall
-                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              // 品牌图标与版本信息固定居中，避免受表单宽度影响。
+                              Center(
+                                child: Container(
+                                  width: 96,
+                                  height: 96,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceContainerLowest,
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        blurRadius: 16,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(23),
+                                    child: Image.asset(
+                                      'assets/branding/splash_logo.png',
+                                      fit: BoxFit.contain,
+                                      semanticLabel: 'MERP',
+                                    ),
+                                  ),
+                                ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                context.l10n.workbench,
-                                style: Theme.of(context).textTheme.titleMedium,
+                              const SizedBox(height: 10),
+                              Center(
+                                child: Text(
+                                  'v${settings.currentVersion}',
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                ),
                               ),
-                              const SizedBox(height: 24),
+                              // 品牌信息与登录表单形成两个独立区域。
+                              const SizedBox(height: 40),
                               TextField(
                                 controller: _accountController,
                                 focusNode: _accountFocusNode,
@@ -313,21 +355,41 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              SizedBox(
-                                height: 54,
-                                child: FilledButton.icon(
-                                  onPressed: _submitting
-                                      ? null
-                                      : _handleLoginTap,
-                                  icon: _submitting
-                                      ? const SizedBox.square(
-                                          dimension: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(Icons.login),
-                                  label: Text(context.l10n.login),
+                              Center(
+                                child: FractionallySizedBox(
+                                  // 保持按钮比输入框短，同时适配不同屏幕宽度。
+                                  widthFactor: 0.7,
+                                  child: SizedBox(
+                                    height: 54,
+                                    child: FilledButton.icon(
+                                      style: FilledButton.styleFrom(
+                                        // 登录按钮使用固定浅蓝色，不随主题变化。
+                                        backgroundColor: const Color(
+                                          0xFFDCEEFF,
+                                        ),
+                                        foregroundColor: const Color(
+                                          0xFF155D9C,
+                                        ),
+                                      ),
+                                      onPressed: _submitting
+                                          ? null
+                                          : _handleLoginTap,
+                                      icon: _submitting
+                                          ? const SizedBox.square(
+                                              dimension: 18,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : const Icon(Icons.login),
+                                      label: Text(
+                                        context.l10n.login,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
@@ -408,8 +470,15 @@ class _PrivacyConsent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+    final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
       color: Theme.of(context).colorScheme.onSurfaceVariant,
+      height: 1.35,
+    );
+    final linkStyle = textStyle?.copyWith(
+      color: Theme.of(context).colorScheme.primary,
+      fontWeight: FontWeight.w600,
+      decoration: TextDecoration.underline,
+      decorationColor: Theme.of(context).colorScheme.primary,
     );
 
     return Row(
@@ -418,63 +487,68 @@ class _PrivacyConsent extends StatelessWidget {
         Checkbox(
           value: accepted,
           onChanged: (value) => onChanged(value ?? false),
-          visualDensity: VisualDensity.compact,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 8),
         Expanded(
+          // 宽屏优先在同一行展示；小屏或系统大字体下自然换行，不缩小文字。
           child: Padding(
-            padding: const EdgeInsets.only(top: 10),
+            padding: const EdgeInsets.only(top: 6),
             child: Wrap(
+              spacing: 2,
+              runSpacing: 2,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 InkWell(
                   onTap: () => onChanged(!accepted),
                   borderRadius: BorderRadius.circular(4),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Text(
                       context.l10n.legalConsentPrefix,
                       style: textStyle,
                     ),
                   ),
                 ),
-                InkWell(
+                _LegalLink(
+                  label: '《${context.l10n.copyrightDisclaimer}》',
                   onTap: onOpenCopyright,
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: Text(
-                      '《${context.l10n.copyrightDisclaimer}》',
-                      style: textStyle?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                        decoration: TextDecoration.underline,
-                        decorationColor: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  ),
+                  style: linkStyle,
                 ),
-                InkWell(
+                _LegalLink(
+                  label: '《${context.l10n.personalDataStatement}》',
                   onTap: onOpenPersonalData,
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: Text(
-                      '《${context.l10n.personalDataStatement}》',
-                      style: textStyle?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                        decoration: TextDecoration.underline,
-                        decorationColor: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  ),
+                  style: linkStyle,
                 ),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _LegalLink extends StatelessWidget {
+  const _LegalLink({
+    required this.label,
+    required this.onTap,
+    required this.style,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Text(label, style: style),
+      ),
     );
   }
 }

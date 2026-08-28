@@ -7,5 +7,6 @@
   "HK_API_BASE_URL": "http://10.146.152.51:31234",
   "DEV_BYPASS_LOGIN": true,
   "MOCK_MENUS": true,
+  "MOCK_APP_UPDATE": true,
   "ENABLE_LOG": true
 }

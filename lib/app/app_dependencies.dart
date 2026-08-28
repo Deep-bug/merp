@@ -19,6 +19,10 @@ import '../core/logging/app_logger.dart';
 import '../core/network/api_client.dart';
 import '../core/platform/web_data_cleaner.dart';
 import '../features/home/data/permission_repository.dart';
+import '../features/app_update/app_update_controller.dart';
+import '../features/app_update/app_update_platform.dart';
+import '../features/app_update/app_update_repository.dart';
+import '../features/app_update/mock_app_update_repository.dart';
 import '../features/home/data/favorite_feature_controller.dart';
 import '../features/home/data/feature_badge_controller.dart';
 import '../features/settings/settings_controller.dart';
@@ -37,6 +41,7 @@ class AppDependencies {
     required this.permissionRepository,
     required this.favoriteFeatureController,
     required this.featureBadgeController,
+    required this.appUpdateController,
     required this.webDataCleaner,
     required this.settingsController,
     required this.cameraService,
@@ -54,6 +59,7 @@ class AppDependencies {
   final PermissionRepository permissionRepository;
   final FavoriteFeatureController favoriteFeatureController;
   final FeatureBadgeController featureBadgeController;
+  final AppUpdateController appUpdateController;
   final WebDataCleaner webDataCleaner;
   final SettingsController settingsController;
   final CameraService cameraService;
@@ -111,6 +117,21 @@ class AppDependencies {
     );
     final favoriteFeatureController = FavoriteFeatureController(logger: logger);
     final featureBadgeController = FeatureBadgeController(logger: logger);
+    final isMockAppUpdateEnabled = config.isMockAppUpdateEnabled;
+    final appUpdateRepository = isMockAppUpdateEnabled
+        ? MockAppUpdateRepository(logger: logger)
+        : AppUpdateRepository(
+            apiClient: apiClient,
+            config: config,
+            logger: logger,
+          );
+    final appUpdateController = AppUpdateController(
+      repository: appUpdateRepository,
+      platformService: MethodChannelAppUpdatePlatform(),
+      logger: logger,
+      localeProvider: () => settingsController.language.apiCode,
+      isSimulationMode: isMockAppUpdateEnabled,
+    );
     final webDataCleaner = WebDataCleaner(logger: logger);
 
     // 本地设置、地图 SDK 占位初始化互不依赖，可以并行加载。
@@ -130,6 +151,11 @@ class AppDependencies {
     if (selectedApiBaseUrl != config.apiBaseUrl) {
       apiClient.updateBaseUrl(selectedApiBaseUrl);
     }
+
+    // 版本检查只依赖环境、语言和 API 地址，应在登录态恢复之前启动。这样旧版本
+    // 即使 refresh_token 已失效，也能优先进入强制升级页。
+    // Mock Debug 使用本地仓库模拟接口和下载，其余环境访问真实版本接口。
+    // unawaited(appUpdateController.checkAtStartup());
 
     final authController = AuthController(
       authRepository: AuthRepository(
@@ -160,6 +186,7 @@ class AppDependencies {
       permissionRepository: permissionRepository,
       favoriteFeatureController: favoriteFeatureController,
       featureBadgeController: featureBadgeController,
+      appUpdateController: appUpdateController,
       webDataCleaner: webDataCleaner,
       settingsController: settingsController,
       cameraService: CameraService(),
@@ -181,6 +208,7 @@ class AppDependencies {
     permissionRepository.dispose();
     favoriteFeatureController.dispose();
     featureBadgeController.dispose();
+    appUpdateController.dispose();
     webDataCleaner.dispose();
     settingsController.dispose();
   }

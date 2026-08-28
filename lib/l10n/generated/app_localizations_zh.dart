@@ -365,6 +365,52 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get forceUpdateTitle => '发现必要更新';
+
+  @override
+  String get forceUpdateMessage => '当前版本过低，需要升级后才能继续使用。';
+
+  @override
+  String updateVersion(String version) {
+    return '新版本 $version';
+  }
+
+  @override
+  String get updateNotes => '更新内容';
+
+  @override
+  String get downloadingUpdate => '正在下载新版本';
+
+  @override
+  String downloadedSize(String size) {
+    return '已下载 $size';
+  }
+
+  @override
+  String get downloadUpdate => '下载更新';
+
+  @override
+  String get retryDownload => '重新下载';
+
+  @override
+  String get continueInstall => '继续安装';
+
+  @override
+  String get openInstallAgain => '重新打开安装';
+
+  @override
+  String get mockDownloadComplete => '模拟下载已完成，本次不会创建安装包或打开系统安装器。';
+
+  @override
+  String get updateNow => '立即更新';
+
+  @override
+  String get updateFailed => '升级未完成，请检查网络后重试。';
+
+  @override
+  String get installPermissionHint => '请在系统设置中允许 MERP 安装应用，然后返回继续安装。';
+
+  @override
   String get diagnosticLogs => '诊断日志';
 
   @override
@@ -1040,6 +1086,52 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   ) {
     return '$message\n目前版本：$currentVersion\n最新版本：$latestVersion';
   }
+
+  @override
+  String get forceUpdateTitle => '發現必要更新';
+
+  @override
+  String get forceUpdateMessage => '目前版本過低，需要升級後才能繼續使用。';
+
+  @override
+  String updateVersion(String version) {
+    return '新版本 $version';
+  }
+
+  @override
+  String get updateNotes => '更新內容';
+
+  @override
+  String get downloadingUpdate => '正在下載新版本';
+
+  @override
+  String downloadedSize(String size) {
+    return '已下載 $size';
+  }
+
+  @override
+  String get downloadUpdate => '下載更新';
+
+  @override
+  String get retryDownload => '重新下載';
+
+  @override
+  String get continueInstall => '繼續安裝';
+
+  @override
+  String get openInstallAgain => '重新開啟安裝';
+
+  @override
+  String get mockDownloadComplete => '模擬下載已完成，本次不會建立安裝套件或開啟系統安裝程式。';
+
+  @override
+  String get updateNow => '立即更新';
+
+  @override
+  String get updateFailed => '升級未完成，請檢查網路後再試。';
+
+  @override
+  String get installPermissionHint => '請在系統設定中允許 MERP 安裝應用程式，然後返回繼續安裝。';
 
   @override
   String get diagnosticLogs => '診斷日誌';

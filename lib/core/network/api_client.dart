@@ -225,6 +225,37 @@ class ApiClient {
     );
   }
 
+  /// 下载由后端签发的升级文件。
+  ///
+  /// 下载地址可能属于独立文件服务器，因此明确跳过 Bearer Token，避免把登录
+  /// 凭证发送到非 API 域名。文件完整性和签名仍由平台安装器做最终校验。
+  Future<void> downloadFile({
+    required Uri url,
+    required String savePath,
+    required void Function(int received, int total) onProgress,
+  }) async {
+    try {
+      await _dio.download(
+        url.toString(),
+        savePath,
+        deleteOnError: true,
+        onReceiveProgress: onProgress,
+        options: _withAuthOption(
+          Options(responseType: ResponseType.bytes),
+          skipAuth: true,
+        ),
+      );
+    } on DioException catch (error) {
+      final mapped = _fromDioException(error, url.toString());
+      final incidentId = _logRequestError(
+        mapped,
+        error.stackTrace,
+        url.toString(),
+      );
+      throw incidentId == null ? mapped : mapped.withIncidentId(incidentId);
+    }
+  }
+
   /// 主动或被 401 触发刷新 Token。
   ///
   /// `_refreshCompleter` 是单飞锁：并发请求同时收到 401 时，只有第一个请求

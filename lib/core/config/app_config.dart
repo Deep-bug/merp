@@ -84,6 +84,10 @@ class AppConfig {
       'DEV_BYPASS_LOGIN',
       defaultValue: false,
     ),
+    this.mockAppUpdate = const bool.fromEnvironment(
+      'MOCK_APP_UPDATE',
+      defaultValue: false,
+    ),
     this.mapProvider = 'baidu',
     this.androidMapApiKey = const String.fromEnvironment(
       'BAIDU_MAP_ANDROID_AK',
@@ -187,6 +191,9 @@ class AppConfig {
   /// QAS、PRD 与所有 Release 构建均强制关闭，避免配置误带造成安全风险。
   final bool devBypassLogin;
 
+  /// 本地模拟强制升级开关；只允许在 mock Debug 环境生效。
+  final bool mockAppUpdate;
+
   bool get isDevelopmentMockEnabled =>
       devBypassLogin && kDebugMode && normalizedAppEnvironment == 'mock';
 
@@ -194,6 +201,10 @@ class AppConfig {
   /// 即使旧电脑的 qas.local.json 遗留 MOCK_MENUS=true，QAS 仍会请求真实菜单。
   bool get isMockMenuEnabled =>
       mockMenus && kDebugMode && normalizedAppEnvironment == 'mock';
+
+  /// 模拟版本接口和下载进度，不访问网络、不创建安装包、不唤起安装器。
+  bool get isMockAppUpdateEnabled =>
+      mockAppUpdate && kDebugMode && normalizedAppEnvironment == 'mock';
 
   /// 地图厂商标识。后续可改成 baidu/amap/tencent 等。
   final String mapProvider;

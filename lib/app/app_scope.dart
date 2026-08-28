@@ -18,6 +18,7 @@ import '../core/logging/app_logger.dart';
 import '../core/network/api_client.dart';
 import '../core/platform/web_data_cleaner.dart';
 import '../features/home/data/permission_repository.dart';
+import '../features/app_update/app_update_controller.dart';
 import '../features/home/data/favorite_feature_controller.dart';
 import '../features/home/data/feature_badge_controller.dart';
 import '../features/settings/settings_controller.dart';
@@ -35,6 +36,7 @@ class AppScope extends InheritedWidget {
     required this.permissionRepository,
     required this.favoriteFeatureController,
     required this.featureBadgeController,
+    required this.appUpdateController,
     required this.webDataCleaner,
     required this.settingsController,
     required this.cameraService,
@@ -52,6 +54,7 @@ class AppScope extends InheritedWidget {
   final PermissionRepository permissionRepository;
   final FavoriteFeatureController favoriteFeatureController;
   final FeatureBadgeController featureBadgeController;
+  final AppUpdateController appUpdateController;
   final WebDataCleaner webDataCleaner;
   final SettingsController settingsController;
   final CameraService cameraService;
@@ -75,6 +78,7 @@ class AppScope extends InheritedWidget {
         permissionRepository != oldWidget.permissionRepository ||
         favoriteFeatureController != oldWidget.favoriteFeatureController ||
         featureBadgeController != oldWidget.featureBadgeController ||
+        appUpdateController != oldWidget.appUpdateController ||
         webDataCleaner != oldWidget.webDataCleaner ||
         settingsController != oldWidget.settingsController ||
         cameraService != oldWidget.cameraService ||

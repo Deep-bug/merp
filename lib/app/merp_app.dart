@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/generated/app_localizations.dart';
+import '../features/app_update/app_update_gate.dart';
 import '../routing/app_router.dart';
 import 'app_dependencies.dart';
 import 'app_scope.dart';
@@ -47,6 +48,7 @@ class _MerpAppState extends State<MerpApp> {
       permissionRepository: dependencies.permissionRepository,
       favoriteFeatureController: dependencies.favoriteFeatureController,
       featureBadgeController: dependencies.featureBadgeController,
+      appUpdateController: dependencies.appUpdateController,
       webDataCleaner: dependencies.webDataCleaner,
       settingsController: dependencies.settingsController,
       cameraService: dependencies.cameraService,
@@ -67,10 +69,13 @@ class _MerpAppState extends State<MerpApp> {
             routerConfig: _appRouter.router,
             debugShowCheckedModeBanner: false,
             builder: (context, child) {
-              return AutoLockGuard(
-                authController: dependencies.authController,
-                settingsController: dependencies.settingsController,
-                child: child ?? const SizedBox.shrink(),
+              return AppUpdateGate(
+                controller: dependencies.appUpdateController,
+                child: AutoLockGuard(
+                  authController: dependencies.authController,
+                  settingsController: dependencies.settingsController,
+                  child: child ?? const SizedBox.shrink(),
+                ),
               );
             },
           );
