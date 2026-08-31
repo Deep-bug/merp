@@ -145,18 +145,29 @@ class _LoginPageState extends State<LoginPage> {
     if (_submitting) {
       return;
     }
+    FocusScope.of(context).unfocus();
     setState(() => _submitting = true);
     final auth = _authController!;
-    final ok = await auth.login(
-      account: _accountController.text,
-      password: _passwordController.text,
-      captchaCode: _captchaController.text,
-    );
-    if (!mounted) {
-      return;
-    }
-    setState(() => _submitting = false);
-    if (ok) {
+    var navigationStarted = false;
+    try {
+      final ok = await auth.login(
+        account: _accountController.text,
+        password: _passwordController.text,
+        captchaCode: _captchaController.text,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (!ok) {
+        _captchaController.clear();
+        AppNotice.show(
+          context,
+          message: auth.lastError ?? context.l10n.loginFailed,
+          tone: AppNoticeTone.error,
+        );
+        return;
+      }
+
       final session = auth.session!;
       final settings = AppScope.of(context).settingsController;
       await settings.activateGestureScope(
@@ -173,14 +184,25 @@ class _LoginPageState extends State<LoginPage> {
       context.go(
         requiresEnrollment ? AppRoute.gestureEnrollment : AppRoute.home,
       );
-      return;
+      // 路由已经接管页面生命周期，不要在下一帧前把按钮恢复成普通状态。
+      navigationStarted = true;
+    } catch (error, stackTrace) {
+      if (!mounted) {
+        return;
+      }
+      AppScope.of(
+        context,
+      ).logger.error('auth', '登录后初始化失败', error: error, stackTrace: stackTrace);
+      AppNotice.show(
+        context,
+        message: context.l10n.loginFailed,
+        tone: AppNoticeTone.error,
+      );
+    } finally {
+      if (mounted && !navigationStarted) {
+        setState(() => _submitting = false);
+      }
     }
-    _captchaController.clear();
-    AppNotice.show(
-      context,
-      message: auth.lastError ?? context.l10n.loginFailed,
-      tone: AppNoticeTone.error,
-    );
   }
 
   @override
@@ -267,6 +289,7 @@ class _LoginPageState extends State<LoginPage> {
                               // 品牌信息与登录表单形成两个独立区域。
                               const SizedBox(height: 40),
                               TextField(
+                                enabled: !_submitting,
                                 controller: _accountController,
                                 focusNode: _accountFocusNode,
                                 autofillHints: const [AutofillHints.username],
@@ -280,6 +303,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               const SizedBox(height: 16),
                               TextField(
+                                enabled: !_submitting,
                                 controller: _passwordController,
                                 focusNode: _passwordFocusNode,
                                 autofillHints: const [AutofillHints.password],
@@ -297,6 +321,7 @@ class _LoginPageState extends State<LoginPage> {
                                 children: [
                                   Expanded(
                                     child: TextField(
+                                      enabled: !_submitting,
                                       controller: _captchaController,
                                       focusNode: _captchaFocusNode,
                                       textInputAction: TextInputAction.done,
@@ -345,6 +370,7 @@ class _LoginPageState extends State<LoginPage> {
                               const SizedBox(height: 20),
                               _PrivacyConsent(
                                 accepted: _privacyAccepted,
+                                enabled: !_submitting,
                                 onChanged: (value) {
                                   setState(() => _privacyAccepted = value);
                                 },
@@ -370,6 +396,12 @@ class _LoginPageState extends State<LoginPage> {
                                         foregroundColor: const Color(
                                           0xFF155D9C,
                                         ),
+                                        disabledBackgroundColor: const Color(
+                                          0xFFE1E5EA,
+                                        ),
+                                        disabledForegroundColor: const Color(
+                                          0xFF5F6B76,
+                                        ),
                                       ),
                                       onPressed: _submitting
                                           ? null
@@ -379,11 +411,14 @@ class _LoginPageState extends State<LoginPage> {
                                               dimension: 18,
                                               child: CircularProgressIndicator(
                                                 strokeWidth: 2,
+                                                color: Color(0xFF5F6B76),
                                               ),
                                             )
                                           : const Icon(Icons.login),
                                       label: Text(
-                                        context.l10n.login,
+                                        _submitting
+                                            ? context.l10n.loggingIn
+                                            : context.l10n.login,
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w700,
                                         ),
@@ -458,12 +493,14 @@ class _LoginPageState extends State<LoginPage> {
 class _PrivacyConsent extends StatelessWidget {
   const _PrivacyConsent({
     required this.accepted,
+    required this.enabled,
     required this.onChanged,
     required this.onOpenCopyright,
     required this.onOpenPersonalData,
   });
 
   final bool accepted;
+  final bool enabled;
   final ValueChanged<bool> onChanged;
   final VoidCallback onOpenCopyright;
   final VoidCallback onOpenPersonalData;
@@ -486,7 +523,7 @@ class _PrivacyConsent extends StatelessWidget {
       children: [
         Checkbox(
           value: accepted,
-          onChanged: (value) => onChanged(value ?? false),
+          onChanged: enabled ? (value) => onChanged(value ?? false) : null,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
         const SizedBox(width: 8),
@@ -500,7 +537,7 @@ class _PrivacyConsent extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 InkWell(
-                  onTap: () => onChanged(!accepted),
+                  onTap: enabled ? () => onChanged(!accepted) : null,
                   borderRadius: BorderRadius.circular(4),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
@@ -512,12 +549,12 @@ class _PrivacyConsent extends StatelessWidget {
                 ),
                 _LegalLink(
                   label: '《${context.l10n.copyrightDisclaimer}》',
-                  onTap: onOpenCopyright,
+                  onTap: enabled ? onOpenCopyright : null,
                   style: linkStyle,
                 ),
                 _LegalLink(
                   label: '《${context.l10n.personalDataStatement}》',
-                  onTap: onOpenPersonalData,
+                  onTap: enabled ? onOpenPersonalData : null,
                   style: linkStyle,
                 ),
               ],
@@ -537,7 +574,7 @@ class _LegalLink extends StatelessWidget {
   });
 
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final TextStyle? style;
 
   @override

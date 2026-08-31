@@ -8,6 +8,7 @@
   "startupFailedMessage": "應用程式初始化未完成，請檢查本機設定、網路或後端服務狀態。",
   "clearSessionAndLogin": "清除登入狀態並進入登入頁",
   "login": "登入",
+  "loggingIn": "登入中…",
   "account": "帳號",
   "password": "密碼",
   "captcha": "驗證碼",

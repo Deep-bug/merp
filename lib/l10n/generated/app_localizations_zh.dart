@@ -40,6 +40,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get login => '登录';
 
   @override
+  String get loggingIn => '登录中…';
+
+  @override
   String get account => '账号';
 
   @override
@@ -761,6 +764,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get login => '登入';
+
+  @override
+  String get loggingIn => '登入中…';
 
   @override
   String get account => '帳號';

@@ -152,6 +152,12 @@ abstract class AppLocalizations {
   /// **'登录'**
   String get login;
 
+  /// No description provided for @loggingIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录中…'**
+  String get loggingIn;
+
   /// No description provided for @account.
   ///
   /// In zh, this message translates to:
