@@ -170,7 +170,7 @@ class AppDependencies {
     // 网络层只通过回调通知认证状态失效，避免 ApiClient 反向依赖 Controller。
     apiClient.onSessionExpired = authController.handleSessionExpired;
     if (config.isDevelopmentMockEnabled) {
-      favoriteFeatureController.enableDevelopmentMockDefaults();
+      favoriteFeatureController.enableDevelopmentMockMode();
       featureBadgeController.enableDevelopmentMockCounts();
       await authController.enterDevelopmentMockSession();
     } else {

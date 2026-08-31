@@ -22,15 +22,7 @@ class FavoriteFeatureController extends ChangeNotifier {
   final AppLogger _logger;
   SharedPreferences? _preferences;
   List<String> _ids = [];
-  bool _developmentMockEnabled = false;
-  static const _developmentDefaultIds = [
-    'e-form',
-    'my-task',
-    'service-dispatch',
-    'sales-report',
-    'customer',
-    'field-work',
-  ];
+  List<String>? _developmentMockIds;
 
   List<String> get ids => List.unmodifiable(_effectiveIds);
   bool isFavorite(String featureId) => _effectiveIds.contains(featureId);
@@ -54,17 +46,35 @@ class FavoriteFeatureController extends ChangeNotifier {
         .toList();
   }
 
-  /// 仅为当前进程提供首页示例，不写入用户真实收藏记录。
-  void enableDevelopmentMockDefaults() {
-    if (_developmentMockEnabled) {
+  /// Mock 只跳过登录和提供菜单权限；收藏仍必须由用户主动点击。
+  ///
+  /// 使用独立的内存列表，避免 Mock 读取或改写正常 QAS 收藏。
+  void enableDevelopmentMockMode() {
+    if (_developmentMockIds != null) {
       return;
     }
-    _developmentMockEnabled = true;
-    _logger.warning('home.features', '开发 Mock 模式：已启用首页默认功能');
+    _developmentMockIds = [];
+    _logger.warning('home.features', '开发 Mock 模式：收藏列表已隔离且默认为空');
     notifyListeners();
   }
 
   Future<void> toggle(String featureId) async {
+    final developmentIds = _developmentMockIds;
+    if (developmentIds != null) {
+      if (developmentIds.contains(featureId)) {
+        developmentIds.remove(featureId);
+      } else {
+        developmentIds.add(featureId);
+      }
+      _logger.info(
+        'home.features',
+        '开发 Mock 模式：已更新内存收藏',
+        fields: {'featureId': featureId, 'count': developmentIds.length},
+      );
+      notifyListeners();
+      return;
+    }
+
     if (_ids.contains(featureId)) {
       _ids.remove(featureId);
     } else {
@@ -89,12 +99,26 @@ class FavoriteFeatureController extends ChangeNotifier {
     final movedId = reordered.removeAt(oldIndex);
     reordered.insert(newIndex.clamp(0, reordered.length), movedId);
 
+    final sourceIds = _developmentMockIds ?? _ids;
     final visibleSet = visibleIds.toSet();
     var visibleIndex = 0;
-    _ids = [
-      for (final id in _ids)
+    final updatedIds = [
+      for (final id in sourceIds)
         if (visibleSet.contains(id)) reordered[visibleIndex++] else id,
     ];
+
+    if (_developmentMockIds != null) {
+      _developmentMockIds = updatedIds;
+      _logger.info(
+        'home.features',
+        '开发 Mock 模式：已更新内存收藏排序',
+        fields: {'count': updatedIds.length},
+      );
+      notifyListeners();
+      return;
+    }
+
+    _ids = updatedIds;
     await _save();
   }
 
@@ -109,8 +133,5 @@ class FavoriteFeatureController extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<String> get _effectiveIds => [
-    if (_developmentMockEnabled) ..._developmentDefaultIds,
-    ..._ids.where((id) => !_developmentDefaultIds.contains(id)),
-  ];
+  List<String> get _effectiveIds => _developmentMockIds ?? _ids;
 }

@@ -52,6 +52,44 @@ void main() {
     expect(controller.ids, ['second', 'removed', 'third', 'first']);
   });
 
+  test('Mock 收藏默认为空且与正常 QAS 隔离', () async {
+    SharedPreferences.setMockInitialValues({
+      'merp.home.manualFavoriteFeatureIds.v2': ['qas-favorite'],
+    });
+    final controller = FavoriteFeatureController(logger: AppLogger());
+    await controller.load();
+    expect(controller.ids, ['qas-favorite']);
+
+    controller.enableDevelopmentMockMode();
+    expect(controller.ids, isEmpty);
+
+    await controller.toggle('e-form');
+    expect(controller.isFavorite('e-form'), isTrue);
+
+    await controller.toggle('e-form');
+    expect(controller.isFavorite('e-form'), isFalse);
+
+    // Mock 操作只影响当前进程，不污染正常 QAS 收藏。
+    final restored = FavoriteFeatureController(logger: AppLogger());
+    await restored.load();
+    expect(restored.ids, ['qas-favorite']);
+  });
+
+  test('Mock 主动收藏后第一项可以拖动排序', () async {
+    SharedPreferences.setMockInitialValues({});
+    final controller = FavoriteFeatureController(logger: AppLogger());
+    await controller.load();
+    controller.enableDevelopmentMockMode();
+    await controller.toggle('e-form');
+    await controller.toggle('my-task');
+    await controller.toggle('service-dispatch');
+    final originalIds = List<String>.of(controller.ids);
+
+    await controller.reorderVisible(originalIds, 0, 2);
+
+    expect(controller.ids, ['my-task', 'service-dispatch', 'e-form']);
+  });
+
   test('加载时会清除空值和重复功能 id', () async {
     SharedPreferences.setMockInitialValues({
       'merp.home.manualFavoriteFeatureIds.v2': [
