@@ -129,6 +129,61 @@ void main() {
     expect(platform.androidApkPath, contains('merp-10000.apk'));
   });
 
+  test('version code decides that the installed build is up to date', () async {
+    final controller = AppUpdateController(
+      repository: _FakeUpdateRepository(
+        info: _updateInfo(
+          updateType: AppUpdateType.force,
+          latestVersionCode: 9999,
+        ),
+      ),
+      platformService: _FakeUpdatePlatform(),
+      logger: AppLogger(),
+      localeProvider: () => 'zh_CN',
+      platform: TargetPlatform.android,
+      packageInfoProvider: _packageInfo,
+    );
+
+    await controller.checkManually();
+
+    expect(controller.currentVersionCode, 9999);
+    expect(controller.status, AppUpdateStatus.upToDate);
+    expect(controller.isForceUpdateActive, isFalse);
+  });
+
+  test('higher version code is never reported as up to date', () async {
+    final controller = AppUpdateController(
+      repository: _FakeUpdateRepository(
+        info: _updateInfo(
+          updateType: AppUpdateType.none,
+          latestVersionCode: 10000,
+        ),
+      ),
+      platformService: _FakeUpdatePlatform(),
+      logger: AppLogger(),
+      localeProvider: () => 'zh_CN',
+      platform: TargetPlatform.android,
+      packageInfoProvider: _packageInfo,
+    );
+
+    await expectLater(controller.checkManually(), throwsA(isA<StateError>()));
+
+    expect(controller.status, AppUpdateStatus.failed);
+  });
+
+  test('unknown update type is rejected instead of becoming none', () {
+    expect(
+      () => AppUpdateInfo.fromJson({
+        'updateType': 'force_update',
+        'latestVersionName': '1.0.0',
+        'latestVersionCode': 10000,
+        'releaseNotes': 'xxxxx',
+        'downloadUrl': 'https://example.com/merp.apk',
+      }),
+      throwsFormatException,
+    );
+  });
+
   test(
     'mock update simulates progress without file or native installer',
     () async {
@@ -172,6 +227,19 @@ AppUpdateInfo _forceInfo(Uri downloadUrl) {
     latestVersionCode: 10000,
     releaseNotes: 'xxxxx',
     downloadUrl: downloadUrl,
+  );
+}
+
+AppUpdateInfo _updateInfo({
+  required AppUpdateType updateType,
+  required int latestVersionCode,
+}) {
+  return AppUpdateInfo(
+    updateType: updateType,
+    latestVersionName: '1.0.0',
+    latestVersionCode: latestVersionCode,
+    releaseNotes: 'xxxxx',
+    downloadUrl: Uri.parse('https://example.com/merp.apk'),
   );
 }
 

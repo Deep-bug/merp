@@ -13,7 +13,7 @@ enum AppUpdateType {
       'force' => force,
       'optional' => optional,
       'none' => none,
-      _ => none,
+      _ => throw FormatException('版本接口 updateType 不受支持：${value ?? 'null'}'),
     };
   }
 }
@@ -33,7 +33,6 @@ class AppUpdateInfo {
   final String releaseNotes;
   final Uri downloadUrl;
 
-  bool get hasUpdate => updateType != AppUpdateType.none;
   bool get isForceUpdate => updateType == AppUpdateType.force;
 
   factory AppUpdateInfo.fromJson(Map<String, dynamic> json) {

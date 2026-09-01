@@ -127,14 +127,16 @@ class AppUpdateController extends ChangeNotifier {
     updateInfo = info;
     _validateDownloadUrl(info.downloadUrl);
 
-    if (!info.hasUpdate) {
+    // 是否存在新版本只比较数字构建号。updateType 仅描述发现新版本后采用
+    // 强制升级还是可选升级，不能反过来把更高版本误判为“已是最新版”。
+    if (info.latestVersionCode <= currentVersionCode) {
       _forceUpdateActive = false;
       status = AppUpdateStatus.upToDate;
       notifyListeners();
       return;
     }
-    if (info.latestVersionCode <= currentVersionCode) {
-      throw StateError('版本接口返回了不高于当前构建号的升级版本');
+    if (info.updateType == AppUpdateType.none) {
+      throw StateError('版本接口返回了更高构建号，但 updateType 为 none');
     }
 
     _forceUpdateActive = info.isForceUpdate;
