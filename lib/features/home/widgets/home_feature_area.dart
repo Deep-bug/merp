@@ -96,6 +96,8 @@ class HomeFeatureArea extends StatelessWidget {
               itemCount: features.length + 1,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
+              // 与页面外层留白叠加，让首页功能区视觉上更聚拢、更轻巧。
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
                 mainAxisSpacing: metrics.spacing,
@@ -132,6 +134,7 @@ class _FeatureLoadingSkeleton extends StatelessWidget {
           itemCount: 6,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
             mainAxisSpacing: metrics.spacing,
@@ -230,23 +233,23 @@ class HomeFeatureCard extends StatelessWidget {
     final iconContainerSize = compact
         ? 36.0
         : useLargeTextLayout
-        ? 44.0
-        : 48.0;
+        ? 40.0
+        : 42.0;
     final iconSize = compact
         ? 24.0
         : useLargeTextLayout
-        ? 30.0
-        : 32.0;
+        ? 27.0
+        : 28.0;
     final verticalPadding = compact
         ? 6.0
         : useLargeTextLayout
-        ? 5.0
-        : 8.0;
+        ? 4.0
+        : 6.0;
     final labelGap = compact
         ? 6.0
         : useLargeTextLayout
-        ? 6.0
-        : 6.0;
+        ? 5.0
+        : 5.0;
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final labelWeight = isIos ? FontWeight.w600 : FontWeight.w800;
     return Stack(
@@ -265,8 +268,8 @@ class HomeFeatureCard extends StatelessWidget {
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF29435C).withValues(alpha: 0.12),
-                blurRadius: compact ? 8 : 18,
-                offset: Offset(0, compact ? 4 : 10),
+                blurRadius: compact ? 8 : 14,
+                offset: Offset(0, compact ? 4 : 7),
               ),
             ],
           ),
@@ -317,6 +320,8 @@ class HomeFeatureCard extends StatelessWidget {
                               )
                             : Theme.of(context).textTheme.titleSmall?.copyWith(
                                 color: const Color(0xFF2E2F33),
+                                fontSize: 13,
+                                height: 1.15,
                                 fontWeight: labelWeight,
                               ),
                       ),

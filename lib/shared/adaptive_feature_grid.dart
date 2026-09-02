@@ -55,9 +55,10 @@ class AdaptiveFeatureGridMetrics {
     return _resolve(
       context,
       availableWidth,
-      baseExtent: 116,
+      // 首页只承载图标和两行标题，保持三列时使用更轻巧的卡片高度。
+      baseExtent: 106,
       extentPerScaleStep: 40,
-      maxExtent: 182,
+      maxExtent: 170,
     );
   }
 
