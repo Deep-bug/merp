@@ -28,6 +28,9 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  static const _contentMaxWidth = 320.0;
+  static const _fieldHeight = 48.0;
+
   final _accountController = TextEditingController(text: '');
   final _passwordController = TextEditingController(text: '');
   final _captchaController = TextEditingController(text: '');
@@ -239,7 +242,10 @@ class _LoginPageState extends State<LoginPage> {
                       // 将登录内容略微上移，为表单与协议区保留更舒适的空间。
                       alignment: const Alignment(0, -0.28),
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 420),
+                        // 手机端保持细长的表单比例，避免在宽屏手机上横向铺满。
+                        constraints: const BoxConstraints(
+                          maxWidth: _contentMaxWidth,
+                        ),
                         child: AutofillGroup(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -248,13 +254,13 @@ class _LoginPageState extends State<LoginPage> {
                               // 品牌图标与版本信息固定居中，避免受表单宽度影响。
                               Center(
                                 child: Container(
-                                  width: 96,
-                                  height: 96,
+                                  width: 80,
+                                  height: 80,
                                   decoration: BoxDecoration(
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.surfaceContainerLowest,
-                                    borderRadius: BorderRadius.circular(24),
+                                    borderRadius: BorderRadius.circular(20),
                                     border: Border.all(
                                       color: Theme.of(
                                         context,
@@ -265,13 +271,13 @@ class _LoginPageState extends State<LoginPage> {
                                         color: Colors.black.withValues(
                                           alpha: 0.12,
                                         ),
-                                        blurRadius: 16,
-                                        offset: const Offset(0, 6),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
                                       ),
                                     ],
                                   ),
                                   child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(23),
+                                    borderRadius: BorderRadius.circular(19),
                                     child: Image.asset(
                                       'assets/branding/splash_logo.png',
                                       fit: BoxFit.contain,
@@ -280,11 +286,11 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 8),
                               Center(
                                 child: Text(
                                   'v${settings.currentVersion}',
-                                  style: Theme.of(context).textTheme.bodyMedium
+                                  style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
                                         color: Theme.of(
                                           context,
@@ -293,75 +299,90 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                               ),
                               // 品牌信息与登录表单形成两个独立区域。
-                              const SizedBox(height: 40),
-                              TextField(
-                                enabled: !_submitting,
-                                controller: _accountController,
-                                focusNode: _accountFocusNode,
-                                autofillHints: const [AutofillHints.username],
-                                textInputAction: TextInputAction.next,
-                                onSubmitted: (_) =>
-                                    FocusScope.of(context).nextFocus(),
-                                decoration: InputDecoration(
-                                  labelText: context.l10n.account,
-                                  prefixIcon: const Icon(Icons.person_outline),
+                              const SizedBox(height: 30),
+                              SizedBox(
+                                height: _fieldHeight,
+                                child: TextField(
+                                  enabled: !_submitting,
+                                  controller: _accountController,
+                                  focusNode: _accountFocusNode,
+                                  autofillHints: const [AutofillHints.username],
+                                  textInputAction: TextInputAction.next,
+                                  onSubmitted: (_) =>
+                                      FocusScope.of(context).nextFocus(),
+                                  decoration: _compactInputDecoration(
+                                    label: context.l10n.account,
+                                    prefixIcon: Icons.person_outline,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(height: 16),
-                              TextField(
-                                enabled: !_submitting,
-                                controller: _passwordController,
-                                focusNode: _passwordFocusNode,
-                                autofillHints: const [AutofillHints.password],
-                                textInputAction: TextInputAction.next,
-                                obscureText: !_passwordVisible,
-                                onSubmitted: (_) =>
-                                    FocusScope.of(context).nextFocus(),
-                                decoration: InputDecoration(
-                                  labelText: context.l10n.password,
-                                  prefixIcon: const Icon(Icons.lock_outline),
-                                  suffixIcon: IconButton(
-                                    key: const ValueKey(
-                                      'login.password.visibility',
-                                    ),
-                                    tooltip: _passwordVisible
-                                        ? context.l10n.hidePassword
-                                        : context.l10n.showPassword,
-                                    onPressed: _submitting
-                                        ? null
-                                        : () => setState(
-                                            () => _passwordVisible =
-                                                !_passwordVisible,
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                height: _fieldHeight,
+                                child: TextField(
+                                  enabled: !_submitting,
+                                  controller: _passwordController,
+                                  focusNode: _passwordFocusNode,
+                                  autofillHints: const [AutofillHints.password],
+                                  textInputAction: TextInputAction.next,
+                                  obscureText: !_passwordVisible,
+                                  onSubmitted: (_) =>
+                                      FocusScope.of(context).nextFocus(),
+                                  decoration: _compactInputDecoration(
+                                    label: context.l10n.password,
+                                    prefixIcon: Icons.lock_outline,
+                                    suffixIcon: IconButton(
+                                      key: const ValueKey(
+                                        'login.password.visibility',
+                                      ),
+                                      tooltip: _passwordVisible
+                                          ? context.l10n.hidePassword
+                                          : context.l10n.showPassword,
+                                      onPressed: _submitting
+                                          ? null
+                                          : () => setState(
+                                              () => _passwordVisible =
+                                                  !_passwordVisible,
+                                            ),
+                                      icon: Icon(
+                                        _passwordVisible
+                                            ? Icons.visibility_off_outlined
+                                            : Icons.visibility_outlined,
+                                        size: 21,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      constraints:
+                                          const BoxConstraints.tightFor(
+                                            width: 42,
+                                            height: 42,
                                           ),
-                                    icon: Icon(
-                                      _passwordVisible
-                                          ? Icons.visibility_off_outlined
-                                          : Icons.visibility_outlined,
                                     ),
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 12),
                               Row(
                                 children: [
                                   Expanded(
-                                    child: TextField(
-                                      enabled: !_submitting,
-                                      controller: _captchaController,
-                                      focusNode: _captchaFocusNode,
-                                      textInputAction: TextInputAction.done,
-                                      autocorrect: false,
-                                      enableSuggestions: false,
-                                      onSubmitted: (_) => _handleLoginTap(),
-                                      decoration: InputDecoration(
-                                        labelText: context.l10n.captcha,
-                                        prefixIcon: const Icon(
-                                          Icons.verified_user_outlined,
+                                    child: SizedBox(
+                                      height: _fieldHeight,
+                                      child: TextField(
+                                        enabled: !_submitting,
+                                        controller: _captchaController,
+                                        focusNode: _captchaFocusNode,
+                                        textInputAction: TextInputAction.done,
+                                        autocorrect: false,
+                                        enableSuggestions: false,
+                                        onSubmitted: (_) => _handleLoginTap(),
+                                        decoration: _compactInputDecoration(
+                                          label: context.l10n.captcha,
+                                          prefixIcon:
+                                              Icons.verified_user_outlined,
                                         ),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: 10),
                                   Tooltip(
                                     message: context.l10n.refreshCaptcha,
                                     child: Material(
@@ -383,8 +404,8 @@ class _LoginPageState extends State<LoginPage> {
                                             ? null
                                             : auth.refreshCaptcha,
                                         child: SizedBox(
-                                          width: 120,
-                                          height: 56,
+                                          width: 104,
+                                          height: _fieldHeight,
                                           child: _buildCaptcha(context, auth),
                                         ),
                                       ),
@@ -392,7 +413,7 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 20),
+                              const SizedBox(height: 16),
                               _PrivacyConsent(
                                 accepted: _privacyAccepted,
                                 enabled: !_submitting,
@@ -405,13 +426,13 @@ class _LoginPageState extends State<LoginPage> {
                                   AppRoute.personalDataStatement,
                                 ),
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 8),
                               Center(
                                 child: FractionallySizedBox(
                                   // 保持按钮比输入框短，同时适配不同屏幕宽度。
-                                  widthFactor: 0.7,
+                                  widthFactor: 0.64,
                                   child: SizedBox(
-                                    height: 54,
+                                    height: 46,
                                     child: FilledButton.icon(
                                       style: FilledButton.styleFrom(
                                         // 登录按钮使用固定浅蓝色，不随主题变化。
@@ -439,7 +460,7 @@ class _LoginPageState extends State<LoginPage> {
                                                 color: Color(0xFF5F6B76),
                                               ),
                                             )
-                                          : const Icon(Icons.login),
+                                          : const Icon(Icons.login, size: 20),
                                       label: Text(
                                         _submitting
                                             ? context.l10n.loggingIn
@@ -464,6 +485,25 @@ class _LoginPageState extends State<LoginPage> {
           ),
         );
       },
+    );
+  }
+
+  /// 登录页三个输入栏统一使用紧凑规格，避免单独修改导致高度和图标错位。
+  InputDecoration _compactInputDecoration({
+    required String label,
+    required IconData prefixIcon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      prefixIcon: Icon(prefixIcon, size: 20),
+      prefixIconConstraints: const BoxConstraints(minWidth: 42, minHeight: 42),
+      suffixIcon: suffixIcon,
+      suffixIconConstraints: suffixIcon == null
+          ? null
+          : const BoxConstraints(minWidth: 42, minHeight: 42),
     );
   }
 
