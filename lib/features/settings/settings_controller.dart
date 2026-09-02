@@ -21,7 +21,8 @@ import '../../core/logging/app_logger.dart';
 
 enum AppLanguage {
   zhHans('zh-CN', 'zh_CN', Locale('zh')),
-  zhHant('zh-TW', 'zh_TW', Locale('zh', 'TW'));
+  zhHant('zh-TW', 'zh_TW', Locale('zh', 'TW')),
+  english('en-US', 'en_US', Locale('en', 'US'));
 
   const AppLanguage(this.code, this.apiCode, this.locale);
 
@@ -119,12 +120,20 @@ class SettingsController extends ChangeNotifier {
   Future<bool> setUnlockMethod(UnlockMethod method) async {
     lastBiometricError = null;
     if (_activeUnlockMethodKey == null) {
-      lastBiometricError = _localizedMessage('尚未绑定当前用户', '尚未綁定目前使用者');
+      lastBiometricError = _localizedMessage(
+        '尚未绑定当前用户',
+        '尚未綁定目前使用者',
+        'No user is currently linked',
+      );
       return false;
     }
     if (method == UnlockMethod.gesture) {
       if (!gesturePasswordConfigured) {
-        lastBiometricError = _localizedMessage('请先设置图形密码', '請先設定圖形密碼');
+        lastBiometricError = _localizedMessage(
+          '请先设置图形密码',
+          '請先設定圖形密碼',
+          'Set a pattern password first',
+        );
         return false;
       }
       await _persistUnlockMethod(method);
@@ -290,14 +299,23 @@ class SettingsController extends ChangeNotifier {
       );
       if (!verified) {
         lastBiometricError = selected == UnlockMethod.face
-            ? _localizedMessage('面容验证未通过', '面容驗證未通過')
-            : _localizedMessage('指纹验证未通过', '指紋驗證未通過');
+            ? _localizedMessage(
+                '面容验证未通过',
+                '面容驗證未通過',
+                'Face verification failed',
+              )
+            : _localizedMessage(
+                '指纹验证未通过',
+                '指紋驗證未通過',
+                'Fingerprint verification failed',
+              );
       }
       return verified;
     } catch (error, stackTrace) {
       lastBiometricError = _localizedMessage(
         '无法调起系统生物识别，请稍后重试',
         '無法啟動系統生物辨識，請稍後重試',
+        'Unable to start biometric verification. Try again later.',
       );
       _logger.error(
         'biometric',
@@ -330,6 +348,7 @@ class SettingsController extends ChangeNotifier {
       lastBiometricError = _localizedMessage(
         '检查生物识别能力失败，请稍后重试',
         '檢查生物辨識能力失敗，請稍後重試',
+        'Unable to check biometric availability. Try again later.',
       );
       _logger.error(
         'biometric',
@@ -375,20 +394,44 @@ class SettingsController extends ChangeNotifier {
 
   String _biometricReason(UnlockMethod method) {
     if (method == UnlockMethod.face) {
-      return _localizedMessage('请验证面容以解锁 MERP', '請驗證面容以解鎖 MERP');
+      return _localizedMessage(
+        '请验证面容以解锁 MERP',
+        '請驗證面容以解鎖 MERP',
+        'Verify your face to unlock MERP',
+      );
     }
-    return _localizedMessage('请验证指纹以解锁 MERP', '請驗證指紋以解鎖 MERP');
+    return _localizedMessage(
+      '请验证指纹以解锁 MERP',
+      '請驗證指紋以解鎖 MERP',
+      'Verify your fingerprint to unlock MERP',
+    );
   }
 
   String _unavailableMessage(UnlockMethod method) {
     if (method == UnlockMethod.face) {
-      return _localizedMessage('当前设备没有可用或已录入的面容识别', '目前裝置沒有可用或已登錄的面容辨識');
+      return _localizedMessage(
+        '当前设备没有可用或已录入的面容识别',
+        '目前裝置沒有可用或已登錄的面容辨識',
+        'Face recognition is unavailable or not enrolled on this device',
+      );
     }
-    return _localizedMessage('当前设备没有可用或已录入的指纹识别', '目前裝置沒有可用或已登錄的指紋辨識');
+    return _localizedMessage(
+      '当前设备没有可用或已录入的指纹识别',
+      '目前裝置沒有可用或已登錄的指紋辨識',
+      'Fingerprint recognition is unavailable or not enrolled on this device',
+    );
   }
 
-  String _localizedMessage(String simplified, String traditional) {
-    return language == AppLanguage.zhHant ? traditional : simplified;
+  String _localizedMessage(
+    String simplified,
+    String traditional,
+    String english,
+  ) {
+    return switch (language) {
+      AppLanguage.zhHans => simplified,
+      AppLanguage.zhHant => traditional,
+      AppLanguage.english => english,
+    };
   }
 
   Future<String?> _readGestureValue(String key) async {

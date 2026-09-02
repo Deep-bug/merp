@@ -85,7 +85,7 @@ class _LegalStatementPageState extends State<LegalStatementPage> {
   String _languageFromDevice() {
     final locale = PlatformDispatcher.instance.locale;
     if (locale.languageCode.toLowerCase() != 'zh') {
-      return 'zh_TW';
+      return 'en_US';
     }
     final script = locale.scriptCode?.toLowerCase();
     final region = locale.countryCode?.toUpperCase();

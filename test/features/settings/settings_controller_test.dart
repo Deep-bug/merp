@@ -16,6 +16,30 @@ Future<PackageInfo> _testPackageInfo() async => PackageInfo(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('persists English and exposes backend locale codes', () async {
+    SharedPreferences.setMockInitialValues({});
+    final settings = SettingsController(
+      logger: AppLogger(),
+      useSecureStorage: false,
+      packageInfoProvider: _testPackageInfo,
+    );
+    await settings.load();
+
+    await settings.setLanguage(AppLanguage.english);
+
+    expect(settings.language.code, 'en-US');
+    expect(settings.language.apiCode, 'en_US');
+    expect(settings.language.locale.toLanguageTag(), 'en-US');
+
+    final restored = SettingsController(
+      logger: AppLogger(),
+      useSecureStorage: false,
+      packageInfoProvider: _testPackageInfo,
+    );
+    await restored.load();
+    expect(restored.language, AppLanguage.english);
+  });
+
   test('gesture passwords are isolated by environment and user', () async {
     SharedPreferences.setMockInitialValues({});
     final settings = SettingsController(

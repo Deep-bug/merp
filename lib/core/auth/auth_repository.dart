@@ -133,7 +133,9 @@ class AuthRepository {
     } on AuthException {
       rethrow;
     } on ApiException catch (error) {
-      throw AuthException(error.userMessage);
+      // 登录页只需要后端给用户看的错误原因，例如“账号或密码错误”。
+      // traceId/incidentId 已由 ApiClient 写入诊断日志，不随登录提示暴露。
+      throw AuthException(error.message);
     } on FormatException catch (error) {
       throw AuthException(error.message);
     } catch (error) {

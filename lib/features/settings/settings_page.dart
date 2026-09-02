@@ -479,6 +479,7 @@ String _languageLabel(BuildContext context, AppLanguage language) {
   return switch (language) {
     AppLanguage.zhHans => context.l10n.simplifiedChinese,
     AppLanguage.zhHant => context.l10n.traditionalChinese,
+    AppLanguage.english => context.l10n.english,
   };
 }
 

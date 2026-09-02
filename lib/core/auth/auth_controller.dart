@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../features/home/data/permission_repository.dart';
 import '../logging/app_logger.dart';
+import '../network/api_exception.dart';
 import '../platform/web_data_cleaner.dart';
 import 'auth_repository.dart';
 
@@ -195,7 +196,9 @@ class AuthController extends ChangeNotifier {
     } catch (error, stackTrace) {
       session = null;
       gestureEnrollmentRequired = false;
-      lastError = error.toString();
+      // 登录页只展示后端可读错误，不暴露 traceId/incidentId 等诊断编号。
+      // 完整异常仍进入诊断日志，开发和运维排查能力不受影响。
+      lastError = error is ApiException ? error.message : error.toString();
       status = AuthStatus.unauthenticated;
       _logger.warning(
         'auth',

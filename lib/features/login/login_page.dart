@@ -14,12 +14,14 @@ import '../../l10n/l10n.dart';
 import '../../routing/app_routes.dart';
 import '../../shared/app_dialog.dart';
 import '../../shared/app_notice.dart';
+import '../settings/settings_controller.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, this.authController});
+  const LoginPage({super.key, this.authController, this.settingsController});
 
   /// 测试可显式注入；生产路由默认从 AppScope 获取。
   final AuthController? authController;
+  final SettingsController? settingsController;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -33,15 +35,19 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordFocusNode = FocusNode();
   final _captchaFocusNode = FocusNode();
   AuthController? _authController;
+  SettingsController? _settingsController;
   bool _captchaRequested = false;
   bool _privacyAccepted = false;
   bool _submitting = false;
+  bool _passwordVisible = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _authController =
         widget.authController ?? AppScope.of(context).authController;
+    _settingsController =
+        widget.settingsController ?? AppScope.of(context).settingsController;
     if (_captchaRequested) {
       return;
     }
@@ -169,7 +175,7 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       final session = auth.session!;
-      final settings = AppScope.of(context).settingsController;
+      final settings = _settingsController!;
       await settings.activateGestureScope(
         userId: session.profile.id,
         accountName: session.profile.accountName,
@@ -208,7 +214,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final auth = _authController!;
-    final settings = AppScope.of(context).settingsController;
+    final settings = _settingsController!;
     return ListenableBuilder(
       // 版本号来自 SettingsController 的 PackageInfo 读取结果。登录页也
       // 监听它，以免应用启动时先短暂显示默认版本号。
@@ -308,12 +314,31 @@ class _LoginPageState extends State<LoginPage> {
                                 focusNode: _passwordFocusNode,
                                 autofillHints: const [AutofillHints.password],
                                 textInputAction: TextInputAction.next,
-                                obscureText: true,
+                                obscureText: !_passwordVisible,
                                 onSubmitted: (_) =>
                                     FocusScope.of(context).nextFocus(),
                                 decoration: InputDecoration(
                                   labelText: context.l10n.password,
                                   prefixIcon: const Icon(Icons.lock_outline),
+                                  suffixIcon: IconButton(
+                                    key: const ValueKey(
+                                      'login.password.visibility',
+                                    ),
+                                    tooltip: _passwordVisible
+                                        ? context.l10n.hidePassword
+                                        : context.l10n.showPassword,
+                                    onPressed: _submitting
+                                        ? null
+                                        : () => setState(
+                                            () => _passwordVisible =
+                                                !_passwordVisible,
+                                          ),
+                                    icon: Icon(
+                                      _passwordVisible
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 16),

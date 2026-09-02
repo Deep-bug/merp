@@ -49,6 +49,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get password => '密码';
 
   @override
+  String get showPassword => '显示密码';
+
+  @override
+  String get hidePassword => '隐藏密码';
+
+  @override
   String get captcha => '验证码';
 
   @override
@@ -329,6 +335,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get traditionalChinese => '繁體中文';
+
+  @override
+  String get english => 'English';
 
   @override
   String get bridgeTest => 'WebView Bridge 测试';
@@ -775,6 +784,12 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get password => '密碼';
 
   @override
+  String get showPassword => '顯示密碼';
+
+  @override
+  String get hidePassword => '隱藏密碼';
+
+  @override
   String get captcha => '驗證碼';
 
   @override
@@ -1055,6 +1070,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get traditionalChinese => '繁體中文';
+
+  @override
+  String get english => 'English';
 
   @override
   String get bridgeTest => 'WebView Bridge 測試';

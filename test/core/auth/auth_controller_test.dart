@@ -58,6 +58,55 @@ void main() {
     expect(store.clearCount, 1);
   });
 
+  test('login error keeps diagnostic IDs out of the user message', () async {
+    final dio = Dio()
+      ..httpClientAdapter = FakeHttpAdapter(
+        (_) => jsonResponse({
+          'code': 401,
+          'message': '账号或密码错误',
+          'traceId': 'backend-trace-secret',
+          'data': null,
+        }, statusCode: 401),
+      );
+    final store = MemoryTokenStore();
+    final logger = AppLogger();
+    final client = ApiClient(
+      config: const AppConfig(),
+      tokenStore: store,
+      logger: logger,
+      dio: dio,
+    );
+    final controller = AuthController(
+      authRepository: AuthRepository(
+        apiClient: client,
+        tokenStore: store,
+        logger: logger,
+      ),
+      permissionRepository: PermissionRepository(
+        apiClient: client,
+        logger: logger,
+      ),
+      logger: logger,
+    );
+    controller
+      ..status = AuthStatus.unauthenticated
+      ..captchaChallenge = CaptchaChallenge(
+        captchaId: 'captcha-001',
+        imageBytes: Uint8List(0),
+      );
+
+    final success = await controller.login(
+      account: 'finn',
+      password: 'wrong-password',
+      captchaCode: 'A7K9',
+    );
+
+    expect(success, isFalse);
+    expect(controller.lastError, '账号或密码错误');
+    expect(controller.lastError, isNot(contains('trace')));
+    expect(controller.lastError, isNot(contains('MERP-')));
+  });
+
   test(
     'logout also clears WebView website data without affecting app logout',
     () async {
