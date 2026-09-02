@@ -18,6 +18,7 @@ import 'package:merp/features/home/data/permission_repository.dart';
 import 'package:merp/features/home/domain/feature_item.dart';
 import 'package:merp/features/home/widgets/home_feature_area.dart';
 import 'package:merp/features/login/login_page.dart';
+import 'package:merp/features/settings/settings_controller.dart';
 import 'package:merp/l10n/generated/app_localizations.dart';
 import 'package:merp/shared/adaptive_feature_grid.dart';
 
@@ -29,11 +30,16 @@ void main() {
   ) async {
     _useCompactPhone(tester);
     final auth = _testAuthController();
+    final settings = SettingsController(
+      logger: AppLogger(),
+      useSecureStorage: false,
+    );
     addTearDown(auth.dispose);
+    addTearDown(settings.dispose);
 
     await tester.pumpWidget(
       _testShell(
-        LoginPage(authController: auth),
+        LoginPage(authController: auth, settingsController: settings),
         viewInsets: const EdgeInsets.only(bottom: 300),
         textScale: 1.35,
       ),
@@ -96,6 +102,30 @@ void main() {
     expect(delegate.crossAxisCount, 3);
     expect(delegate.mainAxisExtent, greaterThanOrEqualTo(138));
     expect(find.text('更多'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('two-line RT feature title fits the compact home card', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _testShell(
+        Center(
+          child: SizedBox(
+            width: 84,
+            height: 116,
+            child: HomeFeatureCard(
+              icon: Icons.manage_search_outlined,
+              label: '线索商机(RT)',
+              iconColor: const Color(0xFF16A3DE),
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('线索商机(RT)'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

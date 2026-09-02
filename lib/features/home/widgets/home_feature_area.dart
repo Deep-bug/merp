@@ -231,22 +231,22 @@ class HomeFeatureCard extends StatelessWidget {
         ? 36.0
         : useLargeTextLayout
         ? 44.0
-        : 54.0;
+        : 48.0;
     final iconSize = compact
         ? 24.0
         : useLargeTextLayout
         ? 30.0
-        : 36.0;
+        : 32.0;
     final verticalPadding = compact
         ? 6.0
         : useLargeTextLayout
         ? 5.0
-        : 13.0;
+        : 8.0;
     final labelGap = compact
         ? 6.0
         : useLargeTextLayout
         ? 6.0
-        : 12.0;
+        : 6.0;
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final labelWeight = isIos ? FontWeight.w600 : FontWeight.w800;
     return Stack(
@@ -302,22 +302,24 @@ class HomeFeatureCard extends StatelessWidget {
                             ),
                     ),
                     SizedBox(height: labelGap),
-                    Text(
-                      label,
-                      maxLines: 2,
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
-                      style: compact
-                          ? Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: const Color(0xFF2E2F33),
-                              height: 1.12,
-                              fontSize: isIos ? 13 : null,
-                              fontWeight: labelWeight,
-                            )
-                          : Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: const Color(0xFF2E2F33),
-                              fontWeight: labelWeight,
-                            ),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        style: compact
+                            ? Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: const Color(0xFF2E2F33),
+                                height: 1.12,
+                                fontSize: isIos ? 13 : null,
+                                fontWeight: labelWeight,
+                              )
+                            : Theme.of(context).textTheme.titleSmall?.copyWith(
+                                color: const Color(0xFF2E2F33),
+                                fontWeight: labelWeight,
+                              ),
+                      ),
                     ),
                   ],
                 ),
