@@ -233,13 +233,13 @@ class HomeFeatureCard extends StatelessWidget {
     final iconContainerSize = compact
         ? 36.0
         : useLargeTextLayout
-        ? 40.0
-        : 42.0;
+        ? 38.0
+        : 40.0;
     final iconSize = compact
         ? 24.0
         : useLargeTextLayout
-        ? 27.0
-        : 28.0;
+        ? 25.0
+        : 26.0;
     final verticalPadding = compact
         ? 6.0
         : useLargeTextLayout

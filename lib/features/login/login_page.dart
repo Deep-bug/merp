@@ -30,6 +30,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   static const _contentMaxWidth = 320.0;
   static const _fieldHeight = 48.0;
+  static const _fieldHorizontalInset = 10.0;
 
   final _accountController = TextEditingController(text: '');
   final _passwordController = TextEditingController(text: '');
@@ -300,118 +301,140 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               // 品牌信息与登录表单形成两个独立区域。
                               const SizedBox(height: 30),
-                              SizedBox(
-                                height: _fieldHeight,
-                                child: TextField(
-                                  enabled: !_submitting,
-                                  controller: _accountController,
-                                  focusNode: _accountFocusNode,
-                                  autofillHints: const [AutofillHints.username],
-                                  textInputAction: TextInputAction.next,
-                                  onSubmitted: (_) =>
-                                      FocusScope.of(context).nextFocus(),
-                                  decoration: _compactInputDecoration(
-                                    label: context.l10n.account,
-                                    prefixIcon: Icons.person_outline,
-                                  ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: _fieldHorizontalInset,
                                 ),
-                              ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                height: _fieldHeight,
-                                child: TextField(
-                                  enabled: !_submitting,
-                                  controller: _passwordController,
-                                  focusNode: _passwordFocusNode,
-                                  autofillHints: const [AutofillHints.password],
-                                  textInputAction: TextInputAction.next,
-                                  obscureText: !_passwordVisible,
-                                  onSubmitted: (_) =>
-                                      FocusScope.of(context).nextFocus(),
-                                  decoration: _compactInputDecoration(
-                                    label: context.l10n.password,
-                                    prefixIcon: Icons.lock_outline,
-                                    suffixIcon: IconButton(
-                                      key: const ValueKey(
-                                        'login.password.visibility',
-                                      ),
-                                      tooltip: _passwordVisible
-                                          ? context.l10n.hidePassword
-                                          : context.l10n.showPassword,
-                                      onPressed: _submitting
-                                          ? null
-                                          : () => setState(
-                                              () => _passwordVisible =
-                                                  !_passwordVisible,
-                                            ),
-                                      icon: Icon(
-                                        _passwordVisible
-                                            ? Icons.visibility_off_outlined
-                                            : Icons.visibility_outlined,
-                                        size: 21,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      constraints:
-                                          const BoxConstraints.tightFor(
-                                            width: 42,
-                                            height: 42,
-                                          ),
+                                child: SizedBox(
+                                  height: _fieldHeight,
+                                  child: TextField(
+                                    enabled: !_submitting,
+                                    controller: _accountController,
+                                    focusNode: _accountFocusNode,
+                                    autofillHints: const [
+                                      AutofillHints.username,
+                                    ],
+                                    textInputAction: TextInputAction.next,
+                                    onSubmitted: (_) =>
+                                        FocusScope.of(context).nextFocus(),
+                                    decoration: _compactInputDecoration(
+                                      label: context.l10n.account,
+                                      prefixIcon: Icons.person_outline,
                                     ),
                                   ),
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: SizedBox(
-                                      height: _fieldHeight,
-                                      child: TextField(
-                                        enabled: !_submitting,
-                                        controller: _captchaController,
-                                        focusNode: _captchaFocusNode,
-                                        textInputAction: TextInputAction.done,
-                                        autocorrect: false,
-                                        enableSuggestions: false,
-                                        onSubmitted: (_) => _handleLoginTap(),
-                                        decoration: _compactInputDecoration(
-                                          label: context.l10n.captcha,
-                                          prefixIcon:
-                                              Icons.verified_user_outlined,
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: _fieldHorizontalInset,
+                                ),
+                                child: SizedBox(
+                                  height: _fieldHeight,
+                                  child: TextField(
+                                    enabled: !_submitting,
+                                    controller: _passwordController,
+                                    focusNode: _passwordFocusNode,
+                                    autofillHints: const [
+                                      AutofillHints.password,
+                                    ],
+                                    textInputAction: TextInputAction.next,
+                                    obscureText: !_passwordVisible,
+                                    onSubmitted: (_) =>
+                                        FocusScope.of(context).nextFocus(),
+                                    decoration: _compactInputDecoration(
+                                      label: context.l10n.password,
+                                      prefixIcon: Icons.lock_outline,
+                                      suffixIcon: IconButton(
+                                        key: const ValueKey(
+                                          'login.password.visibility',
                                         ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Tooltip(
-                                    message: context.l10n.refreshCaptcha,
-                                    child: Material(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.surfaceContainerLowest,
-                                      clipBehavior: Clip.antiAlias,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        side: BorderSide(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.outlineVariant,
-                                        ),
-                                      ),
-                                      child: InkWell(
-                                        onTap:
-                                            _submitting || auth.isCaptchaLoading
+                                        tooltip: _passwordVisible
+                                            ? context.l10n.hidePassword
+                                            : context.l10n.showPassword,
+                                        onPressed: _submitting
                                             ? null
-                                            : auth.refreshCaptcha,
-                                        child: SizedBox(
-                                          width: 104,
-                                          height: _fieldHeight,
-                                          child: _buildCaptcha(context, auth),
+                                            : () => setState(
+                                                () => _passwordVisible =
+                                                    !_passwordVisible,
+                                              ),
+                                        icon: Icon(
+                                          _passwordVisible
+                                              ? Icons.visibility_off_outlined
+                                              : Icons.visibility_outlined,
+                                          size: 21,
                                         ),
+                                        padding: EdgeInsets.zero,
+                                        constraints:
+                                            const BoxConstraints.tightFor(
+                                              width: 42,
+                                              height: 42,
+                                            ),
                                       ),
                                     ),
                                   ),
-                                ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: _fieldHorizontalInset,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: _fieldHeight,
+                                        child: TextField(
+                                          enabled: !_submitting,
+                                          controller: _captchaController,
+                                          focusNode: _captchaFocusNode,
+                                          textInputAction: TextInputAction.done,
+                                          autocorrect: false,
+                                          enableSuggestions: false,
+                                          onSubmitted: (_) => _handleLoginTap(),
+                                          decoration: _compactInputDecoration(
+                                            label: context.l10n.captcha,
+                                            prefixIcon:
+                                                Icons.verified_user_outlined,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Tooltip(
+                                      message: context.l10n.refreshCaptcha,
+                                      child: Material(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerLowest,
+                                        clipBehavior: Clip.antiAlias,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          side: BorderSide(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.outlineVariant,
+                                          ),
+                                        ),
+                                        child: InkWell(
+                                          onTap:
+                                              _submitting ||
+                                                  auth.isCaptchaLoading
+                                              ? null
+                                              : auth.refreshCaptcha,
+                                          child: SizedBox(
+                                            width: 104,
+                                            height: _fieldHeight,
+                                            child: _buildCaptcha(context, auth),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                               const SizedBox(height: 16),
                               _PrivacyConsent(

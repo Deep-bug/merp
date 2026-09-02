@@ -55,10 +55,11 @@ class AdaptiveFeatureGridMetrics {
     return _resolve(
       context,
       availableWidth,
-      // 首页只承载图标和两行标题，保持三列时使用更轻巧的卡片高度。
-      baseExtent: 106,
+      // 普通字号下接近三列卡片的实际宽度，避免首页入口呈现窄高长方形。
+      // 系统字体放大时仍按比例增加高度，保证两行标题不会溢出。
+      baseExtent: 94,
       extentPerScaleStep: 40,
-      maxExtent: 170,
+      maxExtent: 158,
     );
   }
 

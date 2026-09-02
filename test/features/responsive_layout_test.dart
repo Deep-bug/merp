@@ -100,7 +100,9 @@ void main() {
     final delegate =
         grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
     expect(delegate.crossAxisCount, 3);
-    expect(delegate.mainAxisExtent, greaterThanOrEqualTo(138));
+    // 普通卡片保持近似正方形；系统字体放大 1.8 倍时允许增高到 126，
+    // 在不恢复旧版窄高卡片的前提下容纳两行标题。
+    expect(delegate.mainAxisExtent, greaterThanOrEqualTo(126));
     expect(find.text('更多'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
