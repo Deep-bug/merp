@@ -9,6 +9,7 @@
         "run",
         "qas",
         "android",
+        "--recover",
         "--dart-define=ENABLE_LOG=true"
       ],
       "options": {
@@ -49,7 +50,7 @@
       "label": "MERP: MOCK Android Debug (Terminal)",
       "type": "shell",
       "command": "./tool/app",
-      "args": ["run", "mock", "android"],
+      "args": ["run", "mock", "android", "--recover"],
       "options": {
         "cwd": "${workspaceFolder}"
       },

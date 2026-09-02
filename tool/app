@@ -19,6 +19,7 @@ usage() {
   ./tool/app analyze
   ./tool/app test
   ./tool/app run qas android [Flutter 额外参数]
+  ./tool/app run qas android --recover [-d <device-id>] [Flutter 额外参数]
   ./tool/app run qas ios [Flutter 额外参数]
   ./tool/app run mock android [Flutter 额外参数]
   ./tool/app run mock ios [Flutter 额外参数]
@@ -34,6 +35,10 @@ usage() {
 iOS OTA：
   ios-ota 会构建 Ad Hoc IPA，并在 build/ios/ota/qas 生成 manifest.plist。
   IOS_OTA_BASE_URL 必须填写服务器上存放 IPA 和 plist 的 HTTPS 目录。
+
+Android 恢复启动：
+  --recover 仅用于 Android run。启动前会停止目标设备上的 MERP 残留进程，
+  并清理该设备的旧 ADB 端口转发；不会卸载 App 或清除用户数据。
 HELP
 }
 
@@ -152,6 +157,89 @@ has_device_argument() {
       "$argument" == --device-id=* ]] && return 0
   done
   return 1
+}
+
+device_id_from_arguments() {
+  local expect_device_id=false
+  local argument
+  for argument in "$@"; do
+    if [[ "$expect_device_id" == true ]]; then
+      printf '%s\n' "$argument"
+      return 0
+    fi
+    case "$argument" in
+      -d | --device-id)
+        expect_device_id=true
+        ;;
+      --device-id=*)
+        printf '%s\n' "${argument#*=}"
+        return 0
+        ;;
+    esac
+  done
+  return 1
+}
+
+resolve_adb() {
+  local candidate=""
+  candidate="$(command -v adb 2>/dev/null || true)"
+  if [[ -n "$candidate" && -x "$candidate" ]]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  for candidate in \
+    "${ANDROID_SDK_ROOT:-}/platform-tools/adb" \
+    "${ANDROID_HOME:-}/platform-tools/adb" \
+    "$HOME/Library/Android/sdk/platform-tools/adb"; do
+    if [[ "$candidate" != "/platform-tools/adb" && -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+recover_android_device() {
+  local device_id="$1"
+  local package_name="$2"
+  local adb_bin=""
+  local device_state=""
+  local process_ids=""
+  local forward_list=""
+  local forward_count=0
+
+  adb_bin="$(resolve_adb)" ||
+    fail "--recover 需要 adb；请安装 Android SDK Platform-Tools 或配置 ANDROID_SDK_ROOT。"
+  device_state="$("$adb_bin" -s "$device_id" get-state 2>/dev/null || true)"
+  [[ "$device_state" == "device" ]] ||
+    fail "设备 $device_id 当前状态为 ${device_state:-不可用}，不能执行安全恢复。"
+
+  printf '\n正在恢复 Android 调试环境：%s\n' "$device_id"
+  process_ids="$("$adb_bin" -s "$device_id" shell pidof "$package_name" 2>/dev/null | tr -d '\r' || true)"
+  if [[ -n "$process_ids" ]]; then
+    printf '  发现 MERP 残留进程：%s，正在停止...\n' "$process_ids"
+  else
+    printf '  未发现 MERP 残留进程。\n'
+  fi
+  "$adb_bin" -s "$device_id" shell am force-stop "$package_name" >/dev/null ||
+    fail "停止 $package_name 失败，请检查设备授权状态。"
+  process_ids="$("$adb_bin" -s "$device_id" shell pidof "$package_name" 2>/dev/null | tr -d '\r' || true)"
+  [[ -z "$process_ids" ]] ||
+    fail "无法停止 $package_name，残留进程仍为：$process_ids"
+
+  forward_list="$("$adb_bin" -s "$device_id" forward --list 2>/dev/null || true)"
+  if [[ -n "$forward_list" ]]; then
+    forward_count="$(printf '%s\n' "$forward_list" | awk -v id="$device_id" '$1 == id { count += 1 } END { print count + 0 }')"
+  fi
+  if [[ "$forward_count" -gt 0 ]]; then
+    printf '  发现旧 Flutter/ADB 端口转发：%s 条，正在清理...\n' "$forward_count"
+  else
+    printf '  未发现旧 ADB 端口转发。\n'
+  fi
+  "$adb_bin" -s "$device_id" forward --remove-all ||
+    fail "清理设备 $device_id 的 ADB 端口转发失败。"
+  printf '✓ Android 调试环境恢复完成；App 数据未清除。\n\n'
 }
 
 select_device() {
@@ -307,7 +395,18 @@ shift 3
 # macOS 自带 Bash 3.2 在 `set -u` 下展开空数组会报 unbound variable。
 # 保留一个不传给 Flutter 的占位元素，使“没有额外参数”也能安全执行。
 EXTRA_ARGUMENTS=("")
-EXTRA_ARGUMENTS+=("$@")
+RECOVER_ANDROID=false
+for argument in "$@"; do
+  if [[ "$argument" == "--recover" ]]; then
+    RECOVER_ANDROID=true
+  else
+    EXTRA_ARGUMENTS+=("$argument")
+  fi
+done
+if [[ "$RECOVER_ANDROID" == true &&
+  ("$COMMAND" != "run" || "$PLATFORM" != "android") ]]; then
+  fail "--recover 仅支持 Android run。"
+fi
 ensure_fvm
 config_args "$ENVIRONMENT"
 if [[ "$PLATFORM" == "android" ]]; then
@@ -323,6 +422,11 @@ if [[ "$COMMAND" == "run" ]]; then
       fail "没有发现可用的 $PLATFORM 设备；请连接设备或传入 -d <device-id>。"
     EXTRA_ARGUMENTS=("" "-d" "$DEVICE_ID" "${EXTRA_ARGUMENTS[@]:1}")
     printf '使用 %s 设备：%s\n' "$PLATFORM" "$DEVICE_ID"
+  fi
+  if [[ "$RECOVER_ANDROID" == true ]]; then
+    DEVICE_ID="$(device_id_from_arguments "${EXTRA_ARGUMENTS[@]:1}")"
+    [[ -n "$DEVICE_ID" ]] || fail "--recover 无法确定目标 Android 设备。"
+    recover_android_device "$DEVICE_ID" "com.delta.MERPDeltaTest"
   fi
   RUN_ARGUMENTS=(run --flavor qas)
   HAS_EXPLICIT_BUILD_MODE=false
