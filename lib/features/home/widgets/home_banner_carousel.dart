@@ -1,21 +1,33 @@
 // -----------------------------------------------------------------------------
 // 文件：home_banner_carousel.dart
-// 作用：展示运行时资源横幅并以低频定时器自动轮播
+// 作用：展示首页 PNG 横幅并以低频定时器自动轮播
 // 编写时间：2026-07-10
-// 维护说明：远程图片接入时保留固定高度和加载失败占位，防止首页跳动
+// 维护说明：图片固定放在 assets/images/home_banners，缺图时回退旧横幅
 // -----------------------------------------------------------------------------
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/resources/runtime_resource_manifest.dart';
 import '../../../l10n/l10n.dart';
 
+const _defaultHomeBannerAssets = <String>[
+  'assets/images/home_banners/banner_01.png',
+  'assets/images/home_banners/banner_02.png',
+  'assets/images/home_banners/banner_03.png',
+];
+
 class HomeBannerCarousel extends StatefulWidget {
-  const HomeBannerCarousel({super.key, required this.manifest});
+  const HomeBannerCarousel({
+    super.key,
+    required this.manifest,
+    this.bannerAssets = _defaultHomeBannerAssets,
+  });
 
   final RuntimeResourceManifest manifest;
+  final List<String> bannerAssets;
 
   @override
   State<HomeBannerCarousel> createState() => _HomeBannerCarouselState();
@@ -25,11 +37,32 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
   final PageController _controller = PageController();
   Timer? _timer;
   var _index = 0;
+  var _didResolveAssets = false;
+  List<String> _availableBannerAssets = const [];
 
   @override
   void initState() {
     super.initState();
     _timer = Timer.periodic(const Duration(seconds: 4), (_) => _nextBanner());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didResolveAssets) return;
+    _didResolveAssets = true;
+    _resolveBannerAssets();
+  }
+
+  Future<void> _resolveBannerAssets() async {
+    final manifest = await AssetManifest.loadFromAssetBundle(
+      DefaultAssetBundle.of(context),
+    );
+    final available = widget.bannerAssets
+        .where(manifest.listAssets().contains)
+        .toList(growable: false);
+    if (!mounted) return;
+    setState(() => _availableBannerAssets = available);
   }
 
   @override
@@ -43,8 +76,12 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
     if (!mounted || !_controller.hasClients) {
       return;
     }
+    final itemCount = _availableBannerAssets.isEmpty
+        ? 3
+        : _availableBannerAssets.length;
+    if (itemCount < 2) return;
     _controller.animateToPage(
-      (_index + 1) % 3,
+      (_index + 1) % itemCount,
       duration: const Duration(milliseconds: 360),
       curve: Curves.easeOutCubic,
     );
@@ -75,6 +112,9 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
         icon: Icons.analytics_outlined,
       ),
     ];
+    final itemCount = _availableBannerAssets.isEmpty
+        ? slides.length
+        : _availableBannerAssets.length;
 
     return SizedBox(
       height: 178,
@@ -84,15 +124,17 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
         children: [
           PageView.builder(
             controller: _controller,
-            itemCount: slides.length,
+            itemCount: itemCount,
             onPageChanged: (value) => setState(() => _index = value),
-            itemBuilder: (context, index) => _BannerSlide(data: slides[index]),
+            itemBuilder: (context, index) => _availableBannerAssets.isEmpty
+                ? _BannerSlide(data: slides[index])
+                : _PngBannerSlide(assetPath: _availableBannerAssets[index]),
           ),
           Positioned(
             bottom: 14,
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: List.generate(slides.length, (index) {
+              children: List.generate(itemCount, (index) {
                 final active = index == _index;
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
@@ -109,6 +151,25 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PngBannerSlide extends StatelessWidget {
+  const _PngBannerSlide({required this.assetPath});
+
+  final String assetPath;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      assetPath,
+      width: double.infinity,
+      height: double.infinity,
+      // 产品要求保持现有轮播高度并完全铺满，因此不裁剪图片。
+      fit: BoxFit.fill,
+      filterQuality: FilterQuality.medium,
+      excludeFromSemantics: true,
     );
   }
 }
