@@ -73,7 +73,7 @@ class AppDependencies {
   /// 1. 创建配置和基础服务。
   /// 2. 初始化原生 SDK 占位能力。
   /// 3. 加载本地设置。
-  /// 4. 返回完整依赖；登录态恢复由 UI 启动门禁在网络权限确认后执行。
+  /// 4. 使用 refresh_token 恢复登录态，资料和权限随后在后台并行加载。
   static Future<AppDependencies> bootstrap({
     AppConfig config = const AppConfig(),
     required AppLogger logger,
@@ -174,7 +174,7 @@ class AppDependencies {
       featureBadgeController.enableDevelopmentMockCounts();
       await authController.enterDevelopmentMockSession();
     } else {
-      logger.info('bootstrap', '会话恢复等待启动网络门禁放行');
+      await authController.restoreSession();
     }
 
     logger.info('bootstrap', '应用依赖初始化完成');

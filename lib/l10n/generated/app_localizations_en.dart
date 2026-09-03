@@ -28,27 +28,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get restoringSession => 'Restoring your session';
 
   @override
-  String get localNetworkChecking => 'Connecting to the corporate network';
-
-  @override
-  String get localNetworkRequiredTitle => 'Local Network Access Required';
-
-  @override
-  String get localNetworkRequiredMessage =>
-      'MERP needs Local Network access to connect to corporate services. Allow access and make sure the device is connected to the corporate Wi-Fi or VPN.';
-
-  @override
-  String get localNetworkUnavailableTitle =>
-      'Unable to Reach the Corporate Network';
-
-  @override
-  String get localNetworkUnavailableMessage =>
-      'Check the corporate Wi-Fi, VPN, and server status, then try again.';
-
-  @override
-  String get openSystemSettings => 'Open Settings';
-
-  @override
   String get startupFailed => 'Startup failed';
 
   @override
@@ -777,6 +756,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get locateMe => 'Show My Location';
+
+  @override
+  String get openSystemSettings => 'Open Settings';
 
   @override
   String get addressUnavailable => 'Address unavailable';
