@@ -5,7 +5,6 @@
 // 维护说明：权限判断统一委托 PermissionRepository，灰色入口不可绕过校验
 // -----------------------------------------------------------------------------
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
@@ -14,17 +13,14 @@ import '../../routing/app_navigator.dart';
 import '../../shared/adaptive_feature_grid.dart';
 import '../../shared/app_dialog.dart';
 import '../../shared/app_error_view.dart';
-import '../../shared/widgets/feature_badge.dart';
 import '../home/domain/feature_item.dart';
-import '../home/widgets/feature_icon.dart';
 import 'widgets/favorite_feature_sort_section.dart';
+import 'widgets/feature_catalog_card.dart';
 
 class AllFeaturesPage extends StatelessWidget {
   const AllFeaturesPage({super.key});
 
   static const _brandBlue = Color(0xFF5E93E5);
-  static const _enabledBlue = Color(0xFF16A3DE);
-  static const _disabledGrey = Color(0xFFB8B8B8);
 
   @override
   Widget build(BuildContext context) {
@@ -121,7 +117,7 @@ class AllFeaturesPage extends StatelessWidget {
                       ),
                     ),
                     SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
                       sliver: SliverLayoutBuilder(
                         builder: (context, constraints) {
                           final metrics =
@@ -230,98 +226,18 @@ class _AllFeatureTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayedAsFavorite = enabled && isFavorite;
-    final labelWeight = defaultTargetPlatform == TargetPlatform.iOS
-        ? FontWeight.w600
-        : FontWeight.w800;
-    final iconColor = enabled
-        ? AllFeaturesPage._enabledBlue
-        : AllFeaturesPage._disabledGrey;
-    final textColor = enabled
-        ? const Color(0xFF2E2F33)
-        : const Color(0xFF9A9A9A);
-
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: enabled
-                    ? const Color(0xFFF0F5FA)
-                    : const Color(0xFFE5E5E5),
-              ),
-              boxShadow: [
-                if (enabled)
-                  BoxShadow(
-                    color: const Color(0xFF29435C).withValues(alpha: 0.12),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(10),
-                onTap: () => _open(context),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 8,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 42,
-                        height: 42,
-                        child: FeatureIcon(
-                          item: item,
-                          size: 32,
-                          color: iconColor,
-                        ),
-                      ),
-                      const SizedBox(height: 9),
-                      Text(
-                        item.title,
-                        maxLines: 2,
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: textColor,
-                          fontWeight: labelWeight,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          top: 0,
-          left: 0,
-          child: IconButton(
-            tooltip: !enabled
-                ? context.l10n.favoriteRequiresPermission
-                : displayedAsFavorite
-                ? context.l10n.unfavoriteFeature
-                : context.l10n.favoriteFeature,
-            icon: Icon(displayedAsFavorite ? Icons.star : Icons.star_border),
-            color: displayedAsFavorite
-                ? const Color(0xFF00E837)
-                : const Color(0xFFD6D6D6),
-            iconSize: 22,
-            onPressed: onFavorite,
-          ),
-        ),
-        Positioned(top: 6, right: 6, child: FeatureBadge(count: badgeCount)),
-      ],
+    return FeatureCatalogCard(
+      item: item,
+      enabled: enabled,
+      isFavorite: isFavorite,
+      badgeCount: badgeCount,
+      onTap: () => _open(context),
+      onFavorite: onFavorite,
+      favoriteTooltip: !enabled
+          ? context.l10n.favoriteRequiresPermission
+          : isFavorite
+          ? context.l10n.unfavoriteFeature
+          : context.l10n.favoriteFeature,
     );
   }
 }

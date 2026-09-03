@@ -68,14 +68,26 @@ class AdaptiveFeatureGridMetrics {
     BuildContext context,
     double availableWidth,
   ) {
-    return _resolve(
-      context,
-      availableWidth,
-      baseExtent: 116,
-      extentPerScaleStep: 38,
-      maxExtent: 154,
-      narrowSpacing: 10,
-      wideSpacing: 12,
+    final scaledBodySize = MediaQuery.textScalerOf(context).scale(14);
+    final textScale = (scaledBodySize / 14).clamp(1.0, 2.0);
+    final spacing = availableWidth < 600 ? 10.0 : 12.0;
+
+    // 手机保持三列；桌面按约 112dp 的目标宽度自动增加列数，避免固定三列
+    // 导致卡片被横向拉伸。最多十列，标题仍有足够的两行展示空间。
+    final columns = ((availableWidth + spacing) / (112 + spacing))
+        .floor()
+        .clamp(3, 10);
+    final tileWidth = (availableWidth - spacing * (columns - 1)) / columns;
+    final normalExtent = tileWidth.clamp(88.0, 100.0);
+    final extent = (normalExtent + (textScale - 1) * 34).clamp(
+      normalExtent,
+      normalExtent + 38,
+    );
+
+    return AdaptiveFeatureGridMetrics(
+      crossAxisCount: columns,
+      spacing: spacing,
+      mainAxisExtent: extent,
     );
   }
 
@@ -84,17 +96,8 @@ class AdaptiveFeatureGridMetrics {
     BuildContext context,
     double availableWidth,
   ) {
-    return _resolve(
-      context,
-      availableWidth,
-      baseExtent: 94,
-      extentPerScaleStep: 28,
-      maxExtent: 122,
-      narrowSpacing: 8,
-      wideSpacing: 10,
-      narrowCrossAxisCount: 3,
-      wideCrossAxisCount: 3,
-    );
+    // 收藏拖拽区与上方功能选择区严格共用列数、间距和卡片高度。
+    return AdaptiveFeatureGridMetrics.allFeatures(context, availableWidth);
   }
 
   static AdaptiveFeatureGridMetrics _resolve(

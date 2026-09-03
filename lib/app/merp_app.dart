@@ -8,10 +8,12 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/generated/app_localizations.dart';
+import '../core/platform/local_network_access_service.dart';
 import '../features/app_update/app_update_gate.dart';
 import '../routing/app_router.dart';
 import 'app_dependencies.dart';
 import 'app_scope.dart';
+import 'local_network_startup_gate.dart';
 import 'security/auto_lock_guard.dart';
 import 'theme/app_theme.dart';
 
@@ -25,6 +27,8 @@ class MerpApp extends StatefulWidget {
 }
 
 class _MerpAppState extends State<MerpApp> {
+  late final LocalNetworkAccessService _localNetworkAccess =
+      LocalNetworkAccessService();
   late final AppRouter _appRouter = AppRouter(
     authController: widget.dependencies.authController,
     logger: widget.dependencies.logger,
@@ -69,12 +73,18 @@ class _MerpAppState extends State<MerpApp> {
             routerConfig: _appRouter.router,
             debugShowCheckedModeBanner: false,
             builder: (context, child) {
-              return AppUpdateGate(
-                controller: dependencies.appUpdateController,
-                child: AutoLockGuard(
-                  authController: dependencies.authController,
-                  settingsController: dependencies.settingsController,
-                  child: child ?? const SizedBox.shrink(),
+              return LocalNetworkStartupGate(
+                apiBaseUrl: dependencies.apiClient.baseUrl,
+                authController: dependencies.authController,
+                networkAccess: _localNetworkAccess,
+                logger: dependencies.logger,
+                child: AppUpdateGate(
+                  controller: dependencies.appUpdateController,
+                  child: AutoLockGuard(
+                    authController: dependencies.authController,
+                    settingsController: dependencies.settingsController,
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 ),
               );
             },

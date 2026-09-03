@@ -136,6 +136,8 @@ void main() {
   ) async {
     late AdaptiveFeatureGridMetrics compactMetrics;
     late AdaptiveFeatureGridMetrics regularMetrics;
+    late AdaptiveFeatureGridMetrics selectionMetrics;
+    late AdaptiveFeatureGridMetrics desktopMetrics;
 
     await tester.pumpWidget(
       _testShell(
@@ -149,6 +151,14 @@ void main() {
               context,
               360,
             );
+            selectionMetrics = AdaptiveFeatureGridMetrics.allFeatures(
+              context,
+              360,
+            );
+            desktopMetrics = AdaptiveFeatureGridMetrics.allFeatures(
+              context,
+              1200,
+            );
             return const SizedBox.shrink();
           },
         ),
@@ -157,6 +167,10 @@ void main() {
 
     expect(compactMetrics.crossAxisCount, 3);
     expect(regularMetrics.crossAxisCount, 3);
+    expect(regularMetrics.crossAxisCount, selectionMetrics.crossAxisCount);
+    expect(regularMetrics.spacing, selectionMetrics.spacing);
+    expect(regularMetrics.mainAxisExtent, selectionMetrics.mainAxisExtent);
+    expect(desktopMetrics.crossAxisCount, greaterThan(3));
   });
 
   test('favorite sort changes target only after crossing cell centers', () {

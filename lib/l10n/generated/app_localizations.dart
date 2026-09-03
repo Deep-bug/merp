@@ -130,6 +130,42 @@ abstract class AppLocalizations {
   /// **'正在恢复登录状态'**
   String get restoringSession;
 
+  /// No description provided for @localNetworkChecking.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在连接公司内网'**
+  String get localNetworkChecking;
+
+  /// No description provided for @localNetworkRequiredTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要本地网络权限'**
+  String get localNetworkRequiredTitle;
+
+  /// No description provided for @localNetworkRequiredMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'MERP 需要访问本地网络才能连接公司服务器。请允许本地网络访问，并确认已连接公司 Wi-Fi 或 VPN。'**
+  String get localNetworkRequiredMessage;
+
+  /// No description provided for @localNetworkUnavailableTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法连接公司内网'**
+  String get localNetworkUnavailableTitle;
+
+  /// No description provided for @localNetworkUnavailableMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'请检查公司 Wi-Fi、VPN 和服务器状态后重试。'**
+  String get localNetworkUnavailableMessage;
+
+  /// No description provided for @openSystemSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'去设置'**
+  String get openSystemSettings;
+
   /// No description provided for @startupFailed.
   ///
   /// In zh, this message translates to:
@@ -1417,12 +1453,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'定位到我的位置'**
   String get locateMe;
-
-  /// No description provided for @openSystemSettings.
-  ///
-  /// In zh, this message translates to:
-  /// **'去设置'**
-  String get openSystemSettings;
 
   /// No description provided for @addressUnavailable.
   ///

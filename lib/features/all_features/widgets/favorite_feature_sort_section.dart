@@ -10,7 +10,7 @@ import '../../../l10n/l10n.dart';
 import '../../../shared/adaptive_feature_grid.dart';
 import '../../../shared/widgets/smooth_reorderable_grid.dart';
 import '../../home/domain/feature_item.dart';
-import '../../home/widgets/home_feature_area.dart';
+import 'feature_catalog_card.dart';
 
 class FavoriteFeatureSortSection extends StatelessWidget {
   const FavoriteFeatureSortSection({
@@ -19,8 +19,6 @@ class FavoriteFeatureSortSection extends StatelessWidget {
     required this.onReorder,
   });
 
-  static const _enabledBlue = Color(0xFF16A3DE);
-
   final List<FeatureItem> items;
   final SmoothReorderCallback onReorder;
 
@@ -28,8 +26,9 @@ class FavoriteFeatureSortSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
     return Container(
-      margin: const EdgeInsets.fromLTRB(18, 32, 18, 0),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      // 与上方功能选择网格使用相同的左右边界，确保卡片宽度完全一致。
+      margin: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+      padding: const EdgeInsets.fromLTRB(0, 12, 0, 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -58,12 +57,10 @@ class FavoriteFeatureSortSection extends StatelessWidget {
                 itemId: (item) => item.id,
                 metrics: metrics,
                 onReorder: onReorder,
-                itemBuilder: (context, item) => HomeFeatureCard(
+                itemBuilder: (context, item) => FeatureCatalogCard(
                   item: item,
-                  label: item.title,
-                  iconColor: _enabledBlue,
-                  onTap: () {},
-                  compact: true,
+                  enabled: true,
+                  isFavorite: true,
                 ),
               );
             },

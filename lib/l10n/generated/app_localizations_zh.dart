@@ -28,6 +28,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get restoringSession => '正在恢复登录状态';
 
   @override
+  String get localNetworkChecking => '正在连接公司内网';
+
+  @override
+  String get localNetworkRequiredTitle => '需要本地网络权限';
+
+  @override
+  String get localNetworkRequiredMessage =>
+      'MERP 需要访问本地网络才能连接公司服务器。请允许本地网络访问，并确认已连接公司 Wi-Fi 或 VPN。';
+
+  @override
+  String get localNetworkUnavailableTitle => '暂时无法连接公司内网';
+
+  @override
+  String get localNetworkUnavailableMessage => '请检查公司 Wi-Fi、VPN 和服务器状态后重试。';
+
+  @override
+  String get openSystemSettings => '去设置';
+
+  @override
   String get startupFailed => '启动失败';
 
   @override
@@ -704,9 +723,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get locateMe => '定位到我的位置';
 
   @override
-  String get openSystemSettings => '去设置';
-
-  @override
   String get addressUnavailable => '暂未获取到地址';
 
   @override
@@ -761,6 +777,25 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get restoringSession => '正在恢復登入狀態';
+
+  @override
+  String get localNetworkChecking => '正在連線公司內網';
+
+  @override
+  String get localNetworkRequiredTitle => '需要區域網路權限';
+
+  @override
+  String get localNetworkRequiredMessage =>
+      'MERP 需要存取區域網路才能連線公司伺服器。請允許區域網路存取，並確認已連線公司 Wi-Fi 或 VPN。';
+
+  @override
+  String get localNetworkUnavailableTitle => '暫時無法連線公司內網';
+
+  @override
+  String get localNetworkUnavailableMessage => '請檢查公司 Wi-Fi、VPN 和伺服器狀態後重試。';
+
+  @override
+  String get openSystemSettings => '前往設定';
 
   @override
   String get startupFailed => '啟動失敗';
@@ -1437,9 +1472,6 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get locateMe => '定位到我的位置';
-
-  @override
-  String get openSystemSettings => '前往設定';
 
   @override
   String get addressUnavailable => '暫未取得地址';
