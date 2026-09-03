@@ -19,7 +19,7 @@ function Show-Usage {
 
 版本覆盖：
   `$env:BUILD_NAME="1.2.0"
-  `$env:BUILD_NUMBER="108"
+  `$env:BUILD_NUMBER="10001"
   .\tool\app.cmd build qas android
 "@
 }
@@ -329,6 +329,9 @@ try {
     $BuildNumber = if ($env:BUILD_NUMBER) { $env:BUILD_NUMBER } else { $ProjectVersion[1] }
     if (-not $VersionName -or -not $BuildNumber) {
         Fail "无法从 pubspec.yaml 读取版本号或构建编号。"
+    }
+    if ($BuildNumber -notmatch '^\d{5}$') {
+        Fail "BUILD_NUMBER 必须是五位数字（例如 10000），当前值：$BuildNumber"
     }
     if ($EnvironmentName -eq "prd") {
         Confirm-Prd

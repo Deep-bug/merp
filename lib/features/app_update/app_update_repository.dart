@@ -59,6 +59,7 @@ class AppUpdateRepository implements AppUpdateRepositoryContract {
         'platform': platform,
         'currentVersionCode': versionCode,
         'updateType': info.updateType.name,
+        'minimumVersionCode': info.minimumVersionCode,
         'latestVersionCode': info.latestVersionCode,
         'latestVersionName': info.latestVersionName,
       },

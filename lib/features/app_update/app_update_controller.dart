@@ -127,25 +127,42 @@ class AppUpdateController extends ChangeNotifier {
     updateInfo = info;
     _validateDownloadUrl(info.downloadUrl);
 
-    // 是否存在新版本只比较数字构建号。updateType 仅描述发现新版本后采用
-    // 强制升级还是可选升级，不能反过来把更高版本误判为“已是最新版”。
-    if (info.latestVersionCode <= currentVersionCode) {
+    // App 根据三个数字构建号独立计算升级策略，避免后端 updateType
+    // 误配时出现应强制却被放行，或可选升级却被强制的情况。
+    final effectiveUpdateType = currentVersionCode < info.minimumVersionCode
+        ? AppUpdateType.force
+        : currentVersionCode < info.latestVersionCode
+        ? AppUpdateType.optional
+        : AppUpdateType.none;
+    if (info.updateType != effectiveUpdateType) {
+      _logger.warning(
+        'app.update',
+        '版本接口 updateType 与版本号计算结果不一致，已使用客户端计算结果',
+        fields: {
+          'currentVersionCode': currentVersionCode,
+          'minimumVersionCode': info.minimumVersionCode,
+          'latestVersionCode': info.latestVersionCode,
+          'serverUpdateType': info.updateType.name,
+          'effectiveUpdateType': effectiveUpdateType.name,
+        },
+      );
+    }
+
+    if (effectiveUpdateType == AppUpdateType.none) {
       _forceUpdateActive = false;
       status = AppUpdateStatus.upToDate;
       notifyListeners();
       return;
     }
-    if (info.updateType == AppUpdateType.none) {
-      throw StateError('版本接口返回了更高构建号，但 updateType 为 none');
-    }
 
-    _forceUpdateActive = info.isForceUpdate;
-    status = info.isForceUpdate
+    final isForceUpdate = effectiveUpdateType == AppUpdateType.force;
+    _forceUpdateActive = isForceUpdate;
+    status = isForceUpdate
         ? AppUpdateStatus.forceUpdate
         : AppUpdateStatus.optionalUpdate;
     notifyListeners();
 
-    if (info.isForceUpdate &&
+    if (isForceUpdate &&
         autoStartForceUpdate &&
         (isAndroid || isSimulationMode)) {
       unawaited(startUpdate());
@@ -312,6 +329,7 @@ class AppUpdateController extends ChangeNotifier {
       error: error,
       stackTrace: stackTrace,
       fields: {
+        'minimumVersionCode': updateInfo?.minimumVersionCode,
         'latestVersionCode': updateInfo?.latestVersionCode,
         'downloadUrl': updateInfo?.downloadUrl.toString(),
       },

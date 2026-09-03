@@ -372,14 +372,14 @@ keyPassword=由发布负责人提供
 先设置正式版本：
 
 ```bash
-BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build prd android
+BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build prd android
 ```
 
 Windows PowerShell：
 
 ```powershell
 $env:BUILD_NAME = "1.2.0"
-$env:BUILD_NUMBER = "108"
+$env:BUILD_NUMBER = "10001"
 .\tool\app.cmd build prd android
 ```
 
@@ -491,7 +491,7 @@ PRD 发布需要：
 ### 6.5 构建 iOS PRD IPA
 
 ```bash
-BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build prd ios
+BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build prd ios
 ```
 
 本地输入 `prd` 后，脚本以 App Store 方式归档和导出。构建成功不代表已上传商店；
@@ -512,20 +512,28 @@ BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build prd ios
 项目默认版本来自 `pubspec.yaml`：
 
 ```yaml
-version: 1.0.0+1
+version: 1.0.0+10000
 ```
 
 - `1.0.0`：对用户展示的版本号。
-- `1`：内部构建编号。
+- `10000`：五位数内部构建编号，Android 对应 `versionCode`，iOS 对应
+  `CFBundleVersion`。后续发布只递增该数字，不从展示版本号推导。
+
+版本接口同时返回最低可用版本与最新可下载版本，客户端判断规则为：
+
+- 当前构建号小于 `minimumVersionCode`：强制升级。
+- 当前构建号大于或等于 `minimumVersionCode`，但小于 `latestVersionCode`：可选升级。
+- 当前构建号大于或等于 `latestVersionCode`：已是最新版，不执行降级。
 
 构建时可以覆盖：
 
 ```bash
-BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build qas android
+BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build qas android
 ```
 
 Android 的 `BUILD_NUMBER` 对应 `versionCode`，iOS 对应 `CFBundleVersion`。每次正式
-上传都必须使用比商店现有版本更大的构建编号。
+上传都必须使用更大的五位构建编号。项目的 Mac 和 Windows
+统一构建脚本会拒绝非五位的 `BUILD_NUMBER`，防止再产出无法与后端比较的包。
 
 ## 8. CI 接入
 
@@ -535,13 +543,13 @@ Android 的 `BUILD_NUMBER` 对应 `versionCode`，iOS 对应 `CFBundleVersion`�
 ./tool/bootstrap
 ./tool/app analyze
 ./tool/app test
-CI=true BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build prd android
+CI=true BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build prd android
 ```
 
 iOS：
 
 ```bash
-CI=true BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build prd ios
+CI=true BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build prd ios
 ```
 
 `CI=true` 只跳过本地交互确认，不会关闭生产配置和签名检查。

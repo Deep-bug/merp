@@ -30,7 +30,7 @@ usage() {
   ./tool/app build prd ios [Flutter 额外参数]
 
 版本覆盖：
-  BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build qas android
+  BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build qas android
 
 iOS OTA：
   ios-ota 会构建 Ad Hoc IPA，并在 build/ios/ota/qas 生成 manifest.plist。
@@ -452,6 +452,8 @@ VERSION_NAME="${BUILD_NAME:-$(project_version)}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(project_build_number)}"
 [[ -n "$VERSION_NAME" && -n "$BUILD_NUMBER" ]] ||
   fail "无法从 pubspec.yaml 读取版本号或构建编号。"
+[[ "$BUILD_NUMBER" =~ ^[0-9]{5}$ ]] ||
+  fail "BUILD_NUMBER 必须是五位数字（例如 10000），当前值：$BUILD_NUMBER"
 
 if [[ "$ENVIRONMENT" == "prd" ]]; then
   validate_prd_config

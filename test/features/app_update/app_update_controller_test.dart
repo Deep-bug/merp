@@ -40,6 +40,7 @@ void main() {
             'updateType': 'force',
             'latestVersionName': '1.0.0',
             'latestVersionCode': 10000,
+            'minimumVersionCode': 10000,
             'releaseNotes': 'xxxxx',
             'downloadUrl': 'https://example.com/merp.apk',
           },
@@ -71,6 +72,7 @@ void main() {
     });
     expect(captured?.headers['Authorization'], isNull);
     expect(info.updateType, AppUpdateType.force);
+    expect(info.minimumVersionCode, 10000);
     expect(info.latestVersionCode, 10000);
   });
 
@@ -135,6 +137,7 @@ void main() {
         info: _updateInfo(
           updateType: AppUpdateType.force,
           latestVersionCode: 9999,
+          minimumVersionCode: 9000,
         ),
       ),
       platformService: _FakeUpdatePlatform(),
@@ -151,24 +154,73 @@ void main() {
     expect(controller.isForceUpdateActive, isFalse);
   });
 
-  test('higher version code is never reported as up to date', () async {
+  test(
+    'client computes optional update when server updateType is stale',
+    () async {
+      final controller = AppUpdateController(
+        repository: _FakeUpdateRepository(
+          info: _updateInfo(
+            updateType: AppUpdateType.none,
+            latestVersionCode: 10000,
+            minimumVersionCode: 9000,
+          ),
+        ),
+        platformService: _FakeUpdatePlatform(),
+        logger: AppLogger(),
+        localeProvider: () => 'zh_CN',
+        platform: TargetPlatform.android,
+        packageInfoProvider: _packageInfo,
+      );
+
+      await controller.checkManually();
+
+      expect(controller.status, AppUpdateStatus.optionalUpdate);
+      expect(controller.isForceUpdateActive, isFalse);
+    },
+  );
+
+  test('build below minimum version is always a force update', () async {
     final controller = AppUpdateController(
       repository: _FakeUpdateRepository(
         info: _updateInfo(
-          updateType: AppUpdateType.none,
-          latestVersionCode: 10000,
+          updateType: AppUpdateType.optional,
+          latestVersionCode: 30000,
+          minimumVersionCode: 20000,
+        ),
+      ),
+      platformService: _FakeUpdatePlatform(),
+      logger: AppLogger(),
+      localeProvider: () => 'zh_CN',
+      platform: TargetPlatform.iOS,
+      packageInfoProvider: () => _packageInfo(buildNumber: '10000'),
+    );
+
+    await controller.checkManually();
+
+    expect(controller.status, AppUpdateStatus.forceUpdate);
+    expect(controller.isForceUpdateActive, isTrue);
+  });
+
+  test('build at minimum version receives an optional update', () async {
+    final controller = AppUpdateController(
+      repository: _FakeUpdateRepository(
+        info: _updateInfo(
+          updateType: AppUpdateType.optional,
+          latestVersionCode: 30000,
+          minimumVersionCode: 20000,
         ),
       ),
       platformService: _FakeUpdatePlatform(),
       logger: AppLogger(),
       localeProvider: () => 'zh_CN',
       platform: TargetPlatform.android,
-      packageInfoProvider: _packageInfo,
+      packageInfoProvider: () => _packageInfo(buildNumber: '20000'),
     );
 
-    await expectLater(controller.checkManually(), throwsA(isA<StateError>()));
+    await controller.checkManually();
 
-    expect(controller.status, AppUpdateStatus.failed);
+    expect(controller.status, AppUpdateStatus.optionalUpdate);
+    expect(controller.isForceUpdateActive, isFalse);
   });
 
   test('unknown update type is rejected instead of becoming none', () {
@@ -177,6 +229,21 @@ void main() {
         'updateType': 'force_update',
         'latestVersionName': '1.0.0',
         'latestVersionCode': 10000,
+        'minimumVersionCode': 10000,
+        'releaseNotes': 'xxxxx',
+        'downloadUrl': 'https://example.com/merp.apk',
+      }),
+      throwsFormatException,
+    );
+  });
+
+  test('minimum version cannot be greater than latest version', () {
+    expect(
+      () => AppUpdateInfo.fromJson({
+        'updateType': 'force',
+        'latestVersionName': '1.0.0',
+        'latestVersionCode': 20000,
+        'minimumVersionCode': 30000,
         'releaseNotes': 'xxxxx',
         'downloadUrl': 'https://example.com/merp.apk',
       }),
@@ -225,6 +292,7 @@ AppUpdateInfo _forceInfo(Uri downloadUrl) {
     updateType: AppUpdateType.force,
     latestVersionName: '1.0.0',
     latestVersionCode: 10000,
+    minimumVersionCode: 10000,
     releaseNotes: 'xxxxx',
     downloadUrl: downloadUrl,
   );
@@ -233,11 +301,13 @@ AppUpdateInfo _forceInfo(Uri downloadUrl) {
 AppUpdateInfo _updateInfo({
   required AppUpdateType updateType,
   required int latestVersionCode,
+  required int minimumVersionCode,
 }) {
   return AppUpdateInfo(
     updateType: updateType,
     latestVersionName: '1.0.0',
     latestVersionCode: latestVersionCode,
+    minimumVersionCode: minimumVersionCode,
     releaseNotes: 'xxxxx',
     downloadUrl: Uri.parse('https://example.com/merp.apk'),
   );

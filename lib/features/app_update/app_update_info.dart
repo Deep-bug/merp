@@ -23,6 +23,7 @@ class AppUpdateInfo {
     required this.updateType,
     required this.latestVersionName,
     required this.latestVersionCode,
+    required this.minimumVersionCode,
     required this.releaseNotes,
     required this.downloadUrl,
   });
@@ -30,6 +31,7 @@ class AppUpdateInfo {
   final AppUpdateType updateType;
   final String latestVersionName;
   final int latestVersionCode;
+  final int minimumVersionCode;
   final String releaseNotes;
   final Uri downloadUrl;
 
@@ -51,11 +53,24 @@ class AppUpdateInfo {
     if (latestVersionCode == null || latestVersionCode <= 0) {
       throw const FormatException('版本接口 latestVersionCode 不是有效正整数');
     }
+    final rawMinimumVersionCode = json['minimumVersionCode'];
+    final minimumVersionCode = rawMinimumVersionCode is int
+        ? rawMinimumVersionCode
+        : int.tryParse(rawMinimumVersionCode?.toString() ?? '');
+    if (minimumVersionCode == null || minimumVersionCode <= 0) {
+      throw const FormatException('版本接口 minimumVersionCode 不是有效正整数');
+    }
+    if (minimumVersionCode > latestVersionCode) {
+      throw const FormatException(
+        '版本接口 minimumVersionCode 不能大于 latestVersionCode',
+      );
+    }
 
     return AppUpdateInfo(
       updateType: AppUpdateType.fromValue(json['updateType']),
       latestVersionName: latestVersionName,
       latestVersionCode: latestVersionCode,
+      minimumVersionCode: minimumVersionCode,
       releaseNotes: releaseNotes,
       downloadUrl: downloadUrl,
     );

@@ -147,7 +147,7 @@ IOS_OTA_BASE_URL=https://example.com/merp/ios ./tool/app build qas ios-ota
 ./tool/app build prd ios      # App Store IPA
 
 # CI 无交互执行示例
-CI=true BUILD_NAME=1.2.0 BUILD_NUMBER=108 ./tool/app build prd android
+CI=true BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build prd android
 ```
 
 `ios-ota` 会构建 Ad Hoc IPA，并在 `build/ios/ota/qas` 生成可放到服务器的

@@ -33,6 +33,7 @@ class MockAppUpdateRepository implements AppUpdateRepositoryContract {
       updateType: AppUpdateType.force,
       latestVersionName: '1.0.0 Mock',
       latestVersionCode: latestVersionCode,
+      minimumVersionCode: latestVersionCode,
       releaseNotes: '模拟强制升级：验证版本提示、更新说明和下载进度展示。',
       downloadUrl: Uri.parse('https://mock.invalid/merp-mock.apk'),
     );
@@ -43,6 +44,7 @@ class MockAppUpdateRepository implements AppUpdateRepositoryContract {
         'platform': platform,
         'locale': locale,
         'currentVersionCode': versionCode,
+        'minimumVersionCode': info.minimumVersionCode,
         'latestVersionCode': latestVersionCode,
         'updateType': info.updateType.name,
       },
