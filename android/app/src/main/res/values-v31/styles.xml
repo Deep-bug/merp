@@ -11,6 +11,6 @@
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/android12splash</item>
     </style>
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowBackground">@color/merp_splash_background</item>
+        <item name="android:windowBackground">@color/merp_privacy_background</item>
     </style>
 </resources>

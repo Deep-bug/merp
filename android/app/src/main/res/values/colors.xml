@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="merp_splash_background">#EAF4FF</color>
+    <color name="merp_privacy_background">#F4F8FD</color>
 </resources>

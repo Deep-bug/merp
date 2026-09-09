@@ -16,23 +16,8 @@ class AppPrivacyShield extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlockSemantics(
-      child: Material(
-        key: overlayKey,
-        color: const Color(0xFFF4F8FD),
-        child: const SafeArea(
-          child: Center(
-            child: ExcludeSemantics(
-              child: Image(
-                image: AssetImage('assets/branding/splash_logo.png'),
-                width: 92,
-                height: 92,
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-        ),
-      ),
+    return const BlockSemantics(
+      child: ColoredBox(key: overlayKey, color: Color(0xFFF4F8FD)),
     );
   }
 }

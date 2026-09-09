@@ -2,15 +2,16 @@ package com.delta.merpdelta
 
 import android.content.Intent
 import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
-import androidx.core.content.FileProvider
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebView
-import java.io.File
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 class MainActivity : FlutterFragmentActivity() {
     companion object {
@@ -18,6 +19,17 @@ class MainActivity : FlutterFragmentActivity() {
         private const val CLEAR_WEB_DATA_METHOD = "clearAllWebData"
         private const val APP_UPDATE_CHANNEL = "com.delta.merpdelta/app_update"
         private const val INSTALL_APK_METHOD = "installApk"
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Android 13+ 由系统直接禁止为最近任务生成 Activity 截图，
+        // 避免 Flutter 生命周期遮罩尚未绘制完成时泄露页面内容。
+        // 这不会禁止用户在 App 前台正常截图或录屏。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            setRecentsScreenshotEnabled(false)
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
