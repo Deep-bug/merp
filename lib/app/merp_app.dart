@@ -69,11 +69,11 @@ class _MerpAppState extends State<MerpApp> {
             routerConfig: _appRouter.router,
             debugShowCheckedModeBanner: false,
             builder: (context, child) {
-              return AppUpdateGate(
-                controller: dependencies.appUpdateController,
-                child: AutoLockGuard(
-                  authController: dependencies.authController,
-                  settingsController: dependencies.settingsController,
+              return AutoLockGuard(
+                authController: dependencies.authController,
+                settingsController: dependencies.settingsController,
+                child: AppUpdateGate(
+                  controller: dependencies.appUpdateController,
                   child: child ?? const SizedBox.shrink(),
                 ),
               );

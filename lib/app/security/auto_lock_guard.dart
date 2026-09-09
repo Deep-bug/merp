@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // 文件：auto_lock_guard.dart
-// 作用：统一处理冷启动手势验证、首次设置和 10 秒无操作自动锁屏
+// 作用：统一处理后台隐私遮罩、冷启动验证和 10 秒无操作自动锁屏
 // 编写时间：2026-07-10
 // 维护说明：页面不得各自实现锁屏计时，所有业务页面都位于本守卫下方
 // -----------------------------------------------------------------------------
@@ -13,6 +13,7 @@ import '../../core/auth/auth_controller.dart';
 import '../../features/settings/pattern_lock_pad.dart';
 import '../../features/settings/settings_controller.dart';
 import '../../l10n/l10n.dart';
+import 'app_privacy_shield.dart';
 
 class AutoLockGuard extends StatefulWidget {
   const AutoLockGuard({
@@ -36,6 +37,7 @@ class _AutoLockGuardState extends State<AutoLockGuard>
     with WidgetsBindingObserver {
   Timer? _timer;
   DateTime _lastInteraction = DateTime.now();
+  bool _privacyCovered = false;
   bool _locked = false;
   bool _requiresEnrollment = false;
   bool _scopeReady = false;
@@ -77,20 +79,46 @@ class _AutoLockGuardState extends State<AutoLockGuard>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!_shouldTrackInactivity || _locked) {
+    if (state == AppLifecycleState.resumed) {
+      _handleForegroundResume();
       return;
     }
-    if (state == AppLifecycleState.resumed) {
-      final inactiveFor = DateTime.now().difference(_lastInteraction);
-      if (inactiveFor >= SettingsController.autoLockTimeout) {
-        _lock(_LockReason.inactivity);
-      } else {
-        _scheduleLock(SettingsController.autoLockTimeout - inactiveFor);
-      }
-    } else {
-      // 后台会暂停 Dart Timer，恢复时用时间差重新判断。
-      _timer?.cancel();
+
+    // inactive 会早于 paused/hidden 到达，必须在这里立即遮挡，
+    // 避免 iOS/Android 为应用切换器生成快照时暴露业务页面。
+    _timer?.cancel();
+    if (!_privacyCovered && mounted) {
+      setState(() => _privacyCovered = true);
     }
+  }
+
+  void _handleForegroundResume() {
+    if (!mounted) {
+      return;
+    }
+
+    final inactiveFor = DateTime.now().difference(_lastInteraction);
+    final shouldLock =
+        !_locked &&
+        _shouldTrackInactivity &&
+        inactiveFor >= SettingsController.autoLockTimeout;
+
+    // 在同一帧里决定“恢复内容”或“进入解锁”，避免先撤掉遮罩
+    // 再显示锁屏造成的敏感内容闪现。
+    setState(() {
+      _privacyCovered = false;
+      if (shouldLock) {
+        _locked = true;
+        _lockReason = _LockReason.inactivity;
+        _requiresEnrollment =
+            !widget.settingsController.gesturePasswordConfigured;
+      }
+    });
+
+    if (_locked || !_shouldTrackInactivity) {
+      return;
+    }
+    _scheduleLock(SettingsController.autoLockTimeout - inactiveFor);
   }
 
   @override
@@ -238,6 +266,7 @@ class _AutoLockGuardState extends State<AutoLockGuard>
               onUnlocked: _unlock,
               onLogout: widget.authController.logout,
             ),
+          if (_privacyCovered) const AppPrivacyShield(),
         ],
       ),
     );
