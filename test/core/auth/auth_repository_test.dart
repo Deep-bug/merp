@@ -166,6 +166,83 @@ void main() {
     expect(store.tokens, isNull);
   });
 
+  test(
+    'exchanges refresh_token for a one-time Web code without logging secrets',
+    () async {
+      RequestOptions? exchangeRequest;
+      final dio = Dio()
+        ..httpClientAdapter = FakeHttpAdapter((options) {
+          exchangeRequest = options;
+          return jsonResponse({
+            'code': 200,
+            'message': 'success',
+            'data': {'code': 'web-code-secret'},
+          });
+        });
+      final store = MemoryTokenStore(
+        const AuthTokens(
+          accessToken: 'access-1',
+          refreshToken: 'refresh-secret',
+        ),
+      );
+      final logger = AppLogger(enableDebugLogs: true);
+      final repository = AuthRepository(
+        apiClient: ApiClient(
+          config: const AppConfig(),
+          tokenStore: store,
+          logger: logger,
+          dio: dio,
+        ),
+        tokenStore: store,
+        logger: logger,
+      );
+
+      final code = await repository.exchangeWebCode();
+
+      expect(code, 'web-code-secret');
+      expect(exchangeRequest?.method, 'POST');
+      expect(exchangeRequest?.path, '/api/v1/auth/handoff');
+      expect(exchangeRequest?.data, {'refresh_token': 'refresh-secret'});
+      expect(exchangeRequest?.headers.containsKey('Authorization'), isFalse);
+      final logged = logger.entries.map((entry) => entry.toText()).join('\n');
+      expect(logged, isNot(contains('refresh-secret')));
+      expect(logged, isNot(contains('web-code-secret')));
+      expect(logged, contains('[redacted]'));
+    },
+  );
+
+  test(
+    'does not call exchange endpoint when refresh_token is absent',
+    () async {
+      var calls = 0;
+      final dio = Dio()
+        ..httpClientAdapter = FakeHttpAdapter((options) {
+          calls++;
+          return jsonResponse({}, statusCode: 404);
+        });
+      final store = MemoryTokenStore(
+        const AuthTokens(accessToken: 'access-only'),
+      );
+      final logger = AppLogger();
+      final repository = AuthRepository(
+        apiClient: ApiClient(
+          config: const AppConfig(),
+          tokenStore: store,
+          logger: logger,
+          dio: dio,
+        ),
+        tokenStore: store,
+        logger: logger,
+      );
+
+      await expectLater(
+        repository.exchangeWebCode(),
+        throwsA(isA<AuthException>()),
+      );
+      expect(calls, 0);
+    },
+  );
+
   test('restore refreshes tokens without loading user profile', () async {
     RequestOptions? refreshRequest;
     var userInfoCalls = 0;

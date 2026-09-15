@@ -53,6 +53,19 @@ class AuthController extends ChangeNotifier {
   bool get isAuthenticated =>
       status == AuthStatus.authenticated && session != null;
 
+  /// WebView 只能取得一次性 Code，不能直接读取或持有 refresh_token。
+  Future<String> exchangeWebCode() async {
+    if (!isAuthenticated) {
+      throw const AuthException('请重新登录后打开功能页面');
+    }
+    final currentSession = session;
+    final code = await _authRepository.exchangeWebCode();
+    if (!isAuthenticated || !identical(session, currentSession)) {
+      throw const AuthException('登录状态已变化，请重新打开功能页面');
+    }
+    return code;
+  }
+
   Future<void> restoreSession() async {
     lastError = null;
     try {

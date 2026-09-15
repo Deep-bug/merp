@@ -1,6 +1,7 @@
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../logging/app_logger.dart';
+import '../auth/web_code_url.dart';
 
 /// Opt-in WebView diagnostics for controlled device troubleshooting.
 class WebViewDiagnostics {
@@ -23,7 +24,7 @@ class WebViewDiagnostics {
         fields: {
           'page': page,
           'level': message.level.name,
-          'message': message.message,
+          'message': WebCodeUrl.redact(message.message),
         },
       );
     });
@@ -58,7 +59,7 @@ class WebViewDiagnostics {
       logger.info(
         'webview',
         'WebView DOM inspection completed',
-        fields: {'page': page, 'result': result.toString()},
+        fields: {'page': page, 'result': WebCodeUrl.redact(result.toString())},
       );
     } catch (error, stackTrace) {
       logger.warning(

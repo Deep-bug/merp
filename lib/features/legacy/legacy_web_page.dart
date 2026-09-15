@@ -5,11 +5,14 @@
 // 维护说明：迁移期功能统一经过此容器，禁止业务模块自行创建 WebView
 // -----------------------------------------------------------------------------
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/app_scope.dart';
+import '../../core/auth/web_code_url.dart';
 import '../../core/bridge/merp_native_bridge.dart';
 import '../../core/platform/webview_diagnostics.dart';
 import '../../core/platform/webview_support.dart';
@@ -33,17 +36,18 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
   _LegacyError? _error;
   var _progress = 0;
   var _configured = false;
+  var _loadingExchange = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_configured) {
       _configured = true;
-      _configureAndLoad();
+      unawaited(_configureAndLoad());
     }
   }
 
-  void _configureAndLoad() {
+  Future<void> _configureAndLoad() async {
     final scope = AppScope.of(context);
     final moduleId = widget.moduleId.trim();
 
@@ -136,7 +140,7 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
         _LegacyError(
           title: context.l10n.invalidUrl,
           message: context.l10n.invalidUrlMessage,
-          detail: uri.toString(),
+          detail: WebCodeUrl.redact(uri.toString()),
           tone: AppErrorTone.warning,
         ),
       );
@@ -146,6 +150,29 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     _currentUri = uri;
     _progress = 0;
     _error = null;
+
+    // 换码必须发生在创建/加载 WebView 之前；失败时不打开旧页面。
+    // 页面显式重试会再次进入这里，因此不会复用一次性 Code。
+    _loadingExchange = true;
+    late final Uri pageUri;
+    try {
+      final code = await scope.authController.exchangeWebCode();
+      if (!mounted) return;
+      pageUri = WebCodeUrl.append(uri, code);
+    } catch (error) {
+      if (mounted) {
+        _showError(
+          _LegacyError(
+            title: context.l10n.pageLoadFailed,
+            message: context.l10n.pageLoadFailedMessage,
+            detail: WebCodeUrl.redact(error.toString()),
+          ),
+        );
+      }
+      return;
+    } finally {
+      _loadingExchange = false;
+    }
 
     late final WebViewController controller;
     controller = WebViewController()
@@ -174,7 +201,7 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
                   'page': 'legacy:$moduleId',
                   'resourceType': WebViewDiagnostics.resourceType(error),
                   'errorCode': error.errorCode,
-                  'description': error.description,
+                  'description': WebCodeUrl.redact(error.description),
                 },
               );
             }
@@ -186,7 +213,7 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
                 title: context.l10n.pageLoadFailed,
                 message: context.l10n.pageLoadFailedMessage,
                 detail:
-                    'URL: ${_currentUri ?? uri}\n错误码: ${error.errorCode}\n原因: ${error.description}',
+                    'URL: ${WebCodeUrl.redact((_currentUri ?? uri).toString())}\n错误码: ${error.errorCode}\n原因: ${WebCodeUrl.redact(error.description)}',
               ),
             );
           },
@@ -198,7 +225,8 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
                 message: statusCode == 404
                     ? context.l10n.legacyNotFoundMessage
                     : context.l10n.legacyServerErrorMessage,
-                detail: 'URL: ${_currentUri ?? uri}\nHTTP 状态码: $statusCode',
+                detail:
+                    'URL: ${WebCodeUrl.redact((_currentUri ?? uri).toString())}\nHTTP 状态码: $statusCode',
               ),
             );
           },
@@ -217,7 +245,7 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
         MerpNativeBridge.channelName,
         onMessageReceived: (message) => bridge.handleMessage(message.message),
       )
-      ..loadRequest(uri, headers: _requestHeaders(scope));
+      ..loadRequest(pageUri, headers: _requestHeaders(scope));
 
     _bridge = bridge;
     setState(() => _controller = controller);
@@ -239,22 +267,14 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
   }
 
   void _retry() {
-    final uri = _currentUri;
-    if (uri == null || _controller == null) {
-      setState(() {
-        _configured = false;
-        _error = null;
-      });
-      _configureAndLoad();
-      return;
-    }
-
-    final scope = AppScope.of(context);
+    if (_loadingExchange) return;
     setState(() {
+      _controller = null;
+      _bridge = null;
       _error = null;
       _progress = 0;
     });
-    _controller!.loadRequest(uri, headers: _requestHeaders(scope));
+    unawaited(_configureAndLoad());
   }
 
   Map<String, String> _requestHeaders(AppScope scope) {

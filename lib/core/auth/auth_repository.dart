@@ -68,6 +68,33 @@ class AuthRepository {
     }
   }
 
+  /// 每次打开（或重试）旧 Vue2 页面都重新换码；不缓存一次性 Code。
+  /// refresh_token 只发往认证接口，绝不传给 WebView 或写入日志。
+  Future<String> exchangeWebCode() async {
+    final refreshToken = (await _tokenStore.readTokens())?.refreshToken;
+    if (refreshToken == null || refreshToken.isEmpty) {
+      throw const AuthException('登录凭证已失效，请重新登录');
+    }
+    try {
+      final data = await _apiClient.post<Map<String, dynamic>>(
+        _apiClient.config.webCodeExchangePath,
+        data: {'refresh_token': refreshToken},
+        skipAuth: true,
+      );
+      final code = data['code'];
+      if (code is! String || code.trim().isEmpty) {
+        throw const AuthException('网页访问码响应无效，请稍后重试');
+      }
+      return code.trim();
+    } on AuthException {
+      rethrow;
+    } on ApiException catch (error) {
+      throw AuthException(error.message);
+    } catch (_) {
+      throw const AuthException('换取网页访问码失败，请稍后重试');
+    }
+  }
+
   Future<AuthSession> login({
     required String account,
     required String password,

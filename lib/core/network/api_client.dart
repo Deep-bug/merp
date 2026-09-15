@@ -59,6 +59,8 @@ class ApiClient {
           options.headers['X-Request-Id'] ??= _requestId();
           options.extra[_startedAtKey] = DateTime.now();
 
+          final sensitive = _isSensitiveAuthRequest(options);
+
           _logger.debug(
             'http',
             '请求开始',
@@ -66,8 +68,8 @@ class ApiClient {
               'method': options.method,
               'url': options.uri.toString(),
               'query': options.queryParameters,
-              'headers': options.headers,
-              'body': options.data,
+              'headers': sensitive ? '[redacted]' : options.headers,
+              'body': sensitive ? '[redacted]' : options.data,
               'requestId': options.headers['X-Request-Id'],
               'skipAuth': skipAuth,
             },
@@ -102,7 +104,9 @@ class ApiClient {
           _logger.warning(
             'http',
             '请求未成功',
-            error: effectiveError.error,
+            error: _isSensitiveAuthRequest(effectiveError.requestOptions)
+                ? null
+                : effectiveError.error,
             fields: {
               'method': effectiveError.requestOptions.method,
               'url': effectiveError.requestOptions.uri.toString(),
@@ -111,8 +115,14 @@ class ApiClient {
               'requestId':
                   effectiveError.requestOptions.headers['X-Request-Id'],
               'query': effectiveError.requestOptions.queryParameters,
-              'requestBody': effectiveError.requestOptions.data,
-              'responseBody': effectiveError.response?.data,
+              'requestBody':
+                  _isSensitiveAuthRequest(effectiveError.requestOptions)
+                  ? '[redacted]'
+                  : effectiveError.requestOptions.data,
+              'responseBody':
+                  _isSensitiveAuthRequest(effectiveError.requestOptions)
+                  ? '[redacted]'
+                  : effectiveError.response?.data,
             },
           );
           handler.next(effectiveError);
@@ -124,6 +134,11 @@ class ApiClient {
   static const _skipAuthKey = 'merp.skipAuth';
   static const _retriedAfterRefreshKey = 'merp.retriedAfterRefresh';
   static const _startedAtKey = 'merp.startedAt';
+
+  /// refresh 与 Web 换码响应都可能包含凭证，诊断日志只保留请求元信息。
+  bool _isSensitiveAuthRequest(RequestOptions options) =>
+      options.path == config.refreshTokenPath ||
+      options.path == config.webCodeExchangePath;
 
   final AppConfig config;
   final TokenStore _tokenStore;
@@ -542,6 +557,7 @@ class ApiClient {
   }
 
   void _logResponse(Response<Object?> response) {
+    final sensitive = _isSensitiveAuthRequest(response.requestOptions);
     _logger.info(
       'http',
       '请求完成',
@@ -552,7 +568,7 @@ class ApiClient {
         'durationMs': _durationMs(response.requestOptions),
         'requestId': response.requestOptions.headers['X-Request-Id'],
         'responseHeaders': response.headers.map,
-        'responseBody': response.data,
+        'responseBody': sensitive ? '[redacted]' : response.data,
       },
     );
   }
@@ -562,6 +578,8 @@ class ApiClient {
     StackTrace stackTrace,
     String path,
   ) {
+    final sensitive =
+        path == config.refreshTokenPath || path == config.webCodeExchangePath;
     final fields = {
       'path': path,
       'errorCode': error.errorCode.code,
@@ -571,8 +589,8 @@ class ApiClient {
     if (_isRecoverableNetworkError(error.errorCode)) {
       _logger.warning(
         'http',
-        error.message,
-        error: error.raw ?? error,
+        sensitive ? '认证接口请求失败' : error.message,
+        error: sensitive ? error.errorCode.code : error.raw ?? error,
         stackTrace: stackTrace,
         fields: fields,
       );
@@ -580,8 +598,8 @@ class ApiClient {
     }
     return _logger.error(
       'http',
-      error.message,
-      error: error.raw ?? error,
+      sensitive ? '认证接口请求失败' : error.message,
+      error: sensitive ? error.errorCode.code : error.raw ?? error,
       stackTrace: stackTrace,
       fields: fields,
     );

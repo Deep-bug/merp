@@ -64,6 +64,7 @@ class AppConfig {
     this.loginPath = '/api/v1/auth/login',
     this.captchaPath = '/api/v1/auth/captcha',
     this.refreshTokenPath = '/api/v1/auth/refresh',
+    this.webCodeExchangePath = '/api/v1/auth/handoff',
     this.logoutPath = '/api/v1/auth/logout',
     this.userInfoPath = '/api/v1/user/userInfo',
     this.menuPath = '/api/v1/app/features',
@@ -165,6 +166,9 @@ class AppConfig {
 
   /// 使用 refresh_token 换取新访问令牌的接口。
   final String refreshTokenPath;
+
+  /// 使用当前 refresh_token 换取旧 Vue2 页面的一次性访问码。
+  final String webCodeExchangePath;
 
   /// 服务端注销 refresh_token 的接口。
   final String logoutPath;
