@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# 本机手动清理，不依赖 Flutter/FVM 初始化，也不操作全局开发缓存。
+set -euo pipefail
+
+TOOL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+PROJECT_DIR="$(cd "$TOOL_DIR/.." && pwd -P)"
+DRY_RUN=false
+ASSUME_YES=false
+for argument in "$@"; do
+  case "$argument" in
+    --dry-run) DRY_RUN=true ;;
+    --yes) ASSUME_YES=true ;;
+    *) printf '错误：clean 不支持参数 %s\n' "$argument" >&2; exit 1 ;;
+  esac
+done
+
+# 防止误放脚本或目录被符号链接替换后，清理到项目以外。
+[[ "$PROJECT_DIR" != / && "$PROJECT_DIR" != /Users &&
+   -f "$PROJECT_DIR/pubspec.yaml" && -f "$PROJECT_DIR/tool/app" ]] || {
+  printf '错误：无法确认 MERP 项目目录，已停止。\n' >&2
+  exit 1
+}
+for path in "$PROJECT_DIR/build" "$PROJECT_DIR/.dart_tool" \
+  "$PROJECT_DIR/.dart_tool/flutter_build" "$PROJECT_DIR/android" \
+  "$PROJECT_DIR/android/.gradle" "$PROJECT_DIR/android/build" \
+  "$PROJECT_DIR/.artifacts" "$PROJECT_DIR/.artifacts/android"; do
+  [[ ! -L "$path" ]] || {
+    printf '错误：目标是符号链接，已停止：%s\n' "$path" >&2
+    exit 1
+  }
+done
+
+# Bash 3.2 + set -u 下空数组不安全，始终保留一个不使用的占位元素。
+BACKUP_FILES=("")
+OUTPUTS="$PROJECT_DIR/build/app/outputs"
+INVENTORY="$(mktemp -t merp-clean)"
+trap 'rm -f -- "$INVENTORY"' EXIT
+if [[ -d "$OUTPUTS" ]]; then
+  # 不跟随符号链接；枚举失败则中止，不能漏备份后继续删除。
+  find "$OUTPUTS" -type f > "$INVENTORY"
+  while IFS= read -r file; do
+    case "$file" in
+      "$OUTPUTS"/apk/*/*release*.apk|"$OUTPUTS"/flutter-apk/*release*.apk|\
+      "$OUTPUTS"/bundle/*/*release*.aab|\
+      "$OUTPUTS"/mapping/*|"$OUTPUTS"/native-debug-symbols/*)
+        BACKUP_FILES+=("$file")
+        ;;
+    esac
+  done < "$INVENTORY"
+fi
+
+printf '项目：%s\n' "$PROJECT_DIR"
+printf '将归档 %s 个 Android Release/诊断文件（不归档 Debug APK 或 iOS 发布包）。\n' \
+  "$((${#BACKUP_FILES[@]} - 1))"
+printf '将清理以下生成目录：\n'
+for path in "$PROJECT_DIR/build" "$PROJECT_DIR/.dart_tool/flutter_build" \
+  "$PROJECT_DIR/android/.gradle" "$PROJECT_DIR/android/build"; do
+  if [[ -d "$path" ]]; then
+    du -sh "$path"
+  else
+    printf '  [不存在] %s\n' "$path"
+  fi
+done
+printf '保留：ios/Pods、.dart_tool 包配置、签名文件、本地 IDE 配置和全局开发缓存。\n'
+printf '请先停止 VS Code/Xcode 调试及所有 Flutter/Gradle 构建。\n'
+if [[ "$DRY_RUN" == true ]]; then
+  printf '预览完成，没有归档或删除项目文件。\n'
+  exit 0
+fi
+if [[ "$ASSUME_YES" != true ]]; then
+  [[ -t 0 ]] || {
+    printf '错误：非交互环境请显式传入 --yes；可先使用 --dry-run。\n' >&2
+    exit 1
+  }
+  read -r -p '确认清理？输入 yes：' confirmation
+  [[ "$confirmation" == yes ]] || { printf '已取消。\n'; exit 0; }
+fi
+
+if [[ ${#BACKUP_FILES[@]} -gt 1 ]]; then
+  mkdir -p "$PROJECT_DIR/.artifacts/android"
+  # 每次独立目录，不覆盖以前的 Release 归档。
+  ARCHIVE_DIR="$(mktemp -d "$PROJECT_DIR/.artifacts/android/clean-$(date +%Y%m%d-%H%M%S)-XXXXXX")"
+  for file in "${BACKUP_FILES[@]:1}"; do
+    relative="${file#"$OUTPUTS/"}"
+    destination="$ARCHIVE_DIR/$relative"
+    mkdir -p "$(dirname "$destination")"
+    if ! cp -p "$file" "$destination" || ! cmp -s "$file" "$destination"; then
+      printf '错误：归档复制或校验失败，未删除缓存：%s\n' "$file" >&2
+      exit 1
+    fi
+  done
+  printf 'Android Release 归档：%s\n' "$ARCHIVE_DIR"
+fi
+
+# 仅删除上方已经验证过的明确生成目录，绝不清理整个项目或全局缓存。
+rm -rf -- "$PROJECT_DIR/build" "$PROJECT_DIR/.dart_tool/flutter_build" \
+  "$PROJECT_DIR/android/.gradle" "$PROJECT_DIR/android/build"
+printf '清理完成。删除的是可重新生成的构建缓存；下次首次构建会较慢。\n'
+printf 'Android Release 归档保留在 .artifacts/android；iOS 发布产物不保留。\n'

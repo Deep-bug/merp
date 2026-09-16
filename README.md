@@ -134,6 +134,29 @@ Windows 桌面设备。iOS 启动项只可在 macOS 使用。
 
 Windows 对应为 `.\tool\app.cmd analyze` 和 `.\tool\app.cmd test`。
 
+### macOS 本机空间清理
+
+适用于本机日常 Android/iOS Debug 调试、保留 Android Release，且不需要保留
+iOS 发布产物的工作方式。先停止 VS Code/Xcode 调试和所有 Flutter/Gradle 构建：
+
+```bash
+./tool/app clean --dry-run  # 只查看范围和占用，不删除项目文件
+./tool/app clean            # 输入 yes 确认后执行
+./tool/app clean --yes      # 已确认范围时非交互执行
+```
+
+命令先把 `build/app/outputs/apk`、`flutter-apk` 中的 Release APK、`bundle` 中的 Release AAB，
+以及 mapping/原生符号文件复制到 `.artifacts/android/clean-<时间>-<随机标识>/`，
+逐个校验成功后才删除 `build`、`.dart_tool/flutter_build`、`android/.gradle` 和
+`android/build`。不保存 Debug APK、iOS IPA/Archive、iOS 升级验证目录。
+归档保留原输出目录结构；每次单独归档，不覆盖旧包，也不自动删除旧归档。
+
+保留源码、本地配置、签名证书、`ios/Pods`、`.dart_tool` 包配置、全局
+Gradle/Pub 缓存和 Wrapper。无需先初始化 FVM，不会自动构建任何平台。
+清理后直接使用原来的 `./tool/app run qas android` 或 `./tool/app run qas ios`；
+第一次构建会重新生成中间文件，之后恢复增量构建。此命令目前仅支持 `tool/app`
+（macOS），不改变 Windows 脚本，也不限制其他电脑执行 iOS 发布命令。
+
 构建矩阵：
 
 ```bash

@@ -18,6 +18,7 @@ usage() {
   ./tool/app ide
   ./tool/app analyze
   ./tool/app test
+  ./tool/app clean [--dry-run | --yes]
   ./tool/app run qas android [Flutter 额外参数]
   ./tool/app run qas android --recover [-d <device-id>] [Flutter 额外参数]
   ./tool/app run qas ios [Flutter 额外参数]
@@ -39,6 +40,11 @@ iOS OTA：
 Android 恢复启动：
   --recover 仅用于 Android run。启动前会停止目标设备上的 MERP 残留进程，
   并清理该设备的旧 ADB 端口转发；不会卸载 App 或清除用户数据。
+
+项目清理（macOS）：
+  clean 先归档 Android Release APK/AAB、mapping 和符号文件，再清理项目生成物。
+  不归档 iOS IPA/Archive；保留 Pods、本地配置、全局 Gradle/Pub 缓存。
+  --dry-run 只预览；--yes 跳过确认。执行前请停止 IDE 调试和所有构建。
 HELP
 }
 
@@ -326,6 +332,11 @@ generate_ios_ota_package() {
 
 COMMAND="${1:-}"
 case "$COMMAND" in
+  clean)
+    shift
+    bash "$TOOL_DIR/clean_project" "$@"
+    exit 0
+    ;;
   ide)
     [[ $# -eq 1 ]] || fail "ide 不接受额外的位置参数。"
     "$TOOL_DIR/configure_ide"

@@ -72,6 +72,7 @@ class HomePage extends StatelessWidget {
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(18, 22, 18, 34),
                           child: HomeFeatureArea(
+                            //过滤当前用户有权限的功能，收藏顺序
                             features: scope.favoriteFeatureController
                                 .favoritesFrom(permissions.authorizedFeatures),
                             hasAnyFeature: permissions.allFeatures.isNotEmpty,
