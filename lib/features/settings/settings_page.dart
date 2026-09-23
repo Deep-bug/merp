@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/config/app_config.dart';
 import '../../core/platform/web_data_cleaner.dart';
+import '../../core/security/local_security_controller.dart';
 import '../app_update/app_update_controller.dart';
 import '../../l10n/l10n.dart';
 import '../../routing/app_navigator.dart';
@@ -26,11 +27,17 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = AppScope.of(context).settingsController;
+    final security = AppScope.of(context).localSecurityController;
     final webDataCleaner = AppScope.of(context).webDataCleaner;
     final appUpdate = AppScope.of(context).appUpdateController;
 
     return AnimatedBuilder(
-      animation: Listenable.merge([settings, webDataCleaner, appUpdate]),
+      animation: Listenable.merge([
+        settings,
+        security,
+        webDataCleaner,
+        appUpdate,
+      ]),
       builder: (context, _) {
         return Scaffold(
           backgroundColor: Colors.white,
@@ -43,7 +50,7 @@ class SettingsPage extends StatelessWidget {
                   title: context.l10n.security,
                   children: [
                     SwitchListTile(
-                      value: settings.unlockMethod == UnlockMethod.gesture,
+                      value: security.unlockMethod == UnlockMethod.gesture,
                       secondary: const Icon(Icons.pattern_outlined),
                       title: Text(context.l10n.gestureUnlock),
                       subtitle: Text(context.l10n.gestureUnlockSubtitle),
@@ -51,14 +58,14 @@ class SettingsPage extends StatelessWidget {
                         if (enabled) {
                           _selectUnlockMethod(
                             context,
-                            settings,
+                            security,
                             UnlockMethod.gesture,
                           );
                         }
                       },
                     ),
                     SwitchListTile(
-                      value: settings.unlockMethod == UnlockMethod.fingerprint,
+                      value: security.unlockMethod == UnlockMethod.fingerprint,
                       secondary: const Icon(Icons.fingerprint),
                       title: Text(context.l10n.fingerprintUnlock),
                       subtitle: Text(context.l10n.fingerprintUnlockSubtitle),
@@ -66,14 +73,14 @@ class SettingsPage extends StatelessWidget {
                         if (enabled) {
                           _selectUnlockMethod(
                             context,
-                            settings,
+                            security,
                             UnlockMethod.fingerprint,
                           );
                         }
                       },
                     ),
                     SwitchListTile(
-                      value: settings.unlockMethod == UnlockMethod.face,
+                      value: security.unlockMethod == UnlockMethod.face,
                       secondary: const Icon(Icons.face_outlined),
                       title: Text(context.l10n.faceUnlock),
                       subtitle: Text(context.l10n.faceUnlockSubtitle),
@@ -81,31 +88,31 @@ class SettingsPage extends StatelessWidget {
                         if (enabled) {
                           _selectUnlockMethod(
                             context,
-                            settings,
+                            security,
                             UnlockMethod.face,
                           );
                         }
                       },
                     ),
                     SwitchListTile(
-                      value: settings.autoLockEnabled,
+                      value: security.autoLockEnabled,
                       secondary: const Icon(Icons.lock_clock_outlined),
                       title: Text(context.l10n.autoLock),
                       subtitle: Text(context.l10n.autoLockSubtitle),
-                      onChanged: settings.setAutoLockEnabled,
+                      onChanged: security.setAutoLockEnabled,
                     ),
                     ListTile(
                       leading: const Icon(Icons.pattern_outlined),
                       title: Text(context.l10n.changeGesturePassword),
                       subtitle: Text(
-                        settings.gesturePasswordConfigured
+                        security.gesturePasswordConfigured
                             ? context.l10n.gestureConfigured
                             : context.l10n.gestureNotConfigured,
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => AppNavigator.openSecondary(
                         context,
-                        settings.gesturePasswordConfigured
+                        security.gesturePasswordConfigured
                             ? AppRoute.gesture
                             : AppRoute.gestureEnrollment,
                       ),
@@ -235,7 +242,7 @@ class SettingsPage extends StatelessWidget {
 
   static Future<void> _selectUnlockMethod(
     BuildContext context,
-    SettingsController settings,
+    LocalSecurityController settings,
     UnlockMethod method,
   ) async {
     if (settings.unlockMethod == method) {

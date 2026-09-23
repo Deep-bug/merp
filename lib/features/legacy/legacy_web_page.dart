@@ -14,6 +14,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../app/app_scope.dart';
 import '../../core/auth/web_code_url.dart';
 import '../../core/bridge/merp_native_bridge.dart';
+import '../../core/bridge/web_access_policy.dart';
 import '../../core/platform/webview_diagnostics.dart';
 import '../../core/platform/webview_support.dart';
 import '../../l10n/l10n.dart';
@@ -37,6 +38,14 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
   var _progress = 0;
   var _configured = false;
   var _loadingExchange = false;
+  var _loadGeneration = 0;
+
+  @override
+  void dispose() {
+    _loadGeneration++;
+    _bridge?.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -48,6 +57,22 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
   }
 
   Future<void> _configureAndLoad() async {
+    final generation = ++_loadGeneration;
+    try {
+      await _configurePage(generation);
+    } catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      _showError(
+        _LegacyError(
+          title: context.l10n.pageLoadFailed,
+          message: context.l10n.pageLoadFailedMessage,
+          detail: WebCodeUrl.redact(error.toString()),
+        ),
+      );
+    }
+  }
+
+  Future<void> _configurePage(int generation) async {
     final scope = AppScope.of(context);
     final moduleId = widget.moduleId.trim();
 
@@ -135,7 +160,8 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     }
 
     final uri = scope.config.legacyUri(legacyPath);
-    if (!uri.hasScheme || (uri.scheme != 'http' && uri.scheme != 'https')) {
+    final accessPolicy = WebAccessPolicy.fromConfig(scope.config);
+    if (!accessPolicy.trusts(uri)) {
       _showError(
         _LegacyError(
           title: context.l10n.invalidUrl,
@@ -150,6 +176,32 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     _currentUri = uri;
     _progress = 0;
     _error = null;
+    final sessionGeneration = scope.apiClient.sessionTokens.generation;
+    bool isActive() =>
+        mounted &&
+        _error == null &&
+        generation == _loadGeneration &&
+        scope.authController.isAuthenticated &&
+        scope.apiClient.sessionTokens.isCurrent(sessionGeneration) &&
+        scope.permissionRepository.canOpen(feature);
+
+    bool allowsUrl(String url) {
+      final target = Uri.tryParse(url);
+      return target != null &&
+          accessPolicy.allowsNavigation(entry: uri, target: target);
+    }
+
+    void blockNavigation() {
+      if (!isActive()) return;
+      _showError(
+        _LegacyError(
+          title: context.l10n.invalidUrl,
+          message: context.l10n.invalidUrlMessage,
+          detail: 'WEB_ORIGIN_NOT_ALLOWED',
+          tone: AppErrorTone.warning,
+        ),
+      );
+    }
 
     // 换码必须发生在创建/加载 WebView 之前；失败时不打开旧页面。
     // 页面显式重试会再次进入这里，因此不会复用一次性 Code。
@@ -157,10 +209,10 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
     late final Uri pageUri;
     try {
       final code = await scope.authController.exchangeWebCode();
-      if (!mounted) return;
+      if (!isActive()) return;
       pageUri = WebCodeUrl.append(uri, code);
     } catch (error) {
-      if (mounted) {
+      if (mounted && generation == _loadGeneration) {
         _showError(
           _LegacyError(
             title: context.l10n.pageLoadFailed,
@@ -171,90 +223,123 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
       }
       return;
     } finally {
-      _loadingExchange = false;
+      if (generation == _loadGeneration) _loadingExchange = false;
     }
 
-    late final WebViewController controller;
-    controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (progress) {
-            if (mounted) {
-              setState(() => _progress = progress);
-            }
-          },
-          onPageFinished: (_) async {
-            _bridge?.inject();
-            await WebViewDiagnostics.inspect(
-              controller: controller,
-              logger: scope.logger,
-              page: 'legacy:$moduleId',
+    if (!mounted || !isActive()) return;
+    final controller = WebViewController();
+    final bridge = MerpNativeBridge(
+      context: context,
+      controller: controller,
+      entryUri: uri,
+      accessPolicy: accessPolicy,
+      isSessionActive: isActive,
+    );
+    _bridge = bridge;
+    await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+    await controller.setNavigationDelegate(
+      NavigationDelegate(
+        onNavigationRequest: (request) {
+          if (!isActive()) return NavigationDecision.prevent;
+          if (!allowsUrl(request.url)) {
+            if (request.isMainFrame) blockNavigation();
+            return NavigationDecision.prevent;
+          }
+          return NavigationDecision.navigate;
+        },
+        onPageStarted: (url) {
+          if (!isActive()) return;
+          bridge.navigationStarted();
+          if (!allowsUrl(url)) {
+            unawaited(
+              controller
+                  .runJavaScript('window.stop();')
+                  .catchError((Object _) {}),
             );
-          },
-          onWebResourceError: (error) {
-            if (WebViewDiagnostics.enabled) {
-              scope.logger.warning(
-                'webview',
-                'WebView resource load failed',
-                fields: {
-                  'page': 'legacy:$moduleId',
-                  'resourceType': WebViewDiagnostics.resourceType(error),
-                  'errorCode': error.errorCode,
-                  'description': WebCodeUrl.redact(error.description),
-                },
-              );
-            }
-            if (error.isForMainFrame == false) {
-              return;
-            }
-            _showError(
-              _LegacyError(
-                title: context.l10n.pageLoadFailed,
-                message: context.l10n.pageLoadFailedMessage,
-                detail:
-                    'URL: ${WebCodeUrl.redact((_currentUri ?? uri).toString())}\n错误码: ${error.errorCode}\n原因: ${WebCodeUrl.redact(error.description)}',
-              ),
+            blockNavigation();
+          }
+        },
+        onProgress: (progress) {
+          if (isActive()) {
+            setState(() => _progress = progress);
+          }
+        },
+        onPageFinished: (url) async {
+          if (!isActive() || !allowsUrl(url)) return;
+          await bridge.inject();
+          await WebViewDiagnostics.inspect(
+            controller: controller,
+            logger: scope.logger,
+            page: 'legacy:$moduleId',
+          );
+        },
+        onWebResourceError: (error) {
+          if (!isActive()) return;
+          if (WebViewDiagnostics.enabled) {
+            scope.logger.warning(
+              'webview',
+              'WebView resource load failed',
+              fields: {
+                'page': 'legacy:$moduleId',
+                'resourceType': WebViewDiagnostics.resourceType(error),
+                'errorCode': error.errorCode,
+                'description': WebCodeUrl.redact(error.description),
+              },
             );
-          },
-          onHttpError: (error) {
-            final statusCode = error.response?.statusCode;
-            _showError(
-              _LegacyError(
-                title: context.l10n.serverError,
-                message: statusCode == 404
-                    ? context.l10n.legacyNotFoundMessage
-                    : context.l10n.legacyServerErrorMessage,
-                detail:
-                    'URL: ${WebCodeUrl.redact((_currentUri ?? uri).toString())}\nHTTP 状态码: $statusCode',
-              ),
-            );
-          },
-        ),
-      );
+          }
+          if (error.isForMainFrame == false) {
+            return;
+          }
+          _showError(
+            _LegacyError(
+              title: context.l10n.pageLoadFailed,
+              message: context.l10n.pageLoadFailedMessage,
+              detail:
+                  'URL: ${WebCodeUrl.redact((_currentUri ?? uri).toString())}\n错误码: ${error.errorCode}\n原因: ${WebCodeUrl.redact(error.description)}',
+            ),
+          );
+        },
+        onHttpError: (error) {
+          if (!isActive()) return;
+          final statusCode = error.response?.statusCode;
+          _showError(
+            _LegacyError(
+              title: context.l10n.serverError,
+              message: statusCode == 404
+                  ? context.l10n.legacyNotFoundMessage
+                  : context.l10n.legacyServerErrorMessage,
+              detail:
+                  'URL: ${WebCodeUrl.redact((_currentUri ?? uri).toString())}\nHTTP 状态码: $statusCode',
+            ),
+          );
+        },
+      ),
+    );
 
-    WebViewDiagnostics.attach(
+    await WebViewDiagnostics.attach(
       controller: controller,
       logger: scope.logger,
       page: 'legacy:$moduleId',
     );
 
-    final bridge = MerpNativeBridge(context: context, controller: controller);
-    controller
-      ..addJavaScriptChannel(
-        MerpNativeBridge.channelName,
-        onMessageReceived: (message) => bridge.handleMessage(message.message),
-      )
-      ..loadRequest(pageUri, headers: _requestHeaders(scope));
+    await controller.addJavaScriptChannel(
+      MerpNativeBridge.channelName,
+      onMessageReceived: (message) => bridge.handleMessage(message.message),
+    );
 
-    _bridge = bridge;
+    if (!isActive()) {
+      bridge.dispose();
+      return;
+    }
     setState(() => _controller = controller);
+    await controller.loadRequest(pageUri, headers: _requestHeaders(scope));
   }
 
   void _showError(_LegacyError error) {
     if (!mounted) {
       return;
     }
+    _bridge?.dispose();
     final incidentId = AppScope.of(context).logger.error(
       'webview',
       error.message,
@@ -268,6 +353,7 @@ class _LegacyWebPageState extends State<LegacyWebPage> {
 
   void _retry() {
     if (_loadingExchange) return;
+    _bridge?.dispose();
     setState(() {
       _controller = null;
       _bridge = null;

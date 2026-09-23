@@ -22,6 +22,9 @@ import '../device/file_service.dart';
 import '../device/location_service.dart';
 import '../device/scanner_models.dart';
 import '../resources/runtime_resource_manifest.dart';
+import 'bridge_document_session.dart';
+import 'bridge_script.dart';
+import 'web_access_policy.dart';
 
 /// MERP WebView 原生能力 Bridge。
 ///
@@ -29,23 +32,72 @@ import '../resources/runtime_resource_manifest.dart';
 /// `window.MERPBridge.call(action, payload)`。
 /// Flutter 侧只暴露受控 action，避免旧页面直接依赖插件或散落多套协议。
 class MerpNativeBridge {
-  MerpNativeBridge({required this.context, required this.controller});
+  MerpNativeBridge({
+    required this.context,
+    required this.controller,
+    required this.entryUri,
+    required this.accessPolicy,
+    required this.isSessionActive,
+  });
 
   static const channelName = 'MerpNative';
 
   final BuildContext context;
   final WebViewController controller;
+  final Uri entryUri;
+  final WebAccessPolicy accessPolicy;
+  final bool Function() isSessionActive;
+  final _document = BridgeDocumentSession();
+  static final _nonceZoneKey = Object();
+  bool _disposed = false;
   bool _closePageInProgress = false;
   bool _logoutInProgress = false;
+
+  /// 顶层文档开始导航/重试时撤销旧消息与未完成的相机、定位等回调。
+  void navigationStarted() {
+    _document.invalidate();
+    _closePageInProgress = false;
+    _logoutInProgress = false;
+  }
+
+  void dispose() {
+    _disposed = true;
+    _document.dispose();
+  }
+
+  Future<bool> _canAccessDocument() async {
+    if (_disposed || !context.mounted || !isSessionActive()) return false;
+    final revision = _document.revision;
+    String? url;
+    try {
+      url = await controller.currentUrl();
+    } catch (_) {
+      return false; // 原生 WebView 已销毁或正在切换文档时按拒绝处理。
+    }
+    final uri = url == null ? null : Uri.tryParse(url);
+    return !_disposed &&
+        context.mounted &&
+        isSessionActive() &&
+        revision == _document.revision &&
+        uri != null &&
+        accessPolicy.allowsNavigation(entry: entryUri, target: uri);
+  }
 
   /// 注入 JS 端 Promise 风格 API。
   ///
   /// 页面加载完成后调用即可。Vue2 页面可以在 mounted 后等待
   /// `window.MERPBridge` 存在，也可以监听 `MERPBridgeReady` 事件。
   Future<void> inject() async {
+    if (_disposed || !context.mounted) return;
     final logger = AppScope.of(context).logger;
     try {
-      await controller.runJavaScript(_bridgeScript);
+      final revision = _document.revision;
+      if (!await _canAccessDocument()) return;
+      final nonce = _document.activate(revision);
+      if (nonce == null) return;
+      await controller.runJavaScript(
+        buildBridgeScript(nonce: nonce, origin: entryUri.origin),
+      );
       logger.info('bridge', 'MERPBridge 注入完成');
     } catch (error, stackTrace) {
       logger.error(
@@ -54,16 +106,32 @@ class MerpNativeBridge {
         error: error,
         stackTrace: stackTrace,
       );
-      rethrow;
+      // 页面回调由原生触发，不能产生未处理的异步异常。
     }
   }
 
-  Future<void> handleMessage(String rawMessage) async {
+  Future<void> handleMessage(String rawMessage) => runZoned(
+    () => _handleMessage(rawMessage),
+    zoneValues: {_nonceZoneKey: _document.nonce},
+  );
+
+  Future<void> _handleMessage(String rawMessage) async {
+    if (_disposed || !context.mounted || !isSessionActive()) return;
     final logger = AppScope.of(context).logger;
     String? requestId;
     String? action;
+    final nonce = Zone.current[_nonceZoneKey] as String?;
+    var accepted = false;
     try {
-      final decoded = jsonDecode(rawMessage);
+      // 原始 channel 对 iframe 也可能可见；先验证文档绑定，再执行原生能力。
+      // 不记录原始消息，避免 Token、照片和文件内容进入诊断日志。
+      if (rawMessage.length > 1024 * 1024) return;
+      Object? decoded;
+      try {
+        decoded = jsonDecode(rawMessage);
+      } on FormatException {
+        return; // FormatException 可能包含原始消息片段，不记录到日志。
+      }
       if (decoded is! Map<String, dynamic>) {
         throw const _BridgeException(
           'BRIDGE_BAD_REQUEST',
@@ -71,15 +139,24 @@ class MerpNativeBridge {
         );
       }
 
-      requestId = decoded['id']?.toString();
-      action = decoded['action']?.toString();
+      if (decoded['id'] is! String || decoded['action'] is! String) return;
+      requestId = decoded['id'] as String;
+      action = decoded['action'] as String;
+      if (action.length > 96) return;
       final payload = decoded['payload'];
 
-      if (requestId == null || requestId.isEmpty || action == null) {
+      if (requestId.isEmpty || action.isEmpty) {
         throw const _BridgeException(
           'BRIDGE_BAD_REQUEST',
           'Bridge 缺少 id 或 action',
         );
+      }
+
+      accepted = _document.accepts(requestId, decoded['documentNonce']);
+      if (!accepted) return;
+      if (!await _canAccessDocument() ||
+          !_document.canReply(requestId, nonce)) {
+        return;
       }
 
       logger.debug(
@@ -150,22 +227,16 @@ class MerpNativeBridge {
           bridgeError.message,
           incidentId: incidentId,
         );
-      } else if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Bridge 调用失败：${bridgeError.message}\n故障编号：$incidentId',
-            ),
-          ),
-        );
       }
+    } finally {
+      if (accepted && requestId != null) _document.complete(requestId, nonce);
     }
   }
 
   Map<String, Object?> _pingPayload() {
     return {
       'message': 'pong',
-      'bridgeVersion': '2.3.0',
+      'bridgeVersion': '2.4.0',
       'platform': defaultTargetPlatform.name,
       'timestamp': DateTime.now().toIso8601String(),
       'capabilities': [
@@ -215,28 +286,31 @@ class MerpNativeBridge {
     final reason = options['reason']?.toString().trim();
     _closePageInProgress = true;
     final scope = AppScope.of(context);
-    unawaited(
-      _resolve(requestId, {
-        'accepted': true,
-        'reason': reason == null || reason.isEmpty ? 'web_back' : reason,
-      }).catchError((Object error, StackTrace stackTrace) {
-        scope.logger.warning(
-          'bridge',
-          '关闭 WebView 前回传结果失败',
-          error: error,
-          stackTrace: stackTrace,
-          fields: {'requestId': requestId},
-        );
-      }),
-    );
+    await _resolve(requestId, {
+      'accepted': true,
+      'reason': reason == null || reason.isEmpty ? 'web_back' : reason,
+    }).catchError((Object error, StackTrace stackTrace) {
+      scope.logger.warning(
+        'bridge',
+        '关闭 WebView 前回传结果失败',
+        error: error,
+        stackTrace: stackTrace,
+        fields: {'requestId': requestId},
+      );
+    });
+    if (!await _canContinueRequest(requestId)) return;
 
     scope.logger.info(
       'bridge',
       '已安排关闭 WebView 并返回手机首页',
       fields: {'requestId': requestId},
     );
+    final revision = _document.revision;
     Timer(const Duration(milliseconds: 100), () {
-      if (!context.mounted) {
+      if (_disposed ||
+          !context.mounted ||
+          !isSessionActive() ||
+          revision != _document.revision) {
         return;
       }
       scope.logger.info(
@@ -288,8 +362,11 @@ class MerpNativeBridge {
       return;
     }
 
+    if (!await _canContinueRequest(requestId)) return;
+
     _logoutInProgress = true;
     await _resolve(requestId, {'accepted': true, 'cancelled': false});
+    if (!await _canContinueRequest(requestId)) return;
     unawaited(_completeLogout(scope));
   }
 
@@ -518,7 +595,9 @@ class MerpNativeBridge {
     final locationService = AppScope.of(context).locationService;
     final l10n = context.l10n;
     if (!await locationService.hasPrivacyConsent()) {
+      if (!await _canContinueRequest(requestId)) return;
       final accepted = await _requestLocationPrivacyConsent();
+      if (!await _canContinueRequest(requestId)) return;
       if (!accepted) {
         await _reject(
           requestId,
@@ -529,6 +608,8 @@ class MerpNativeBridge {
       }
       await locationService.acceptPrivacyConsent();
     }
+
+    if (!await _canContinueRequest(requestId)) return;
 
     final options = payload is Map<String, dynamic>
         ? payload
@@ -645,9 +726,23 @@ class MerpNativeBridge {
     String requestId,
     Object? payload,
   ) async {
+    final nonce = Zone.current[_nonceZoneKey] as String?;
+    if (!await _canContinueRequest(requestId)) return;
     final script =
-        'window.MERPBridge && window.MERPBridge.$method(${jsonEncode(requestId)}, ${jsonEncode(payload)});';
-    await controller.runJavaScript(script);
+        'window.location.origin === ${jsonEncode(entryUri.origin)} && '
+        'window.MERPBridge && window.MERPBridge.$method(${jsonEncode(requestId)}, ${jsonEncode(payload)}, ${jsonEncode(nonce)});';
+    try {
+      await controller.runJavaScript(script);
+    } catch (_) {
+      // 页面关闭后的原生回调无需再次向同一个已销毁页面发送错误。
+    }
+  }
+
+  Future<bool> _canContinueRequest(String requestId) async {
+    final nonce = Zone.current[_nonceZoneKey] as String?;
+    return _document.canReply(requestId, nonce) &&
+        await _canAccessDocument() &&
+        _document.canReply(requestId, nonce);
   }
 }
 
@@ -660,125 +755,3 @@ class _BridgeException implements Exception {
   @override
   String toString() => '$code: $message';
 }
-
-const _bridgeScript = r'''
-(function () {
-  if (window.MERPBridge) {
-    window.dispatchEvent(new Event('MERPBridgeReady'));
-    return;
-  }
-
-  var pending = {};
-
-  function createId() {
-    return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
-  }
-
-  window.MERPBridge = {
-    version: '2.3.0',
-
-    call: function (action, payload) {
-      var id = createId();
-      return new Promise(function (resolve, reject) {
-        var timer = setTimeout(function () {
-          if (!pending[id]) {
-            return;
-          }
-          delete pending[id];
-          reject({
-            code: 'BRIDGE_TIMEOUT',
-            message: '原生能力调用超时',
-            details: { action: action }
-          });
-        }, 90000);
-        pending[id] = { resolve: resolve, reject: reject, timer: timer };
-        MerpNative.postMessage(JSON.stringify({
-          id: id,
-          action: action,
-          payload: payload || {}
-        }));
-      });
-    },
-
-    ping: function () {
-      return this.call('bridge.ping', {});
-    },
-
-    getSession: function () {
-      return this.call('auth.getSession', {});
-    },
-
-    logout: function () {
-      return this.call('auth.logout', {});
-    },
-
-    closePage: function (options) {
-      return this.call('navigation.closePage', options || {});
-    },
-
-    getResourceManifest: function () {
-      return this.call('resource.getManifest', {});
-    },
-
-    getLocale: function () {
-      return this.call('app.getLocale', {});
-    },
-
-    showToast: function (message) {
-      return this.call('app.showToast', { message: message });
-    },
-
-    takePhoto: function (options) {
-      return this.call('camera.takePhoto', options || {});
-    },
-
-    pickFiles: function (options) {
-      return this.call('file.pick', options || {});
-    },
-
-    getDeviceInfo: function () {
-      return this.call('device.getInfo', {});
-    },
-
-    getCurrentPosition: function (options) {
-      return this.call('location.getCurrentPosition', options || {});
-    },
-
-    scanCode: function (options) {
-      return this.call('scanner.scanCode', options || {});
-    },
-
-    showSystemMessage: function (options) {
-      return this.call('system.showMessage', options || {});
-    },
-
-    confirm: function (options) {
-      return this.call('system.confirm', options || {});
-    },
-
-    openAppSettings: function () {
-      return this.call('device.openAppSettings', {});
-    },
-
-    _resolve: function (id, data) {
-      if (!pending[id]) {
-        return;
-      }
-      clearTimeout(pending[id].timer);
-      pending[id].resolve(data);
-      delete pending[id];
-    },
-
-    _reject: function (id, error) {
-      if (!pending[id]) {
-        return;
-      }
-      clearTimeout(pending[id].timer);
-      pending[id].reject(error);
-      delete pending[id];
-    }
-  };
-
-  window.dispatchEvent(new Event('MERPBridgeReady'));
-})();
-''';

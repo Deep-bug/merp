@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/auth/auth_controller.dart';
+import '../../core/security/local_security_controller.dart';
 import '../../l10n/l10n.dart';
 import '../../routing/app_routes.dart';
 import '../../shared/app_dialog.dart';
@@ -17,11 +18,17 @@ import '../../shared/app_notice.dart';
 import '../settings/settings_controller.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, this.authController, this.settingsController});
+  const LoginPage({
+    super.key,
+    this.authController,
+    this.settingsController,
+    this.securityController,
+  });
 
   /// 测试可显式注入；生产路由默认从 AppScope 获取。
   final AuthController? authController;
   final SettingsController? settingsController;
+  final LocalSecurityController? securityController;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -40,6 +47,7 @@ class _LoginPageState extends State<LoginPage> {
   final _captchaFocusNode = FocusNode();
   AuthController? _authController;
   SettingsController? _settingsController;
+  LocalSecurityController? _securityController;
   bool _captchaRequested = false;
   bool _privacyAccepted = false;
   bool _submitting = false;
@@ -52,6 +60,10 @@ class _LoginPageState extends State<LoginPage> {
         widget.authController ?? AppScope.of(context).authController;
     _settingsController =
         widget.settingsController ?? AppScope.of(context).settingsController;
+    _securityController =
+        widget.securityController ??
+        widget.settingsController?.security ??
+        AppScope.of(context).localSecurityController;
     if (_captchaRequested) {
       return;
     }
@@ -179,15 +191,16 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       final session = auth.session!;
-      final settings = _settingsController!;
-      await settings.activateGestureScope(
+      final security = _securityController!;
+      final generation = auth.sessionGeneration;
+      final activated = await security.activateScope(
         userId: session.profile.id,
         accountName: session.profile.accountName,
       );
-      if (!mounted) {
+      if (!mounted || !activated || generation != auth.sessionGeneration) {
         return;
       }
-      final requiresEnrollment = !settings.gesturePasswordConfigured;
+      final requiresEnrollment = !security.gesturePasswordConfigured;
       auth.completeInteractiveLogin(
         requiresGestureEnrollment: requiresEnrollment,
       );

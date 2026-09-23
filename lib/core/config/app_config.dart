@@ -46,6 +46,7 @@ class AppConfig {
       defaultValue: '',
     ),
     this.legacyVueBaseUrl = 'https://erp.example.com/mobile',
+    this.trustedWebOrigins = const [],
     this.bridgeTestUrl = const String.fromEnvironment(
       'BRIDGE_TEST_URL',
       defaultValue:
@@ -150,6 +151,9 @@ class AppConfig {
   /// 旧 Vue2 移动端入口。每个 legacyPath 会拼接到这个地址后面。
   final String legacyVueBaseUrl;
 
+  /// 额外的第一方 H5 origin；只由 App 配置维护，不能来自菜单响应。
+  final List<String> trustedWebOrigins;
+
   /// Vue2 原生能力验证页地址，可按环境通过 dart-define 覆盖。
   final String bridgeTestUrl;
 
@@ -188,7 +192,8 @@ class AppConfig {
   /// 后端菜单范围参数 `sys_app_features`。
   final String menuFeatureScope;
 
-  /// 本地 Mock 菜单开关；只有 mock Debug 环境可生效。
+  /// 旧启动配置兼容字段。权限仓库不再读取它；Mock 权限只能由显式开发
+  /// Mock 会话加载，不能由一个环境开关替换真实用户权限。
   final bool mockMenus;
 
   /// 仅用于本机 mock Debug：不请求认证接口，直接进入本地 Mock 首页。
@@ -201,8 +206,7 @@ class AppConfig {
   bool get isDevelopmentMockEnabled =>
       devBypassLogin && kDebugMode && normalizedAppEnvironment == 'mock';
 
-  /// Mock 菜单同样只允许在独立 mock Debug 环境使用。
-  /// 即使旧电脑的 qas.local.json 遗留 MOCK_MENUS=true，QAS 仍会请求真实菜单。
+  /// 仅供旧配置诊断；不参与菜单加载决策。
   bool get isMockMenuEnabled =>
       mockMenus && kDebugMode && normalizedAppEnvironment == 'mock';
 

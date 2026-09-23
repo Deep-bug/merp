@@ -17,6 +17,7 @@ import '../core/device/map_sdk_service.dart';
 import '../core/logging/app_logger.dart';
 import '../core/network/api_client.dart';
 import '../core/platform/web_data_cleaner.dart';
+import '../core/security/local_security_controller.dart';
 import '../features/home/data/permission_repository.dart';
 import '../features/app_update/app_update_controller.dart';
 import '../features/home/data/favorite_feature_controller.dart';
@@ -57,6 +58,8 @@ class AppScope extends InheritedWidget {
   final AppUpdateController appUpdateController;
   final WebDataCleaner webDataCleaner;
   final SettingsController settingsController;
+  LocalSecurityController get localSecurityController =>
+      settingsController.security;
   final CameraService cameraService;
   final FileService fileService;
   final DeviceInfoService deviceInfoService;

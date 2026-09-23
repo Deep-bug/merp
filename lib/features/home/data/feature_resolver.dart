@@ -1,10 +1,10 @@
 // -----------------------------------------------------------------------------
 // 文件：feature_resolver.dart
-// 作用：把后端或 Mock 菜单记录安全地转换成客户端功能模型
+// 作用：把后端菜单记录安全地转换成客户端功能模型
 // -----------------------------------------------------------------------------
 
 import '../domain/feature_item.dart';
-import 'feature_registry.dart';
+import 'platform_feature_catalog.dart';
 
 class FeatureResolver {
   const FeatureResolver();
@@ -16,7 +16,9 @@ class FeatureResolver {
     final isNative = requestedMode == 'native';
 
     // 原生页面只能使用客户端注册过的 route，拒绝后端注入 route 字符串。
-    final nativeRoute = isNative ? FeatureRegistry.nativeRouteFor(id) : null;
+    final nativeRoute = isNative
+        ? PlatformFeatureCatalog.nativeRouteFor(id)
+        : null;
     final route = isNative
         ? nativeRoute ?? ''
         : '/legacy/${Uri.encodeComponent(id)}';
@@ -32,7 +34,7 @@ class FeatureResolver {
       sort: _readInt(json, const ['sort']) ?? 0,
       isDefault: _readBool(json, const ['defaultFlag']) ?? false,
       // 菜单接口的图片地址暂不使用，统一按 featureCode 读取客户端图标映射。
-      icon: FeatureRegistry.iconFor(id, null),
+      icon: PlatformFeatureCatalog.iconForCode(id),
       permissionCode:
           _readString(json, const ['permissionCode', 'permission']) ?? id,
       launchMode: isNative

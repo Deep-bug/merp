@@ -234,11 +234,7 @@ AuthController _testAuthController() {
     logger: logger,
   );
   final controller = AuthController(
-    authRepository: AuthRepository(
-      apiClient: apiClient,
-      tokenStore: tokenStore,
-      logger: logger,
-    ),
+    authRepository: AuthRepository(apiClient: apiClient, logger: logger),
     permissionRepository: PermissionRepository(
       apiClient: apiClient,
       logger: logger,

@@ -32,6 +32,7 @@ import 'package:merp/features/home/data/favorite_feature_controller.dart';
 import 'package:merp/features/home/data/feature_badge_controller.dart';
 import 'package:merp/features/settings/settings_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 void main() {
   testWidgets('shows login and switches between Simplified and Traditional', (
@@ -64,14 +65,16 @@ void main() {
     final settings = SettingsController(
       logger: logger,
       useSecureStorage: false,
+      packageInfoProvider: () async => PackageInfo(
+        appName: 'MERP',
+        packageName: 'com.delta.MERPDeltaTest',
+        version: '3.0.1',
+        buildNumber: '30001',
+      ),
     );
     await settings.load();
     final auth = AuthController(
-      authRepository: AuthRepository(
-        apiClient: apiClient,
-        tokenStore: tokenStore,
-        logger: logger,
-      ),
+      authRepository: AuthRepository(apiClient: apiClient, logger: logger),
       permissionRepository: permissions,
       logger: logger,
     );
@@ -106,10 +109,9 @@ void main() {
     await tester.pumpWidget(MerpApp(dependencies: dependencies));
     await tester.pumpAndSettle();
 
-    expect(find.text('MERP'), findsOneWidget);
     expect(find.text('登录'), findsOneWidget);
     expect(find.text('验证码'), findsOneWidget);
-    expect(find.byType(Image), findsOneWidget);
+    expect(find.byType(Image), findsNWidgets(2));
 
     await settings.setLanguage(AppLanguage.zhHant);
     await tester.pumpAndSettle();

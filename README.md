@@ -252,7 +252,9 @@ merp/
 │   │   ├── merp_bootstrap_app.dart           # 品牌启动页、异步初始化和启动错误页
 │   │   ├── merp_app.dart                     # 主题、路由、语言和安全守卫装配
 │   │   ├── security/
-│   │   │   └── auto_lock_guard.dart          # 自动锁屏、前后台计时和解锁流程
+│   │   │   ├── app_lock_coordinator.dart      # 安全域、冷启动与无操作锁屏编排
+│   │   │   ├── app_privacy_shield.dart        # 后台任务快照纯色遮罩
+│   │   │   └── auto_lock_guard.dart           # 生命周期/触摸转发和锁屏 UI
 │   │   └── theme/
 │   │       └── app_theme.dart                # Material 主题和企业控件样式
 │   ├── core/                                 # 与具体业务无关的基础能力
@@ -263,7 +265,8 @@ merp/
 │   │   ├── logging/                          # 结构化日志、故障编号和全局异常捕获
 │   │   ├── network/                          # Dio、响应壳、异常和企业错误码
 │   │   ├── platform/                         # WebView 等平台能力判断
-│   │   └── resources/                        # 首页内置展示清单
+│   │   ├── resources/                        # 首页内置展示清单
+│   │   └── security/                         # 手势凭证、生物识别平台服务和解锁类型
 │   ├── features/                             # 按业务纵向拆分的功能模块
 │   │   ├── all_features/                     # 全部功能及权限状态
 │   │   ├── bridge_test/                      # Vue3 Bridge 真机验证页
@@ -362,7 +365,25 @@ Splash 阶段明确不做这些事：
 
 如果冷启动刷新 Token 时遇到断网、超时或服务端 `5xx`，应用会保留 refresh token 并停留在启动恢复页供用户重试；只有服务端明确返回 `400/401/403` 表示 refresh token 无效时，才清理本地 Token 并进入登录页。
 
-QAS 和生产配置默认使用真实菜单接口。请求参数由 `MENU_APP_ID=merp` 和 `MENU_FEATURE_SCOPE=at` 配置；离线排版开发请使用 `./tool/app run mock <android|ios>`，不要在 QAS 本地配置中打开 `MOCK_MENUS`。当前暂不使用接口返回的 `icon` 或 `iconUrl`，功能图标统一根据 `featureCode` 从客户端 `FeatureRegistry` 映射为 Material Icons，未知功能显示通用应用图标。
+用户收藏与角标的生命周期由 `lib/app/user_session_data_coordinator.dart` 统一编排：
+
+- 收藏和排序按“应用环境＋用户 ID”写入 SharedPreferences 的 v3 用户键；暂缺用户 ID 时使用已登录账号的独立临时域。同一轮登录补齐用户 ID 后可安全迁移，身份尚未知时不展示旧收藏。
+- China/HK 只是同数据域的服务器选择，不拆分收藏；QAS/PRD 及不同用户相互隔离。
+- 退出立即清空内存收藏和角标，但保留该用户持久化收藏，供本人下次登录恢复。延迟返回的旧角标请求不能写回新会话。
+- 旧版 v2 全局收藏没有所有者信息，不自动分配给任何账号，也不删除原数据；升级后需要重新收藏一次。
+- Mock 收藏、排序与示例角标仅在内存中生效，不读写正常用户数据。收藏不是凭证，Token 仍保存在原有安全存储中。
+
+QAS 和生产配置默认使用真实菜单接口。请求参数由 `MENU_APP_ID=merp` 和 `MENU_FEATURE_SCOPE=at` 配置；离线排版开发请使用 `./tool/app run mock <android|ios>`。旧配置字段 `MOCK_MENUS` 暂时保留兼容，但权限仓库不再读取它，单独设置该值不能绕过真实权限接口。`PlatformFeatureCatalog` 是客户端完整功能白名单，后端菜单只决定当前用户获准使用哪些 ID。当前暂不使用接口返回的 `icon` 或 `iconUrl`，功能图标和可信路由统一由客户端目录决定，未知功能编码会被忽略并记录告警。
+
+Mock 用户权限位于独立的 `MockUserFeaturePermissions`，不再承载功能标题、图标、分组或地址。平台新增功能时必须分别评审“客户端是否支持”与“Mock 用户是否授权”，避免新入口被开发模式自动放行。正常 `loadForSession` 始终访问真实权限接口；只有显式的开发 Mock 会话才调用 `loadDevelopmentMockMenu`。
+
+本地解锁的底层能力集中在 `lib/core/security/`：
+
+- `GestureCredentialStore` 负责手势哈希、安全存储和校验，保留原 v2 记录、120000 次 PBKDF2-HMAC-SHA256 及原存储键，升级不要求重新设置密码。读写删除串行执行；密码和哈希记录不进入日志。
+- `BiometricService` 负责设备能力检测、系统认证与取消，返回明确结果，不持有账号、不决定页面跳转。是否可用仍以系统报告的已录入类型为准；验证方式由操作系统执行。
+- `LocalSecurityController` 独立保存用户安全域、自动锁屏开关、解锁方式和提示翻译；`generation` 用于丢弃退出或换账号前发起的旧结果。`SettingsController` 只负责语言、服务器、版本等普通设置，并暂时保留旧安全方法代理以兼容现有调用。
+- `AppLockCoordinator` 不依赖 Widget，统一编排账号安全域、冷启动验证、10 秒无操作计时及前后台恢复；它只读取最小的 `SecuritySessionState` 会话接口。`AutoLockGuard` 只转发生命周期/触摸事件并绘制界面。
+- 后台纯色隐私遮罩独立于解锁方式；10 秒锁屏、错误 5 次退出策略没有改变。
 
 这样的分层能保证启动体验稳定，也能满足隐私合规：地图展示在进入地图页后才初始化，精确定位在用户点击定位按钮后才触发。
 

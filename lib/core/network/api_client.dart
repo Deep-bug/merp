@@ -11,6 +11,7 @@ import 'package:dio/dio.dart';
 
 import '../auth/auth_models.dart';
 import '../auth/secure_token_store.dart';
+import '../auth/session_token_store.dart';
 import '../config/app_config.dart';
 import '../logging/app_logger.dart';
 import 'api_exception.dart';
@@ -30,7 +31,9 @@ class ApiClient {
     required AppLogger logger,
     String Function()? localeProvider,
     Dio? dio,
-  }) : _tokenStore = tokenStore,
+  }) : _tokenStore = tokenStore is SessionTokenStore
+           ? tokenStore
+           : SessionTokenStore(tokenStore),
        _logger = logger,
        _localeProvider = localeProvider ?? _defaultLocale,
        _dio = dio ?? Dio() {
@@ -49,6 +52,10 @@ class ApiClient {
             options.headers.remove('Authorization');
           } else {
             final tokens = await _tokenStore.readTokens();
+            if (!_isCurrentRequest(options)) {
+              handler.reject(_staleSessionError(options));
+              return;
+            }
             if (tokens != null && tokens.accessToken.isNotEmpty) {
               options.headers['Authorization'] = 'Bearer ${tokens.accessToken}';
             }
@@ -77,6 +84,10 @@ class ApiClient {
           handler.next(options);
         },
         onResponse: (response, handler) {
+          if (!_isCurrentRequest(response.requestOptions)) {
+            handler.reject(_staleSessionError(response.requestOptions));
+            return;
+          }
           _logResponse(response);
           handler.next(response);
         },
@@ -85,7 +96,8 @@ class ApiClient {
 
           if (_shouldRefresh(error)) {
             final refreshedTokens = await refreshTokens();
-            if (refreshedTokens != null) {
+            if (refreshedTokens != null &&
+                _isCurrentRequest(error.requestOptions)) {
               try {
                 // 原请求只允许重放一次，并保留相同 X-Request-Id，便于后端串联日志。
                 final original = error.requestOptions;
@@ -134,6 +146,7 @@ class ApiClient {
   static const _skipAuthKey = 'merp.skipAuth';
   static const _retriedAfterRefreshKey = 'merp.retriedAfterRefresh';
   static const _startedAtKey = 'merp.startedAt';
+  static const _sessionGenerationKey = 'merp.sessionGeneration';
 
   /// refresh 与 Web 换码响应都可能包含凭证，诊断日志只保留请求元信息。
   bool _isSensitiveAuthRequest(RequestOptions options) =>
@@ -141,12 +154,14 @@ class ApiClient {
       options.path == config.webCodeExchangePath;
 
   final AppConfig config;
-  final TokenStore _tokenStore;
+  final SessionTokenStore _tokenStore;
+  SessionTokenStore get sessionTokens => _tokenStore;
   final AppLogger _logger;
   final String Function() _localeProvider;
   final Dio _dio;
 
   Completer<AuthTokens?>? _refreshCompleter;
+  int? _refreshGeneration;
 
   String get baseUrl => _dio.options.baseUrl;
 
@@ -277,12 +292,13 @@ class ApiClient {
   /// 真正调用刷新接口，其余请求等待同一个 Future，防止刷新风暴。
   Future<AuthTokens?> refreshTokens() {
     final activeRefresh = _refreshCompleter;
-    if (activeRefresh != null) {
+    if (activeRefresh != null && _refreshGeneration == _tokenStore.generation) {
       return activeRefresh.future;
     }
 
     final completer = Completer<AuthTokens?>();
     _refreshCompleter = completer;
+    _refreshGeneration = _tokenStore.generation;
     unawaited(_completeTokenRefresh(completer));
     return completer.future.whenComplete(() {
       if (identical(_refreshCompleter, completer)) {
@@ -321,11 +337,13 @@ class ApiClient {
   Future<AuthTokens?> _performTokenRefresh({
     bool throwOnRetainedFailure = false,
   }) async {
+    final generation = _tokenStore.generation;
     try {
       final currentTokens = await _tokenStore.readTokens();
+      if (!_tokenStore.isCurrent(generation)) return null;
       final refreshToken = currentTokens?.refreshToken;
       if (refreshToken == null || refreshToken.isEmpty) {
-        await _expireSession('本地不存在 refresh_token');
+        await _expireSession('本地不存在 refresh_token', generation);
         return null;
       }
 
@@ -345,25 +363,30 @@ class ApiClient {
         data,
         previousRefreshToken: refreshToken,
       );
-      await _tokenStore.saveTokens(refreshed);
+      if (!await _tokenStore.saveIfCurrent(refreshed, generation)) return null;
       _logger.info('auth', '访问令牌刷新成功');
       return refreshed;
     } on DioException catch (error) {
+      if (!_tokenStore.isCurrent(generation)) return null;
       final mapped = _fromDioException(error, config.refreshTokenPath);
       return _handleRefreshFailure(
         mapped,
         error.stackTrace,
         expireSession: _isRefreshTokenRejected(mapped),
         throwOnRetainedFailure: throwOnRetainedFailure,
+        generation: generation,
       );
     } on ApiException catch (error, stackTrace) {
+      if (!_tokenStore.isCurrent(generation)) return null;
       return _handleRefreshFailure(
         error,
         stackTrace,
         expireSession: _isRefreshTokenRejected(error),
         throwOnRetainedFailure: throwOnRetainedFailure,
+        generation: generation,
       );
     } catch (error, stackTrace) {
+      if (!_tokenStore.isCurrent(generation)) return null;
       final exception = ApiException(
         errorCode: AppErrorCode.clientUnknown,
         message: error is FormatException ? error.message : '刷新令牌响应解析失败',
@@ -375,6 +398,7 @@ class ApiClient {
         stackTrace,
         expireSession: false,
         throwOnRetainedFailure: throwOnRetainedFailure,
+        generation: generation,
       );
     }
   }
@@ -384,6 +408,7 @@ class ApiClient {
     StackTrace? stackTrace, {
     required bool expireSession,
     required bool throwOnRetainedFailure,
+    required int generation,
   }) async {
     if (expireSession) {
       _logger.warning(
@@ -393,7 +418,7 @@ class ApiClient {
         stackTrace: stackTrace,
         fields: {'httpStatusCode': error.httpStatusCode},
       );
-      await _expireSession('refresh_token 无效或已过期');
+      await _expireSession('refresh_token 无效或已过期', generation);
       return null;
     }
 
@@ -422,8 +447,12 @@ class ApiClient {
     };
   }
 
-  Future<void> _expireSession(String reason) async {
-    await _tokenStore.clear();
+  Future<void> _expireSession(String reason, int generation) async {
+    if (!_tokenStore.isCurrent(generation)) return;
+    final clearing = _tokenStore.clear();
+    final expiredGeneration = _tokenStore.generation;
+    await clearing;
+    if (!_tokenStore.isCurrent(expiredGeneration)) return;
     _logger.info('auth', '已清理本地认证令牌', fields: {'reason': reason});
     await onSessionExpired?.call();
   }
@@ -431,14 +460,31 @@ class ApiClient {
   bool _shouldRefresh(DioException error) {
     final options = error.requestOptions;
     return error.response?.statusCode == 401 &&
+        _isCurrentRequest(options) &&
         options.extra[_skipAuthKey] != true &&
         options.extra[_retriedAfterRefreshKey] != true;
   }
 
   Options _withAuthOption(Options? options, {required bool skipAuth}) {
     final base = options ?? Options();
-    return base.copyWith(extra: {...?base.extra, _skipAuthKey: skipAuth});
+    return base.copyWith(
+      extra: {
+        ...?base.extra,
+        _skipAuthKey: skipAuth,
+        _sessionGenerationKey: _tokenStore.generation,
+      },
+    );
   }
+
+  bool _isCurrentRequest(RequestOptions options) =>
+      options.extra[_skipAuthKey] == true ||
+      options.extra[_sessionGenerationKey] == _tokenStore.generation;
+
+  DioException _staleSessionError(RequestOptions options) => DioException(
+    requestOptions: options,
+    type: DioExceptionType.cancel,
+    message: '登录状态已变化，已丢弃旧会话请求',
+  );
 
   Future<T> _send<T>(
     Future<Response<Object?>> Function() request, {

@@ -71,7 +71,7 @@ class _MerpAppState extends State<MerpApp> {
             builder: (context, child) {
               return AutoLockGuard(
                 authController: dependencies.authController,
-                settingsController: dependencies.settingsController,
+                securityController: dependencies.localSecurityController,
                 child: AppUpdateGate(
                   controller: dependencies.appUpdateController,
                   child: child ?? const SizedBox.shrink(),

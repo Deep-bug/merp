@@ -9,11 +9,12 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../features/home/data/permission_repository.dart';
 import '../logging/app_logger.dart';
 import '../network/api_exception.dart';
 import '../platform/web_data_cleaner.dart';
 import 'auth_repository.dart';
+import 'session_data_lifecycle.dart';
+import 'security_session_state.dart';
 
 enum AuthStatus {
   booting,
@@ -23,23 +24,26 @@ enum AuthStatus {
   authenticated,
 }
 
-class AuthController extends ChangeNotifier {
+class AuthController extends ChangeNotifier implements SecuritySessionState {
   AuthController({
     required AuthRepository authRepository,
-    required PermissionRepository permissionRepository,
+    required SessionDataLifecycle permissionRepository,
     required AppLogger logger,
     WebDataCleaner? webDataCleaner,
   }) : _authRepository = authRepository,
        _permissionRepository = permissionRepository,
        _webDataCleaner = webDataCleaner,
-       _logger = logger;
+       _logger = logger {
+    _authRepository.sessionTokens.addListener(_syncSessionTokens);
+  }
 
   final AuthRepository _authRepository;
-  final PermissionRepository _permissionRepository;
+  final SessionDataLifecycle _permissionRepository;
   final WebDataCleaner? _webDataCleaner;
   final AppLogger _logger;
 
   AuthStatus status = AuthStatus.booting;
+  @override
   AuthSession? session;
   String? lastError;
   CaptchaChallenge? captchaChallenge;
@@ -47,39 +51,67 @@ class AuthController extends ChangeNotifier {
   String? captchaError;
   bool isProfileLoading = false;
   String? profileLoadError;
+  bool _developmentMockSession = false;
   int _sessionGeneration = 0;
+  @override
+  int get sessionGeneration => _sessionGeneration;
+  @override
   bool gestureEnrollmentRequired = false;
 
+  @override
   bool get isAuthenticated =>
       status == AuthStatus.authenticated && session != null;
+
+  void _syncSessionTokens() {
+    final tokens = _authRepository.sessionTokens.currentTokens;
+    if (session == null) return;
+    if (tokens == null) {
+      session = null;
+      status = AuthStatus.booting;
+      notifyListeners();
+      return;
+    }
+    session = session!.copyWith(tokens: tokens);
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _authRepository.sessionTokens.removeListener(_syncSessionTokens);
+    super.dispose();
+  }
 
   /// WebView 只能取得一次性 Code，不能直接读取或持有 refresh_token。
   Future<String> exchangeWebCode() async {
     if (!isAuthenticated) {
       throw const AuthException('请重新登录后打开功能页面');
     }
-    final currentSession = session;
+    final generation = _sessionGeneration;
     final code = await _authRepository.exchangeWebCode();
-    if (!isAuthenticated || !identical(session, currentSession)) {
+    if (!isAuthenticated || generation != _sessionGeneration) {
       throw const AuthException('登录状态已变化，请重新打开功能页面');
     }
     return code;
   }
 
   Future<void> restoreSession() async {
+    _developmentMockSession = false;
+    final generation = ++_sessionGeneration;
     lastError = null;
     try {
-      session = await _authRepository.restore();
+      final restored = await _authRepository.restore();
+      if (generation != _sessionGeneration) return;
+      session = restored;
       if (session == null) {
         status = AuthStatus.unauthenticated;
         _logger.info('auth', '本地无可恢复会话');
       } else {
         gestureEnrollmentRequired = false;
         status = AuthStatus.authenticated;
-        _sessionGeneration += 1;
         _logger.info('auth', '登录会话刷新恢复成功，开始后台加载会话数据');
       }
     } catch (error, stackTrace) {
+      if (generation != _sessionGeneration) return;
       session = null;
       gestureEnrollmentRequired = false;
       status = AuthStatus.restoreFailed;
@@ -95,6 +127,7 @@ class AuthController extends ChangeNotifier {
   /// 只允许由依赖装配层在 QAS Debug 的显式开发开关下调用。
   /// Mock 会话不持久化 Token，也不会访问用户资料或认证接口。
   Future<void> enterDevelopmentMockSession() async {
+    _developmentMockSession = true;
     _sessionGeneration += 1;
     gestureEnrollmentRequired = false;
     lastError = null;
@@ -124,6 +157,9 @@ class AuthController extends ChangeNotifier {
 
   /// 放弃无法恢复的旧会话，让用户可以主动返回登录页切换账号。
   Future<void> discardStoredSession() async {
+    _developmentMockSession = false;
+    _sessionGeneration += 1;
+    session = null;
     status = AuthStatus.booting;
     lastError = null;
     notifyListeners();
@@ -133,7 +169,6 @@ class AuthController extends ChangeNotifier {
         _permissionRepository.clear(),
       ]);
       await _clearWebDataAfterSignOut();
-      _sessionGeneration += 1;
       session = null;
       gestureEnrollmentRequired = false;
       captchaChallenge = null;
@@ -175,6 +210,7 @@ class AuthController extends ChangeNotifier {
     required String captchaCode,
     String? environment,
   }) async {
+    _developmentMockSession = false;
     final challenge = captchaChallenge;
     if (challenge == null) {
       lastError = '请先获取验证码';
@@ -189,24 +225,27 @@ class AuthController extends ChangeNotifier {
 
     lastError = null;
     gestureEnrollmentRequired = false;
+    final generation = ++_sessionGeneration;
     notifyListeners();
 
     try {
-      session = await _authRepository.login(
+      final loggedIn = await _authRepository.login(
         account: account,
         password: password,
         captchaId: challenge.captchaId,
         captchaCode: captchaCode,
         environment: environment,
       );
+      if (generation != _sessionGeneration) return false;
+      session = loggedIn;
       captchaChallenge = null;
       captchaError = null;
       status = AuthStatus.authenticatedPendingSecurity;
-      _sessionGeneration += 1;
       _logger.info('auth', '用户登录成功', fields: {'account': account.trim()});
       notifyListeners();
       return true;
     } catch (error, stackTrace) {
+      if (generation != _sessionGeneration) return false;
       session = null;
       gestureEnrollmentRequired = false;
       // 登录页只展示后端可读错误，不暴露 traceId/incidentId 等诊断编号。
@@ -249,6 +288,10 @@ class AuthController extends ChangeNotifier {
   Future<void> reloadSessionData() async {
     final currentSession = session;
     if (status != AuthStatus.authenticated || currentSession == null) {
+      return;
+    }
+    if (_developmentMockSession) {
+      await _permissionRepository.loadDevelopmentMockMenu();
       return;
     }
     await Future.wait([
@@ -295,7 +338,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    _sessionGeneration += 1;
+    _beginSignOut();
     await _authRepository.logout();
     await _permissionRepository.clear();
     await _clearWebDataAfterSignOut();
@@ -310,7 +353,7 @@ class AuthController extends ChangeNotifier {
 
   /// ApiClient 在 refresh_token 失效后调用，确保内存会话与路由立即同步。
   Future<void> handleSessionExpired() async {
-    _sessionGeneration += 1;
+    _beginSignOut();
     await _permissionRepository.clear();
     await _clearWebDataAfterSignOut();
     session = null;
@@ -320,6 +363,17 @@ class AuthController extends ChangeNotifier {
     status = AuthStatus.unauthenticated;
     lastError = '登录已过期，请重新登录';
     _logger.warning('auth', '刷新令牌失效，已退出当前会话');
+    notifyListeners();
+  }
+
+  void _beginSignOut() {
+    _developmentMockSession = false;
+    _sessionGeneration += 1;
+    session = null;
+    isProfileLoading = false;
+    profileLoadError = null;
+    // 清理 H5 数据完成前留在启动屏，避免下一个账号与清理操作交错。
+    status = AuthStatus.booting;
     notifyListeners();
   }
 

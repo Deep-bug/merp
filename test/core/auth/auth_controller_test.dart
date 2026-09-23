@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:merp/core/auth/auth_controller.dart';
 import 'package:merp/core/auth/auth_repository.dart';
+import 'package:merp/core/auth/session_data_lifecycle.dart';
 import 'package:merp/core/config/app_config.dart';
 import 'package:merp/core/logging/app_logger.dart';
 import 'package:merp/core/network/api_client.dart';
@@ -36,11 +37,7 @@ void main() {
     );
     final permissions = PermissionRepository(apiClient: client, logger: logger);
     final controller = AuthController(
-      authRepository: AuthRepository(
-        apiClient: client,
-        tokenStore: store,
-        logger: logger,
-      ),
+      authRepository: AuthRepository(apiClient: client, logger: logger),
       permissionRepository: permissions,
       logger: logger,
     );
@@ -77,11 +74,7 @@ void main() {
       dio: dio,
     );
     final controller = AuthController(
-      authRepository: AuthRepository(
-        apiClient: client,
-        tokenStore: store,
-        logger: logger,
-      ),
+      authRepository: AuthRepository(apiClient: client, logger: logger),
       permissionRepository: PermissionRepository(
         apiClient: client,
         logger: logger,
@@ -106,6 +99,31 @@ void main() {
     expect(controller.lastError, isNot(contains('trace')));
     expect(controller.lastError, isNot(contains('MERP-')));
   });
+
+  test(
+    'development Mock refresh uses only the explicit Mock permission path',
+    () async {
+      final logger = AppLogger();
+      final client = ApiClient(
+        config: const AppConfig(appEnvironment: 'mock'),
+        tokenStore: MemoryTokenStore(),
+        logger: logger,
+        dio: Dio(),
+      );
+      final lifecycle = _RecordingSessionDataLifecycle();
+      final controller = AuthController(
+        authRepository: AuthRepository(apiClient: client, logger: logger),
+        permissionRepository: lifecycle,
+        logger: logger,
+      );
+
+      await controller.enterDevelopmentMockSession();
+      await controller.reloadSessionData();
+
+      expect(lifecycle.mockLoads, 2);
+      expect(lifecycle.sessionLoads, 0);
+    },
+  );
 
   test(
     'logout also clears WebView website data without affecting app logout',
@@ -134,11 +152,7 @@ void main() {
           ),
       );
       final controller = AuthController(
-        authRepository: AuthRepository(
-          apiClient: client,
-          tokenStore: store,
-          logger: logger,
-        ),
+        authRepository: AuthRepository(apiClient: client, logger: logger),
         permissionRepository: PermissionRepository(
           apiClient: client,
           logger: logger,
@@ -159,4 +173,22 @@ void main() {
       expect(controller.status, AuthStatus.unauthenticated);
     },
   );
+}
+
+class _RecordingSessionDataLifecycle implements SessionDataLifecycle {
+  int sessionLoads = 0;
+  int mockLoads = 0;
+
+  @override
+  Future<void> loadForSession(AuthSession session) async {
+    sessionLoads++;
+  }
+
+  @override
+  Future<void> loadDevelopmentMockMenu() async {
+    mockLoads++;
+  }
+
+  @override
+  Future<void> clear() async {}
 }

@@ -32,6 +32,7 @@ class HomePage extends StatelessWidget {
         auth,
         permissions,
         scope.favoriteFeatureController,
+        scope.featureBadgeController,
       ]),
       builder: (context, _) {
         final assistantFeatures = permissions.authorizedFeatures.where(

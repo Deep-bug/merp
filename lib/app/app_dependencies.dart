@@ -18,6 +18,7 @@ import '../core/device/map_sdk_service.dart';
 import '../core/logging/app_logger.dart';
 import '../core/network/api_client.dart';
 import '../core/platform/web_data_cleaner.dart';
+import '../core/security/local_security_controller.dart';
 import '../features/home/data/permission_repository.dart';
 import '../features/app_update/app_update_controller.dart';
 import '../features/app_update/app_update_platform.dart';
@@ -26,6 +27,7 @@ import '../features/app_update/mock_app_update_repository.dart';
 import '../features/home/data/favorite_feature_controller.dart';
 import '../features/home/data/feature_badge_controller.dart';
 import '../features/settings/settings_controller.dart';
+import 'user_session_data_coordinator.dart';
 
 /// 应用级依赖容器。
 ///
@@ -50,10 +52,11 @@ class AppDependencies {
     required this.locationService,
     required this.mapSdkService,
     required this.logger,
+    this.userSessionDataCoordinator,
   });
 
   final AppConfig config;
-  final SecureTokenStore tokenStore;
+  final TokenStore tokenStore;
   final ApiClient apiClient;
   final AuthController authController;
   final PermissionRepository permissionRepository;
@@ -62,12 +65,15 @@ class AppDependencies {
   final AppUpdateController appUpdateController;
   final WebDataCleaner webDataCleaner;
   final SettingsController settingsController;
+  LocalSecurityController get localSecurityController =>
+      settingsController.security;
   final CameraService cameraService;
   final FileService fileService;
   final DeviceInfoService deviceInfoService;
   final LocationService locationService;
   final MapSdkService mapSdkService;
   final AppLogger logger;
+  final UserSessionDataCoordinator? userSessionDataCoordinator;
 
   /// 统一启动顺序：
   /// 1. 创建配置和基础服务。
@@ -158,20 +164,21 @@ class AppDependencies {
     // unawaited(appUpdateController.checkAtStartup());
 
     final authController = AuthController(
-      authRepository: AuthRepository(
-        apiClient: apiClient,
-        tokenStore: tokenStore,
-        logger: logger,
-      ),
+      authRepository: AuthRepository(apiClient: apiClient, logger: logger),
       permissionRepository: permissionRepository,
       webDataCleaner: webDataCleaner,
       logger: logger,
     );
     // 网络层只通过回调通知认证状态失效，避免 ApiClient 反向依赖 Controller。
     apiClient.onSessionExpired = authController.handleSessionExpired;
+    final userSessionDataCoordinator = UserSessionDataCoordinator(
+      auth: authController,
+      favorites: favoriteFeatureController,
+      badges: featureBadgeController,
+      environment: appEnvironment,
+      mock: config.isDevelopmentMockEnabled,
+    );
     if (config.isDevelopmentMockEnabled) {
-      favoriteFeatureController.enableDevelopmentMockMode();
-      featureBadgeController.enableDevelopmentMockCounts();
       await authController.enterDevelopmentMockSession();
     } else {
       await authController.restoreSession();
@@ -180,7 +187,7 @@ class AppDependencies {
     logger.info('bootstrap', '应用依赖初始化完成');
     return AppDependencies(
       config: config,
-      tokenStore: tokenStore,
+      tokenStore: apiClient.sessionTokens,
       apiClient: apiClient,
       authController: authController,
       permissionRepository: permissionRepository,
@@ -199,12 +206,15 @@ class AppDependencies {
       ),
       mapSdkService: mapSdkService,
       logger: logger,
+      userSessionDataCoordinator: userSessionDataCoordinator,
     );
   }
 
   /// 便于 Widget 测试或热重启场景释放 ChangeNotifier。
   void dispose() {
+    userSessionDataCoordinator?.dispose();
     authController.dispose();
+    apiClient.sessionTokens.dispose();
     permissionRepository.dispose();
     favoriteFeatureController.dispose();
     featureBadgeController.dispose();

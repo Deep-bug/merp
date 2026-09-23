@@ -51,9 +51,10 @@ class _GesturePasswordPageState extends State<GesturePasswordPage> {
       return;
     }
     if (_step == _GestureStep.verifyCurrent) {
-      final settings = AppScope.of(context).settingsController;
-      final verified = await settings.verifyGesturePassword(pattern);
-      if (!mounted) {
+      final security = AppScope.of(context).localSecurityController;
+      final generation = security.generation;
+      final verified = await security.verifyGesturePassword(pattern);
+      if (!mounted || generation != security.generation) {
         return;
       }
       if (!verified) {
@@ -61,8 +62,8 @@ class _GesturePasswordPageState extends State<GesturePasswordPage> {
       }
       if (_failedAttempts >= 5) {
         setState(() => _saving = true);
-        await settings.clearGesturePassword();
-        if (!mounted) {
+        await security.clearGesturePassword();
+        if (!mounted || generation != security.generation) {
           return;
         }
         await AppScope.of(context).authController.logout();
@@ -109,16 +110,17 @@ class _GesturePasswordPageState extends State<GesturePasswordPage> {
 
   Future<void> _save(List<int> pattern) async {
     setState(() => _saving = true);
+    final security = AppScope.of(context).localSecurityController;
+    final generation = security.generation;
+    var saved = false;
     try {
-      await AppScope.of(
-        context,
-      ).settingsController.saveGesturePassword(pattern);
+      saved = await security.saveGesturePassword(pattern);
     } finally {
       if (mounted) {
         setState(() => _saving = false);
       }
     }
-    if (!mounted) {
+    if (!mounted || !saved || generation != security.generation) {
       return;
     }
     AppNotice.show(

@@ -1,272 +1,109 @@
 // -----------------------------------------------------------------------------
 // 文件：auto_lock_guard.dart
-// 作用：统一处理后台隐私遮罩、冷启动验证和 10 秒无操作自动锁屏
+// 作用：将应用生命周期和触摸事件转发给锁屏协调器，并绘制锁屏/隐私遮罩
 // 编写时间：2026-07-10
-// 维护说明：页面不得各自实现锁屏计时，所有业务页面都位于本守卫下方
+// 维护说明：计时与安全域状态位于 AppLockCoordinator，本文件仅负责 UI
 // -----------------------------------------------------------------------------
-
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../../core/auth/auth_controller.dart';
+import '../../core/security/local_security_controller.dart';
+import '../../core/security/unlock_method.dart';
 import '../../features/settings/pattern_lock_pad.dart';
-import '../../features/settings/settings_controller.dart';
 import '../../l10n/l10n.dart';
+import 'app_lock_coordinator.dart';
 import 'app_privacy_shield.dart';
 
 class AutoLockGuard extends StatefulWidget {
   const AutoLockGuard({
     super.key,
     required this.authController,
-    required this.settingsController,
+    required this.securityController,
     required this.child,
   });
 
   final AuthController authController;
-  final SettingsController settingsController;
+  final LocalSecurityController securityController;
   final Widget child;
 
   @override
   State<AutoLockGuard> createState() => _AutoLockGuardState();
 }
 
-enum _LockReason { coldStart, inactivity }
-
 class _AutoLockGuardState extends State<AutoLockGuard>
     with WidgetsBindingObserver {
-  Timer? _timer;
-  DateTime _lastInteraction = DateTime.now();
-  bool _privacyCovered = false;
-  bool _locked = false;
-  bool _requiresEnrollment = false;
-  bool _scopeReady = false;
-  bool _syncingScope = false;
-  late bool _coldStartPending;
-  late bool _hadAuthenticatedSession;
-  _LockReason _lockReason = _LockReason.inactivity;
-
-  bool get _shouldTrackInactivity =>
-      widget.authController.isAuthenticated &&
-      !widget.authController.gestureEnrollmentRequired &&
-      _scopeReady &&
-      widget.settingsController.autoLockEnabled;
+  late AppLockCoordinator _coordinator;
 
   @override
   void initState() {
     super.initState();
-    _coldStartPending = widget.authController.isAuthenticated;
-    _hadAuthenticatedSession = widget.authController.isAuthenticated;
     WidgetsBinding.instance.addObserver(this);
-    widget.authController.addListener(_synchronizePolicy);
-    widget.settingsController.addListener(_synchronizePolicy);
-    _synchronizePolicy();
+    _createCoordinator();
   }
 
   @override
   void didUpdateWidget(covariant AutoLockGuard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.authController != widget.authController) {
-      oldWidget.authController.removeListener(_synchronizePolicy);
-      widget.authController.addListener(_synchronizePolicy);
+    if (oldWidget.authController != widget.authController ||
+        oldWidget.securityController != widget.securityController) {
+      _coordinator.removeListener(_handleStateChanged);
+      _coordinator.dispose();
+      _createCoordinator();
     }
-    if (oldWidget.settingsController != widget.settingsController) {
-      oldWidget.settingsController.removeListener(_synchronizePolicy);
-      widget.settingsController.addListener(_synchronizePolicy);
-    }
-    _synchronizePolicy();
+  }
+
+  void _createCoordinator() {
+    _coordinator = AppLockCoordinator(
+      auth: widget.authController,
+      security: widget.securityController,
+    )..addListener(_handleStateChanged);
+    _coordinator.start();
+  }
+
+  void _handleStateChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _handleForegroundResume();
-      return;
+      _coordinator.resumeFromBackground();
+    } else {
+      _coordinator.coverForBackground();
     }
-
-    // inactive 会早于 paused/hidden 到达，必须在这里立即遮挡，
-    // 避免 iOS/Android 为应用切换器生成快照时暴露业务页面。
-    _timer?.cancel();
-    if (!_privacyCovered && mounted) {
-      setState(() => _privacyCovered = true);
-    }
-  }
-
-  void _handleForegroundResume() {
-    if (!mounted) {
-      return;
-    }
-
-    final inactiveFor = DateTime.now().difference(_lastInteraction);
-    final shouldLock =
-        !_locked &&
-        _shouldTrackInactivity &&
-        inactiveFor >= SettingsController.autoLockTimeout;
-
-    // 在同一帧里决定“恢复内容”或“进入解锁”，避免先撤掉遮罩
-    // 再显示锁屏造成的敏感内容闪现。
-    setState(() {
-      _privacyCovered = false;
-      if (shouldLock) {
-        _locked = true;
-        _lockReason = _LockReason.inactivity;
-        _requiresEnrollment =
-            !widget.settingsController.gesturePasswordConfigured;
-      }
-    });
-
-    if (_locked || !_shouldTrackInactivity) {
-      return;
-    }
-    _scheduleLock(SettingsController.autoLockTimeout - inactiveFor);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _timer?.cancel();
-    widget.authController.removeListener(_synchronizePolicy);
-    widget.settingsController.removeListener(_synchronizePolicy);
+    _coordinator.removeListener(_handleStateChanged);
+    _coordinator.dispose();
     super.dispose();
-  }
-
-  void _synchronizePolicy() {
-    unawaited(_synchronizePolicyAsync());
-  }
-
-  Future<void> _synchronizePolicyAsync() async {
-    final auth = widget.authController;
-    if (!auth.isAuthenticated) {
-      _timer?.cancel();
-      if (_hadAuthenticatedSession) {
-        _hadAuthenticatedSession = false;
-        _scopeReady = false;
-        _coldStartPending = false;
-        widget.settingsController.clearActiveGestureScope();
-      }
-      if (_locked && mounted) {
-        setState(() => _locked = false);
-      }
-      return;
-    }
-
-    _hadAuthenticatedSession = true;
-    if (!_scopeReady) {
-      if (_syncingScope) {
-        return;
-      }
-      _syncingScope = true;
-      try {
-        final profile = auth.session!.profile;
-        var activated = await widget.settingsController.activateGestureScope(
-          userId: profile.id,
-          accountName: profile.accountName,
-        );
-        if (!activated && _coldStartPending) {
-          activated = await widget.settingsController.restoreLastGestureScope();
-        }
-        if (!activated || !mounted || !auth.isAuthenticated) {
-          return;
-        }
-        _scopeReady = true;
-      } finally {
-        _syncingScope = false;
-      }
-    }
-
-    if (_coldStartPending) {
-      _coldStartPending = false;
-      _timer?.cancel();
-      setState(() {
-        _locked = true;
-        _lockReason = _LockReason.coldStart;
-        _requiresEnrollment =
-            !widget.settingsController.gesturePasswordConfigured;
-      });
-      return;
-    }
-
-    if (_shouldTrackInactivity) {
-      _recordInteraction();
-    } else {
-      _timer?.cancel();
-    }
-  }
-
-  void _recordInteraction({bool reschedule = true}) {
-    if (!_shouldTrackInactivity || _locked) {
-      return;
-    }
-    _lastInteraction = DateTime.now();
-    if (reschedule) {
-      _scheduleLock();
-    }
-  }
-
-  void _scheduleLock([Duration delay = SettingsController.autoLockTimeout]) {
-    _timer?.cancel();
-    _timer = Timer(delay, _handleInactivityDeadline);
-  }
-
-  void _handleInactivityDeadline() {
-    if (!_shouldTrackInactivity || _locked) {
-      return;
-    }
-    final inactiveFor = DateTime.now().difference(_lastInteraction);
-    if (inactiveFor >= SettingsController.autoLockTimeout) {
-      _lock(_LockReason.inactivity);
-      return;
-    }
-    _scheduleLock(SettingsController.autoLockTimeout - inactiveFor);
-  }
-
-  void _lock(_LockReason reason) {
-    if (!mounted || !_shouldTrackInactivity || _locked) {
-      return;
-    }
-    setState(() {
-      _locked = true;
-      _lockReason = reason;
-      _requiresEnrollment =
-          !widget.settingsController.gesturePasswordConfigured;
-    });
-  }
-
-  void _unlock() {
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _locked = false;
-      _requiresEnrollment = false;
-    });
-    _lastInteraction = DateTime.now();
-    if (_shouldTrackInactivity) {
-      _scheduleLock();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Listener(
       behavior: HitTestBehavior.translucent,
-      onPointerDown: (_) => _recordInteraction(),
-      // 移动事件只更新时间戳，不在每个触摸采样点反复取消和创建 Timer。
-      onPointerMove: (_) => _recordInteraction(reschedule: false),
-      onPointerUp: (_) => _recordInteraction(),
+      onPointerDown: (_) => _coordinator.recordInteraction(),
+      // 移动事件只更新时间戳，不在每个触摸采样点反复创建 Timer。
+      onPointerMove: (_) => _coordinator.recordInteraction(reschedule: false),
+      onPointerUp: (_) => _coordinator.recordInteraction(),
       child: Stack(
         fit: StackFit.expand,
         children: [
           widget.child,
-          if (_locked)
+          if (_coordinator.locked)
             _LockOverlay(
-              settingsController: widget.settingsController,
-              reason: _lockReason,
-              requiresEnrollment: _requiresEnrollment,
-              onUnlocked: _unlock,
+              key: ValueKey(widget.securityController.generation),
+              securityController: widget.securityController,
+              reason: _coordinator.reason,
+              requiresEnrollment: _coordinator.requiresEnrollment,
+              onUnlocked: _coordinator.unlock,
               onLogout: widget.authController.logout,
             ),
-          if (_privacyCovered) const AppPrivacyShield(),
+          if (_coordinator.privacyCovered) const AppPrivacyShield(),
         ],
       ),
     );
@@ -275,15 +112,16 @@ class _AutoLockGuardState extends State<AutoLockGuard>
 
 class _LockOverlay extends StatefulWidget {
   const _LockOverlay({
-    required this.settingsController,
+    super.key,
+    required this.securityController,
     required this.reason,
     required this.requiresEnrollment,
     required this.onUnlocked,
     required this.onLogout,
   });
 
-  final SettingsController settingsController;
-  final _LockReason reason;
+  final LocalSecurityController securityController;
+  final AppLockReason reason;
   final bool requiresEnrollment;
   final VoidCallback onUnlocked;
   final Future<void> Function() onLogout;
@@ -306,7 +144,7 @@ class _LockOverlayState extends State<_LockOverlay> {
   void initState() {
     super.initState();
     if (!widget.requiresEnrollment &&
-        widget.settingsController.unlockMethod != UnlockMethod.gesture) {
+        widget.securityController.unlockMethod != UnlockMethod.gesture) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _unlockWithBiometrics();
@@ -320,10 +158,11 @@ class _LockOverlayState extends State<_LockOverlay> {
       return;
     }
     setState(() => _busy = true);
-    final ok = await widget.settingsController.authenticateWithBiometrics(
-      method: widget.settingsController.unlockMethod,
+    final generation = widget.securityController.generation;
+    final ok = await widget.securityController.authenticateWithBiometrics(
+      method: widget.securityController.unlockMethod,
     );
-    if (!mounted) {
+    if (!mounted || generation != widget.securityController.generation) {
       return;
     }
     setState(() => _busy = false);
@@ -333,7 +172,7 @@ class _LockOverlayState extends State<_LockOverlay> {
     }
     setState(() {
       _message =
-          widget.settingsController.lastBiometricError ??
+          widget.securityController.lastBiometricError ??
           context.l10n.biometricFailed;
     });
   }
@@ -343,8 +182,9 @@ class _LockOverlayState extends State<_LockOverlay> {
       return;
     }
     setState(() => _busy = true);
-    final ok = await widget.settingsController.verifyGesturePassword(pattern);
-    if (!mounted) {
+    final generation = widget.securityController.generation;
+    final ok = await widget.securityController.verifyGesturePassword(pattern);
+    if (!mounted || generation != widget.securityController.generation) {
       return;
     }
     setState(() => _busy = false);
@@ -355,7 +195,10 @@ class _LockOverlayState extends State<_LockOverlay> {
     _failedAttempts++;
     if (_failedAttempts >= 5) {
       setState(() => _busy = true);
-      await widget.settingsController.clearGesturePassword();
+      await widget.securityController.clearGesturePassword();
+      if (!mounted || generation != widget.securityController.generation) {
+        return;
+      }
       await widget.onLogout();
       return;
     }
@@ -394,8 +237,13 @@ class _LockOverlayState extends State<_LockOverlay> {
       return;
     }
     setState(() => _busy = true);
-    await widget.settingsController.saveGesturePassword(pattern);
+    final generation = widget.securityController.generation;
+    final saved = await widget.securityController.saveGesturePassword(pattern);
     if (!mounted) {
+      return;
+    }
+    setState(() => _busy = false);
+    if (!saved || generation != widget.securityController.generation) {
       return;
     }
     widget.onUnlocked();
@@ -423,7 +271,7 @@ class _LockOverlayState extends State<_LockOverlay> {
   @override
   Widget build(BuildContext context) {
     final enrollment = widget.requiresEnrollment;
-    final unlockMethod = widget.settingsController.unlockMethod;
+    final unlockMethod = widget.securityController.unlockMethod;
     final usesBiometric = !enrollment && unlockMethod != UnlockMethod.gesture;
     final title = _title(context, enrollment, unlockMethod);
     final description = _description(context, enrollment, unlockMethod);
@@ -527,7 +375,7 @@ class _LockOverlayState extends State<_LockOverlay> {
       UnlockMethod.face => context.l10n.faceVerificationTitle,
       UnlockMethod.fingerprint => context.l10n.fingerprintVerificationTitle,
       UnlockMethod.gesture =>
-        widget.reason == _LockReason.coldStart
+        widget.reason == AppLockReason.coldStart
             ? context.l10n.coldStartLocked
             : context.l10n.autoLocked,
     };
@@ -545,7 +393,7 @@ class _LockOverlayState extends State<_LockOverlay> {
       UnlockMethod.face => context.l10n.faceVerificationMessage,
       UnlockMethod.fingerprint => context.l10n.fingerprintVerificationMessage,
       UnlockMethod.gesture =>
-        widget.reason == _LockReason.coldStart
+        widget.reason == AppLockReason.coldStart
             ? context.l10n.coldStartLockedMessage
             : context.l10n.gestureAutoLockedMessage,
     };

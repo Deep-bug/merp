@@ -10,6 +10,7 @@ import 'package:merp/core/config/app_config.dart';
 import 'package:merp/core/logging/app_logger.dart';
 import 'package:merp/core/network/api_client.dart';
 import 'package:merp/features/home/data/permission_repository.dart';
+import 'package:merp/features/home/data/mock_user_feature_permissions.dart';
 
 import '../../helpers/fake_http_adapter.dart';
 import '../../helpers/memory_token_store.dart';
@@ -79,7 +80,7 @@ void main() {
       });
     final repository = _repository(
       dio,
-      mockMenus: false,
+      mockEnvironment: false,
       languageCodeProvider: () => 'zh-TW',
     );
 
@@ -131,7 +132,7 @@ void main() {
         ..httpClientAdapter = FakeHttpAdapter(
           (_) => jsonResponse({}, statusCode: 500),
         );
-      final repository = _repository(dio, mockMenus: false);
+      final repository = _repository(dio, mockEnvironment: false);
 
       await repository.loadForSession(session);
 
@@ -143,7 +144,7 @@ void main() {
   );
 
   test(
-    'mock menus grant every local application without HTTP request',
+    'explicit Mock authorization grants configured ids without HTTP request',
     () async {
       var requestCount = 0;
       final dio = Dio()
@@ -153,7 +154,7 @@ void main() {
         });
       final repository = _repository(dio);
 
-      await repository.loadForSession(session);
+      await repository.loadDevelopmentMockMenu();
 
       expect(requestCount, 0);
       expect(repository.status, PermissionLoadStatus.loaded);
@@ -187,19 +188,57 @@ void main() {
       );
     },
   );
+
+  test(
+    'normal session loading never switches to Mock permissions implicitly',
+    () async {
+      var requestCount = 0;
+      final dio = Dio()
+        ..httpClientAdapter = FakeHttpAdapter((_) {
+          requestCount += 1;
+          return jsonResponse({}, statusCode: 500);
+        });
+      final repository = _repository(dio);
+
+      await repository.loadForSession(session);
+
+      expect(requestCount, 1);
+      expect(repository.status, PermissionLoadStatus.failed);
+      expect(repository.authorizedFeatures, isEmpty);
+    },
+  );
+
+  test(
+    'Mock user authorization can be narrower than the platform catalog',
+    () async {
+      final repository = _repository(
+        Dio(),
+        mockPermissions: const MockUserFeaturePermissions(
+          authorizedFeatureIds: {'e-form', 'my-task'},
+        ),
+      );
+
+      await repository.loadDevelopmentMockMenu();
+
+      expect(repository.allFeatures, hasLength(25));
+      expect(repository.authorizedFeatures.map((item) => item.id), [
+        'e-form',
+        'my-task',
+      ]);
+    },
+  );
 }
 
 PermissionRepository _repository(
   Dio dio, {
-  bool mockMenus = true,
+  bool mockEnvironment = true,
   String Function()? languageCodeProvider,
+  MockUserFeaturePermissions mockPermissions =
+      const MockUserFeaturePermissions(),
 }) {
   final logger = AppLogger();
   final client = ApiClient(
-    config: AppConfig(
-      appEnvironment: mockMenus ? 'mock' : 'qas',
-      mockMenus: mockMenus,
-    ),
+    config: AppConfig(appEnvironment: mockEnvironment ? 'mock' : 'qas'),
     tokenStore: MemoryTokenStore(
       const AuthTokens(accessToken: 'access-1', refreshToken: 'refresh-1'),
     ),
@@ -209,6 +248,7 @@ PermissionRepository _repository(
   return PermissionRepository(
     apiClient: client,
     logger: logger,
+    mockPermissions: mockPermissions,
     languageCodeProvider: languageCodeProvider,
   );
 }

@@ -9,22 +9,20 @@ import '../logging/app_logger.dart';
 import '../network/api_client.dart';
 import '../network/api_exception.dart';
 import 'auth_models.dart';
-import 'secure_token_store.dart';
+import 'session_token_store.dart';
 
 export 'auth_models.dart';
 
 /// 认证仓库严格按照后端认证接口组装请求，并把接口 DTO 转成应用会话。
 class AuthRepository {
-  AuthRepository({
-    required ApiClient apiClient,
-    required TokenStore tokenStore,
-    required AppLogger logger,
-  }) : _apiClient = apiClient,
-       _tokenStore = tokenStore,
-       _logger = logger;
+  AuthRepository({required ApiClient apiClient, required AppLogger logger})
+    : _apiClient = apiClient,
+      _tokenStore = apiClient.sessionTokens,
+      _logger = logger;
 
   final ApiClient _apiClient;
-  final TokenStore _tokenStore;
+  final SessionTokenStore _tokenStore;
+  SessionTokenStore get sessionTokens => _tokenStore;
   final AppLogger _logger;
 
   /// 启动恢复不直接信任旧 access_token，而是只用 refresh_token 换新令牌。
@@ -32,7 +30,9 @@ class AuthRepository {
   /// 恢复阶段不拉用户资料和权限菜单，避免启动路径被非认证接口阻塞。只要
   /// refresh_token 未失效且刷新成功，就允许进入首页。
   Future<AuthSession?> restore() async {
+    final generation = _tokenStore.generation;
     final storedTokens = await _tokenStore.readTokens();
+    if (!_tokenStore.isCurrent(generation)) return null;
     if (storedTokens?.refreshToken == null ||
         storedTokens!.refreshToken!.isEmpty) {
       await _tokenStore.clear();
@@ -40,7 +40,7 @@ class AuthRepository {
     }
 
     final refreshedTokens = await _apiClient.refreshTokensForRestore();
-    if (refreshedTokens == null) {
+    if (refreshedTokens == null || !_tokenStore.isCurrent(generation)) {
       return null;
     }
     const profile = UserProfile(
@@ -71,7 +71,9 @@ class AuthRepository {
   /// 每次打开（或重试）旧 Vue2 页面都重新换码；不缓存一次性 Code。
   /// refresh_token 只发往认证接口，绝不传给 WebView 或写入日志。
   Future<String> exchangeWebCode() async {
+    final generation = _tokenStore.generation;
     final refreshToken = (await _tokenStore.readTokens())?.refreshToken;
+    _requireCurrentSession(generation);
     if (refreshToken == null || refreshToken.isEmpty) {
       throw const AuthException('登录凭证已失效，请重新登录');
     }
@@ -82,6 +84,7 @@ class AuthRepository {
         skipAuth: true,
       );
       final code = data['code'];
+      _requireCurrentSession(generation);
       if (code is! String || code.trim().isEmpty) {
         throw const AuthException('网页访问码响应无效，请稍后重试');
       }
@@ -118,6 +121,11 @@ class AuthRepository {
       throw const AuthException('请输入验证码');
     }
 
+    // 新的账号密码登录是身份边界，先使旧刷新/换码结果失效。
+    final clearing = _tokenStore.clear();
+    final generation = _tokenStore.generation;
+    await clearing;
+    _requireCurrentSession(generation);
     try {
       _logger.debug(
         'auth',
@@ -154,9 +162,13 @@ class AuthRepository {
       );
 
       // 用户信息接口依赖刚取得的 Bearer Token，因此必须先安全保存令牌。
-      await _tokenStore.saveTokens(tokens);
+      if (!await _tokenStore.saveIfCurrent(tokens, generation)) {
+        throw const AuthException('登录状态已变化，请重新登录');
+      }
       final profile = await _loadUserProfileForLogin(fallback: loginProfile);
-      return AuthSession(tokens: tokens, profile: profile);
+      _requireCurrentSession(generation);
+      // 用户资料请求也可能触发 401 刷新，不能再返回登录响应中的旧 Token。
+      return AuthSession(tokens: _tokenStore.currentTokens!, profile: profile);
     } on AuthException {
       rethrow;
     } on ApiException catch (error) {
@@ -205,7 +217,8 @@ class AuthRepository {
 
   /// 无论服务端登出成功与否，本地令牌都必须清空。
   Future<void> logout() async {
-    final refreshToken = (await _tokenStore.readTokens())?.refreshToken;
+    // 先撤销本地会话，再尽力通知后端；不能等远程请求结束才清理 Token。
+    final refreshToken = (await _tokenStore.revoke())?.refreshToken;
     try {
       if (refreshToken != null && refreshToken.isNotEmpty) {
         await _apiClient.post<Object?>(
@@ -221,8 +234,12 @@ class AuthRepository {
         error: error,
         stackTrace: stackTrace,
       );
-    } finally {
-      await _tokenStore.clear();
+    }
+  }
+
+  void _requireCurrentSession(int generation) {
+    if (!_tokenStore.isCurrent(generation)) {
+      throw const AuthException('登录状态已变化，请重新登录');
     }
   }
 }

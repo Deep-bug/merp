@@ -43,7 +43,7 @@ void main() {
 
     expect(result['ok'], isTrue);
     expect(captured?.headers['Authorization'], 'Bearer access-1');
-    expect(captured?.headers['X-Client'], 'merp-flutter');
+    expect(captured?.headers['X-Client'], 'merptest');
     expect(captured?.headers['X-Request-Id'], startsWith('merp-'));
     expect(captured?.connectTimeout, const Duration(seconds: 30));
     expect(captured?.receiveTimeout, const Duration(seconds: 60));

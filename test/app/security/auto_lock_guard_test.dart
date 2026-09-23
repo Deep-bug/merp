@@ -32,11 +32,7 @@ void main() {
       logger: logger,
     );
     final authController = AuthController(
-      authRepository: AuthRepository(
-        apiClient: apiClient,
-        tokenStore: tokenStore,
-        logger: logger,
-      ),
+      authRepository: AuthRepository(apiClient: apiClient, logger: logger),
       permissionRepository: permissionRepository,
       logger: logger,
     )..status = AuthStatus.unauthenticated;
@@ -49,7 +45,7 @@ void main() {
       MaterialApp(
         home: AutoLockGuard(
           authController: authController,
-          settingsController: settingsController,
+          securityController: settingsController.security,
           child: const Scaffold(body: Text('敏感业务内容')),
         ),
       ),

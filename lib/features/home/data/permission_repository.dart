@@ -8,32 +8,42 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../core/auth/auth_repository.dart';
+import '../../../core/auth/session_data_lifecycle.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/network/api_client.dart';
 import '../domain/feature_item.dart';
-import 'feature_registry.dart';
 import 'feature_resolver.dart';
-import 'mock_feature_menu.dart';
+import 'mock_user_feature_permissions.dart';
+import 'platform_feature_catalog.dart';
 
 /// 登录后的功能清单和权限缓存。
 ///
 /// 本地平台目录负责“有哪些功能”，后端菜单只负责“当前用户能用哪些功能”。
-class PermissionRepository extends ChangeNotifier {
+class PermissionRepository extends ChangeNotifier
+    implements SessionDataLifecycle {
   PermissionRepository({
     required ApiClient apiClient,
     required AppLogger logger,
     FeatureResolver resolver = const FeatureResolver(),
+    PlatformFeatureCatalog? platformCatalog,
+    MockUserFeaturePermissions mockPermissions =
+        const MockUserFeaturePermissions(),
     String Function()? languageCodeProvider,
   }) : _apiClient = apiClient,
        _logger = logger,
        _resolver = resolver,
+       _platformCatalog =
+           platformCatalog ?? PlatformFeatureCatalog(apiClient.config),
+       _mockPermissions = mockPermissions,
        _languageCodeProvider = languageCodeProvider ?? _defaultLanguageCode {
-    _allFeatures.addAll(_platformFeatures());
+    _allFeatures.addAll(_platformCatalog.features);
   }
 
   final ApiClient _apiClient;
   final AppLogger _logger;
   final FeatureResolver _resolver;
+  final PlatformFeatureCatalog _platformCatalog;
+  final MockUserFeaturePermissions _mockPermissions;
   final String Function() _languageCodeProvider;
   final List<FeatureItem> _allFeatures = [];
   final Set<String> _allowedFeatureIds = {};
@@ -53,6 +63,7 @@ class PermissionRepository extends ChangeNotifier {
 
   bool canOpen(FeatureItem item) => _allowedFeatureIds.contains(item.id);
 
+  @override
   Future<void> loadForSession(AuthSession session) async {
     final generation = ++_requestGeneration;
     _status = PermissionLoadStatus.loading;
@@ -97,7 +108,8 @@ class PermissionRepository extends ChangeNotifier {
     }
   }
 
-  /// 开发 Mock 会话不依赖 Token 与后端菜单，直接授予本地完整功能目录。
+  /// 开发 Mock 会话不依赖 Token 与后端菜单，使用独立 Mock 用户授权清单。
+  @override
   Future<void> loadDevelopmentMockMenu() async {
     final generation = ++_requestGeneration;
     _status = PermissionLoadStatus.loading;
@@ -114,15 +126,16 @@ class PermissionRepository extends ChangeNotifier {
       ..clear()
       ..addAll(snapshot.authorizedFeatureIds);
     _status = PermissionLoadStatus.loaded;
-    _logger.warning('permission', '开发 Mock 模式：已加载本地完整菜单');
+    _logger.warning('permission', '开发 Mock 模式：已加载平台目录和独立 Mock 用户权限');
     notifyListeners();
   }
 
+  @override
   Future<void> clear() async {
     _requestGeneration += 1;
     _allFeatures
       ..clear()
-      ..addAll(_platformFeatures());
+      ..addAll(_platformCatalog.features);
     _allowedFeatureIds.clear();
     _status = PermissionLoadStatus.idle;
     _loadError = null;
@@ -132,10 +145,6 @@ class PermissionRepository extends ChangeNotifier {
   Future<_PermissionSnapshot> _loadPermissionSnapshotFromBackend(
     AuthSession _,
   ) async {
-    if (_apiClient.config.isMockMenuEnabled) {
-      _logger.info('permission', '使用本地 Mock 菜单，默认授予全部应用权限');
-      return _mockSnapshot();
-    }
     final raw = await _apiClient.post<Map<String, dynamic>>(
       _apiClient.config.menuPath,
       data: {
@@ -185,7 +194,7 @@ class PermissionRepository extends ChangeNotifier {
           'launchMode': 'legacyWeb',
         };
         final serverFeature = _resolver.resolve(row);
-        final platformId = FeatureRegistry.platformIdForServerCode(
+        final platformId = PlatformFeatureCatalog.platformIdForServerCode(
           serverFeature.id,
         );
         if (platformId == null) {
@@ -200,7 +209,7 @@ class PermissionRepository extends ChangeNotifier {
       }
     }
 
-    final features = _platformFeatures()
+    final features = _platformCatalog.features
         .map(
           (platformFeature) => _mergeAuthorizedFeature(
             platformFeature,
@@ -215,17 +224,26 @@ class PermissionRepository extends ChangeNotifier {
   }
 
   _PermissionSnapshot _mockSnapshot() {
-    final features = _platformFeatures();
+    final features = _platformCatalog.features;
+    final platformIds = features.map((feature) => feature.id).toSet();
+    final unknownMockIds = _mockPermissions.authorizedFeatureIds.difference(
+      platformIds,
+    );
+    if (unknownMockIds.isNotEmpty) {
+      _logger.warning(
+        'permission',
+        'Mock 权限包含平台目录中不存在的功能',
+        fields: {'featureIds': unknownMockIds.toList()..sort()},
+      );
+    }
 
     return _PermissionSnapshot(
       features: features,
-      authorizedFeatureIds: features.map((feature) => feature.id),
+      authorizedFeatureIds: _mockPermissions.authorizedFeatureIds.where(
+        platformIds.contains,
+      ),
     );
   }
-
-  List<FeatureItem> _platformFeatures() => MockFeatureMenu.rows(
-    _apiClient.config,
-  ).map(_resolver.resolve).toList(growable: false);
 
   FeatureItem _mergeAuthorizedFeature(
     FeatureItem platformFeature,

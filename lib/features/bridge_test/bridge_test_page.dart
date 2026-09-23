@@ -5,11 +5,14 @@
 // 维护说明：测试地址与生产业务 WebView 分离，便于独立排查 Bridge 协议
 // -----------------------------------------------------------------------------
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/bridge/merp_native_bridge.dart';
+import '../../core/bridge/web_access_policy.dart';
 import '../../core/platform/webview_diagnostics.dart';
 import '../../core/platform/webview_support.dart';
 import '../../l10n/l10n.dart';
@@ -29,6 +32,15 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
   MerpNativeBridge? _bridge;
   _BridgePageError? _error;
   var _progress = 0;
+  var _creating = false;
+  var _generation = 0;
+
+  @override
+  void dispose() {
+    _generation++;
+    _bridge?.dispose();
+    super.dispose();
+  }
 
   Uri get _testUri =>
       Uri.parse(AppScope.of(context).config.bridgeTestUrl.trim());
@@ -36,12 +48,32 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_controller == null && _error == null) {
-      _createController();
+    if (_controller == null && _error == null && !_creating) {
+      unawaited(_createController());
     }
   }
 
-  void _createController() {
+  Future<void> _createController() async {
+    _creating = true;
+    final generation = ++_generation;
+    try {
+      await _configureController(generation);
+    } catch (_) {
+      if (mounted && generation == _generation) {
+        _showError(
+          _BridgePageError(
+            title: context.l10n.bridgeLoadFailed,
+            message: context.l10n.bridgeLoadFailedMessage,
+            detail: 'WEBVIEW_INITIALIZATION_FAILED',
+          ),
+        );
+      }
+    } finally {
+      if (generation == _generation) _creating = false;
+    }
+  }
+
+  Future<void> _configureController(int generation) async {
     final scope = AppScope.of(context);
     if (!WebViewSupport.isSupported) {
       _showError(
@@ -55,94 +87,161 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
       return;
     }
 
-    late final WebViewController controller;
-    controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (progress) {
-            if (mounted) {
-              setState(() => _progress = progress);
-            }
-          },
-          onPageStarted: (_) {
-            if (mounted) {
-              setState(() {
-                _error = null;
-                _progress = 0;
-              });
-            }
-          },
-          onPageFinished: (_) async {
-            _bridge?.inject();
-            await WebViewDiagnostics.inspect(
-              controller: controller,
-              logger: scope.logger,
-              page: 'bridge-test',
-            );
-          },
-          onWebResourceError: (error) {
-            if (WebViewDiagnostics.enabled) {
-              scope.logger.warning(
-                'webview',
-                'WebView resource load failed',
-                fields: {
-                  'page': 'bridge-test',
-                  'resourceType': WebViewDiagnostics.resourceType(error),
-                  'errorCode': error.errorCode,
-                  'description': error.description,
-                },
-              );
-            }
-            if (error.isForMainFrame == false) {
-              return;
-            }
-            _showError(
-              _BridgePageError(
-                title: context.l10n.bridgeLoadFailed,
-                message: context.l10n.bridgeLoadFailedMessage,
-                detail:
-                    'URL: $_testUri\n错误码: ${error.errorCode}\n原因: ${error.description}',
-              ),
-            );
-          },
-          onHttpError: (error) {
-            final statusCode = error.response?.statusCode;
-            if (statusCode != null && statusCode >= 400) {
-              _showError(
-                _BridgePageError(
-                  title: context.l10n.bridgeHttpError,
-                  message: context.l10n.bridgeHttpErrorMessage,
-                  detail: 'URL: $_testUri\nHTTP 状态码: $statusCode',
-                ),
-              );
-            }
-          },
+    final uri = _testUri;
+    final policy = WebAccessPolicy.fromConfig(scope.config);
+    if (!policy.trusts(uri)) {
+      _showError(
+        _BridgePageError(
+          title: context.l10n.invalidUrl,
+          message: context.l10n.invalidUrlMessage,
+          detail: 'WEB_ORIGIN_NOT_ALLOWED',
         ),
       );
+      return;
+    }
+    final sessionGeneration = scope.apiClient.sessionTokens.generation;
+    bool isActive() =>
+        mounted &&
+        _error == null &&
+        generation == _generation &&
+        scope.authController.isAuthenticated &&
+        scope.apiClient.sessionTokens.isCurrent(sessionGeneration);
+    bool allowsUrl(String url) {
+      final target = Uri.tryParse(url);
+      return target != null &&
+          policy.allowsNavigation(entry: uri, target: target);
+    }
 
-    WebViewDiagnostics.attach(
+    void blockNavigation() {
+      if (!isActive()) return;
+      _showError(
+        _BridgePageError(
+          title: context.l10n.invalidUrl,
+          message: context.l10n.invalidUrlMessage,
+          detail: 'WEB_ORIGIN_NOT_ALLOWED',
+        ),
+      );
+    }
+
+    final controller = WebViewController();
+    final bridge = MerpNativeBridge(
+      context: context,
+      controller: controller,
+      entryUri: uri,
+      accessPolicy: policy,
+      isSessionActive: isActive,
+    );
+    _bridge = bridge;
+    await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+    await controller.setNavigationDelegate(
+      NavigationDelegate(
+        onNavigationRequest: (request) {
+          if (!isActive()) return NavigationDecision.prevent;
+          if (!allowsUrl(request.url)) {
+            if (request.isMainFrame) blockNavigation();
+            return NavigationDecision.prevent;
+          }
+          return NavigationDecision.navigate;
+        },
+        onProgress: (progress) {
+          if (isActive()) {
+            setState(() => _progress = progress);
+          }
+        },
+        onPageStarted: (url) {
+          if (!isActive()) return;
+          bridge.navigationStarted();
+          if (!allowsUrl(url)) {
+            unawaited(
+              controller
+                  .runJavaScript('window.stop();')
+                  .catchError((Object _) {}),
+            );
+            blockNavigation();
+            return;
+          }
+          if (isActive()) {
+            setState(() {
+              _error = null;
+              _progress = 0;
+            });
+          }
+        },
+        onPageFinished: (url) async {
+          if (!isActive() || !allowsUrl(url)) return;
+          await bridge.inject();
+          await WebViewDiagnostics.inspect(
+            controller: controller,
+            logger: scope.logger,
+            page: 'bridge-test',
+          );
+        },
+        onWebResourceError: (error) {
+          if (!isActive()) return;
+          if (WebViewDiagnostics.enabled) {
+            scope.logger.warning(
+              'webview',
+              'WebView resource load failed',
+              fields: {
+                'page': 'bridge-test',
+                'resourceType': WebViewDiagnostics.resourceType(error),
+                'errorCode': error.errorCode,
+                'description': error.description,
+              },
+            );
+          }
+          if (error.isForMainFrame == false) {
+            return;
+          }
+          _showError(
+            _BridgePageError(
+              title: context.l10n.bridgeLoadFailed,
+              message: context.l10n.bridgeLoadFailedMessage,
+              detail:
+                  'URL: $_testUri\n错误码: ${error.errorCode}\n原因: ${error.description}',
+            ),
+          );
+        },
+        onHttpError: (error) {
+          if (!isActive()) return;
+          final statusCode = error.response?.statusCode;
+          if (statusCode != null && statusCode >= 400) {
+            _showError(
+              _BridgePageError(
+                title: context.l10n.bridgeHttpError,
+                message: context.l10n.bridgeHttpErrorMessage,
+                detail: 'URL: $_testUri\nHTTP 状态码: $statusCode',
+              ),
+            );
+          }
+        },
+      ),
+    );
+
+    await WebViewDiagnostics.attach(
       controller: controller,
       logger: scope.logger,
       page: 'bridge-test',
     );
 
-    final bridge = MerpNativeBridge(context: context, controller: controller);
-    controller
-      ..addJavaScriptChannel(
-        MerpNativeBridge.channelName,
-        onMessageReceived: (message) => bridge.handleMessage(message.message),
-      )
-      ..loadRequest(_testUri);
+    await controller.addJavaScriptChannel(
+      MerpNativeBridge.channelName,
+      onMessageReceived: (message) => bridge.handleMessage(message.message),
+    );
 
-    _bridge = bridge;
-    _controller = controller;
+    if (!isActive()) {
+      bridge.dispose();
+      return;
+    }
+    setState(() => _controller = controller);
+    await controller.loadRequest(uri);
   }
 
   void _showError(_BridgePageError error) {
     if (!mounted) {
       return;
     }
+    _bridge?.dispose();
     final incidentId = AppScope.of(context).logger.error(
       'webview',
       error.message,
@@ -155,15 +254,14 @@ class _BridgeTestPageState extends State<BridgeTestPage> {
   }
 
   void _reload() {
+    if (_creating) return;
+    _bridge?.dispose();
     setState(() {
+      _controller = null;
       _error = null;
       _progress = 0;
     });
-    if (!WebViewSupport.isSupported) {
-      _createController();
-      return;
-    }
-    _controller?.loadRequest(_testUri);
+    unawaited(_createController());
   }
 
   @override

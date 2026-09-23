@@ -41,7 +41,6 @@ void main() {
         logger: logger,
         dio: dio,
       ),
-      tokenStore: store,
       logger: logger,
     );
 
@@ -102,11 +101,7 @@ void main() {
       logger: logger,
       dio: dio,
     );
-    final repository = AuthRepository(
-      apiClient: client,
-      tokenStore: store,
-      logger: logger,
-    );
+    final repository = AuthRepository(apiClient: client, logger: logger);
 
     final session = await repository.login(
       account: '  admin  ',
@@ -152,11 +147,7 @@ void main() {
       logger: logger,
       dio: dio,
     );
-    final repository = AuthRepository(
-      apiClient: client,
-      tokenStore: store,
-      logger: logger,
-    );
+    final repository = AuthRepository(apiClient: client, logger: logger);
 
     await repository.logout();
 
@@ -193,7 +184,6 @@ void main() {
           logger: logger,
           dio: dio,
         ),
-        tokenStore: store,
         logger: logger,
       );
 
@@ -231,7 +221,6 @@ void main() {
           logger: logger,
           dio: dio,
         ),
-        tokenStore: store,
         logger: logger,
       );
 
@@ -273,11 +262,7 @@ void main() {
       logger: logger,
       dio: dio,
     );
-    final repository = AuthRepository(
-      apiClient: client,
-      tokenStore: store,
-      logger: logger,
-    );
+    final repository = AuthRepository(apiClient: client, logger: logger);
 
     final session = await repository.restore();
 

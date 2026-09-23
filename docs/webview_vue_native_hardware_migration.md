@@ -52,6 +52,17 @@ Flutter App 内验证入口：
 
 ## 3. Bridge 总体协议
 
+### 3.1 文档与地址边界（Bridge 2.4.0）
+
+- 业务入口必须匹配 App 配置中的 H5 origin（协议、域名和端口）；菜单返回的 URL 不会自动加入白名单。额外第一方域名在 `AppConfig.trustedWebOrigins` 中显式维护。
+- 当前 WebView 只允许同 origin 导航。跨域业务跳转需要回到 App 功能入口重新换码；第三方登录/下载跳转需单独评估，不应直接扩大权限。
+- `window.MERPBridge.call(...)` 及现有快捷方法保持不变。注入脚本自动携带文档 nonce，业务代码不需要管理它；不再接受直接向 `MerpNative.postMessage` 发送的无 nonce 消息。
+- 导航、重试、关闭页面或登录身份变化后，旧消息和旧异步回调不再生效。返回结果不会交给另一个文档。
+- 目前为旧 H5 兼容保留 `auth.getSession` 的 access-token 字段和首次请求 Authorization；refresh token 始终不对 H5 开放。
+- nonce 与顶层 origin 校验是纵深防护，并非原生 frame-origin 鉴别，也不能防住同源 XSS。H5 服务仍需维护 CSP、可信脚本/iframe 来源和后端鉴权。
+
+协议脚本在 `lib/core/bridge/bridge_script.dart`，原生分发在 `merp_native_bridge.dart`，地址策略在 `web_access_policy.dart`。可运行 `node --test test/core/bridge/bridge_script_contract_test.mjs` 验证 JS 协议，不需要安装 npm 包。
+
 Flutter 注入到 WebView 的对象：
 
 ```js
@@ -69,6 +80,7 @@ await window.MERPBridge.call(action, payload)
 ```json
 {
   "id": "request-id",
+  "documentNonce": "由注入脚本自动填充，业务代码不传",
   "action": "camera.takePhoto",
   "payload": {}
 }
