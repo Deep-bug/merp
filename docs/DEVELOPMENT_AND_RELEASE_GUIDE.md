@@ -1,654 +1,272 @@
-# MERP Flutter 开发、运行与发布教程
+# MERP macOS 开发与企业发布教程
 
-本文档适用于 MERP Flutter 工程的日常开发、真机调试、测试包构建和正式发布。
-项目已经统一封装 FVM、Flutter 版本、QAS/PRD Flavor 和双平台构建参数。
+项目把“安装身份”和“后端环境”分开。开发者不再反复修改 Bundle ID、Team 或百度 Key。
+日常运行使用个人身份 dev；给测试人员/员工分发使用企业身份 qas/prd。
 
-日常不要直接拼接复杂的 `flutter build` 命令。macOS 统一使用 `./tool/app`，
-Windows 统一使用 `.\tool\app.cmd`。
+## 1. 配置矩阵
 
-## 1. 环境与应用矩阵
+| 安装身份 | Android applicationId | iOS 默认 Bundle ID | 默认签名 |
+| --- | --- | --- | --- |
+| dev | com.delta.merpdelta.qas | com.delta.merpdelta.qas | Android debug / Apple Development |
+| qas | com.delta.MERPDeltaTest | com.delta.MERPDeltaTest | QAS keystore / 企业分发 |
+| prd | com.delta.MERPDelta | com.delta.MERPDelta | PRD keystore / 企业分发 |
 
-| 环境 | Android | iOS | 用途 |
-|---|---|---|---|
-| QAS | `com.delta.merpdelta.qas` | `com.delta.merpdelta.qas` | 日常开发、测试包 |
-| PRD | `com.delta.merpdelta` | `com.delta.merpdelta` | 正式发布 |
+dev 沿用原先可调试的包名，并改名显示为 MERP DEV。QAS 显示 MERP QAS，PRD 显示 MERP。
+企业身份保持旧 Cordova 应用包名；覆盖升级仍需匹配旧证书/签名及递增版本。
+个人与企业包可以同时安装，App 本地数据分别保存。
 
-QAS 应用名称为 `MERP QAS`，可与 PRD 同时安装。
+`config/build_profiles.json` 是公共身份定义。Gradle 直接读取；iOS 的已提交 xcconfig
+由维护者执行 `ruby tool/configure_ios_flavors.rb` 生成。仅调整公共身份时需要重新生成。
+新电脑日常开发不需要安装 xcodeproj gem，也不需要执行该生成脚本。
 
-构建产物：
+## 2. 新电脑首次配置
 
-| 命令 | 产物 |
-|---|---|
-| `build qas android` | QAS release APK |
-| `build qas ios` | QAS development IPA |
-| `build prd android` | PRD release AAB |
-| `build prd ios` | PRD App Store IPA |
-
-## 2. 新电脑首次初始化
-
-### 2.1 安装系统工具
-
-macOS 至少需要：
-
-- Git
-- Android Studio 和 Android SDK
-- Xcode
-- CocoaPods
-
-Windows 至少需要：
-
-- Git for Windows
-- Android Studio 和 Android SDK
-- VS Code（可选）及 Flutter、Dart 扩展
-- Windows PowerShell 5.1 或更高版本
-
-不需要提前全局安装 FVM。项目会下载固定的 FVM `4.1.2`，并安装
-`.fvmrc` 指定的 Flutter `3.44.6`。
-
-### 2.2 初始化项目
-
-进入项目根目录：
+macOS 需要 Xcode、Android Studio/SDK、CocoaPods 和系统 Ruby。
+打开完整 Flutter 项目，不要只打开 android 目录。
 
 ```bash
-# macOS
-cd /path/to/merp
 ./tool/bootstrap
-./tool/app doctor
+./tool/app ide
 ```
 
-Windows 在 CMD 或 PowerShell 中进入自己的项目目录：
+bootstrap 安装项目固定版本 FVM/Flutter，获取依赖并创建本机配置。
+`./tool/app ide` 可重复运行：只创建缺失配置，不覆盖已有 Team、AK 或接口地址。
+只维护 macOS 团队入口；Windows app/bootstrap/configure_ide 脚本已删除。
 
-```powershell
-.\tool\bootstrap.cmd
-.\tool\app.cmd doctor
+`android/local.properties` 保存本机路径，不提交 Git。缺失时 Gradle 使用
+`.fvm/flutter_sdk`，并尝试从 ANDROID_SDK_ROOT、ANDROID_HOME 或
+`$HOME/Library/Android/sdk` 查找 Android SDK。不要复制别人电脑的 SDK 路径或 build 目录。
+
+### 个人 iOS 签名：只填一次
+
+打开 `ios/Config/Dev.local.xcconfig`：
+
+```text
+DEVELOPMENT_TEAM = 你的个人开发TeamID
+// 只有当前 Bundle ID 无法由你的 Team 注册时才覆盖：
+// MERP_BUNDLE_ID = com.yourcompany.merp.dev
 ```
 
-`bootstrap` 会：
+在 Xcode 的 Settings → Accounts 登录个人开发账号，手机开启 Developer Mode，
+连接电脑并信任。dev 使用 Automatic Signing 和 Apple Development。
+本次迁移会把仓库中原有可用的开发 Team 移入本机 Dev.local.xcconfig；
+其他同事按各自 Team 填写。不要把个人 Team 再写回 project.pbxproj。
 
-1. 检查操作系统和 CPU 架构。
-2. 下载并校验当前平台对应的固定版本 FVM。
-3. 安装 Flutter `3.44.6`。
-4. 获取 Flutter 依赖。
-5. 检查 Java 和 Android SDK；macOS 额外检查 Xcode 和 CocoaPods。
-
-以后重新拉取依赖或排查环境时可以再次执行，缓存会被复用。
-
-`android/local.properties` 保存本机 SDK 路径，必须继续被 Git 忽略。Android
-Gradle 同步会优先读取其中有效的 `flutter.sdk`；文件不存在或路径已经失效时，
-自动使用项目根目录的 `.fvm/flutter_sdk`，并在本机生成或修复
-`local.properties`。如果 `sdk.dir` 缺失或无效，会继续尝试
-`ANDROID_SDK_ROOT`、`ANDROID_HOME`；macOS 再尝试
-`$HOME/Library/Android/sdk`，Windows 再尝试
-`%LOCALAPPDATA%\Android\Sdk`。如果两处 Flutter SDK 都不存在，先在项目根目录
-执行当前系统的 `bootstrap`，无需从其他电脑复制 `local.properties`。
-
-如果 doctor 提示 Android licenses 未接受：
+可在终端核对解析结果：
 
 ```bash
-.fvm/flutter_sdk/bin/flutter doctor --android-licenses
+xcodebuild -project ios/Runner.xcodeproj -scheme dev \
+  -configuration Debug-dev -showBuildSettings |
+  grep -E 'PRODUCT_BUNDLE_IDENTIFIER =|DEVELOPMENT_TEAM =|CODE_SIGN_STYLE ='
 ```
 
-Windows：
+### 地图 Key：按安装身份填写
 
-```powershell
-.\.fvm\flutter_sdk\bin\flutter.bat doctor --android-licenses
-```
-
-## 3. 配置本地环境
-
-### 3.1 QAS 配置
-
-QAS 基础配置位于：
+初始化会创建：
 
 ```text
-config/qas.json
+config/baidu_map.dev.local.json
+config/baidu_map.qas.local.json
+config/baidu_map.prd.local.json
 ```
 
-它包含 QAS API、环境名称、菜单 Mock 和日志开关。个人覆盖值可以写入：
-
-```text
-config/qas.local.json
-```
-
-该文件已被 Git 忽略。
-
-### 3.2 百度地图 AK
-
-首次配置：
-
-```bash
-cp config/baidu_map.example.json config/baidu_map.local.json
-```
-
-Windows 初始化时会自动创建该本地文件；也可以执行
-`Copy-Item config\baidu_map.example.json config\baidu_map.local.json` 后填写。
-
-然后在 `config/baidu_map.local.json` 中填写 Android 和 iOS AK。真实 AK 不得提交。
-
-Android 百度 AK 需要匹配：
-
-- Application ID
-- APK 签名证书 SHA1
-
-iOS 百度 AK 需要匹配 Bundle Identifier。
-
-QAS 和 PRD 包标识不同，因此百度控制台通常需要分别配置。
-
-### 3.3 WebView 本地参数
-
-带 ticket、员工账号或本地调试 URL 的配置放在：
-
-```text
-config/webview.local.json
-```
-
-不要把 ticket、Token 或员工私有参数写进已跟踪配置文件。
-
-### 3.4 PRD 配置
-
-仓库中的 `config/prd.json` 不保存未经确认的生产 API。正式构建前创建：
-
-```text
-config/prd.local.json
-```
-
-示例：
+每份格式相同：
 
 ```json
 {
-  "APP_ENV": "prd",
-  "AUTH_ENVIRONMENT": "merp",
-  "API_BASE_URL": "由发布负责人填写真实生产地址",
-  "MOCK_MENUS": false,
-  "ENABLE_LOG": false
+  "BAIDU_MAP_ANDROID_AK": "",
+  "BAIDU_MAP_IOS_AK": ""
 }
 ```
 
-`API_BASE_URL` 为空时，PRD 构建会被安全拦截。
+dev 文件填写个人开发包的 Key。Android AK 必须匹配对应包名与签名 SHA1；
+不同同事的 debug keystore 可能不同，应使用与自己签名匹配的 AK。
+iOS AK 必须匹配最终 Bundle ID；若在 Dev.local.xcconfig 覆盖 Bundle ID，
+同步修改 dev 文件里的 iOS AK，一次设置后不必日常切换。
 
-## 4. 日常开发流程
+旧 `baidu_map.local.json` 仅在 dev 文件不存在时复制到 dev；原文件保留。
+企业配置从空模板创建，绝不把旧个人 Key 自动复制给企业包。
+真实 Key 和所有 *.local 配置均被 Git 忽略。发布前脚本检查对应平台 Key 非空。
 
-### 4.1 拉取代码后
+## 3. VS Code 日常使用
 
-```bash
-# macOS
-git pull
-./tool/bootstrap
-```
+选择实际设备，然后在“运行和调试”选择：
 
-```powershell
-# Windows
-git pull
-.\tool\bootstrap.cmd
-```
+- MERP DEV · QAS · Debug + HTTP Logs · iOS / Android
+- MERP DEV · Mock · Debug · iOS / Android
+- MERP DEV · PRD API · Debug + HTTP Logs · iOS / Android
+- MERP DEV · QAS · Profile · iOS / Android
+- MERP DEV · QAS · Release · iOS / Android
 
-只有依赖或工具链发生变化时才需要重新执行 bootstrap，重复执行不会重复下载 FVM。
+所有这些启动项都使用 `--flavor dev`，加载 dev 地图 Key。
+Profile/Release 只改变运行模式，不改成企业包名或企业签名。
+F5 前的任务会创建缺失的本机配置文件，已有配置不覆盖。
+日志继续在 VS Code 调试控制台查看。
 
-### 4.2 写完代码后的推荐顺序
+PRD API 调试前，必须在 `config/prd.local.json` 填写真实地址。
+它仍是个人开发 App，不是企业 PRD 安装包。
+Mock 复用 QAS 地址但跳过登录/菜单等接口；仅用于开发。
 
-```bash
-./tool/app analyze
-./tool/app test
-./tool/app run qas android
-```
+不要固定共享 deviceId；每次在右下角选择模拟器/真机。
+修改原生权限、签名、插件、包名或 Key 后应停止应用并完整重建，不能只热重载。
 
-Windows：
-
-```powershell
-.\tool\app.cmd analyze
-.\tool\app.cmd test
-.\tool\app.cmd run qas android
-```
-
-开发 iOS 时将最后一条改为：
+终端等价命令：
 
 ```bash
 ./tool/app run qas ios
-```
-
-本地开发只运行 QAS，不提供 `run prd`。
-Windows 只能开发、运行和构建 Android；iOS 必须使用 macOS 和 Xcode。
-
-### 4.3 指定真机
-
-查看设备：
-
-```bash
-.fvm/flutter_sdk/bin/flutter devices
-```
-
-Windows 对应 `.\.fvm\flutter_sdk\bin\flutter.bat devices`。
-
-指定设备：
-
-```bash
-./tool/app run qas android -d <android-device-id>
-./tool/app run qas ios -d <ios-device-id>
-```
-
-Windows 使用 `.\tool\app.cmd run qas android -d <android-device-id>`。
-
-没有传 `-d` 时，脚本会自动选择当前平台的第一个可用设备。
-
-### 4.4 热重载
-
-`run` 命令启动后：
-
-- 输入 `r`：热重载。
-- 输入 `R`：热重启。
-- 输入 `q`：停止运行。
-
-修改 Dart 页面和一般业务逻辑通常使用热重载。修改 Gradle、Manifest、Podfile、
-Info.plist、原生权限、插件或启动图后，必须停止并重新构建。
-
-## 5. Android 开发与打包
-
-### 5.1 Android 真机运行
-
-1. 在手机中开启开发者选项和 USB 调试。
-2. 连接数据线并允许电脑调试。
-3. 确认设备：
-
-```bash
-# macOS 默认路径
-$HOME/Library/Android/sdk/platform-tools/adb devices
-```
-
-Windows 可以直接执行 `adb devices`；如果找不到 `adb`，使用
-`%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe devices`，或把
-`platform-tools` 加入 Path。
-
-4. 运行 QAS：
-
-```bash
 ./tool/app run qas android
+./tool/app run mock ios
+./tool/app run prd ios
+./tool/app run qas ios --profile
+./tool/app run qas ios --release
+./tool/app run qas android -d emulator-5554 -v
+./tool/app run qas android --recover -d emulator-5554
 ```
 
-### 5.2 使用 Android Studio
+`--recover` 从公共身份配置读取 dev 的真实包名，停止目标 App 并清理该设备 ADB
+转发，不卸载 App、不清除数据。它会清理该设备全部 adb forward，先停止其他调试会话。
+没有 -d 时选择第一个对应平台设备，多设备时建议明确指定。
 
-Android Studio 用于查看 Logcat、设备状态和原生 Gradle 配置。日常 Flutter 启动仍建议
-使用统一入口运行，以确保 Flavor 和环境参数不会遗漏：macOS 使用
-`./tool/app run qas android`，Windows 使用
-`.\tool\app.cmd run qas android`。
+## 4. Android Studio
 
-仓库已提供可跨电脑使用的 Android Studio Flutter Run Configuration：
+打开项目根目录，使用共享的 `MERP DEV QAS Android` 或 `MERP DEV MOCK Android`。
+执行 `./tool/app ide` 后，带 Local 的配置加载本机地图/WebView 设置。
+不带 Local 的共享入口不加载私有 AK，适合无地图的基础启动。
 
-- `MERP QAS Android`：只读取仓库内的 `config/qas.json`，任何完成初始化的电脑都能启动。
-- `MERP QAS Android (Local)`：由当前系统的 `bootstrap` 或 `app ide` 自动生成，
-  额外读取被 Git 忽略的地图、WebView和 QAS 本地覆盖配置。
-
-如果需要手动核对 Run Configuration：
-
-- Dart entrypoint：`lib/main.dart`
-- Build flavor：`qas`
-- Additional run args：
+不要使用自动生成的无 Flavor 原生 app 配置。开发产物为：
 
 ```text
---dart-define-from-file=config/qas.json
---dart-define-from-file=config/baidu_map.local.json
---dart-define-from-file=config/webview.local.json
+build/app/outputs/flutter-apk/app-dev-debug.apk
 ```
 
-不要使用 Android Studio 自动产生的无 Flavor `app` 配置；它会错误寻找
-`app-debug.apk`。正确的 QAS 产物是 `app-qas-debug.apk`。
+开发 Debug/Profile 保留模拟器需要的 ABI；Android Release 继续只打包 ARM64。
+调试 JDK 使用 Android Studio 内置 JDK 或 Java 17 以上。
 
-### 5.2.1 VS Code
+## 5. Xcode 直接调试与归档
 
-仓库的 `.vscode/launch.json` 已提供：
+打开 `ios/Runner.xcworkspace`：
 
-- `MERP QAS Android Debug`
-- `MERP QAS Android Profile`
-- `MERP QAS Android Debug (Local)`
-- `MERP QAS iOS Debug`
-- `MERP QAS iOS Debug (Local)`
+| Scheme | Run | Archive | 用途 |
+| --- | --- | --- | --- |
+| dev | Debug-dev，允许调试器 | Release-dev，个人签名 | 个人开发、性能验证 |
+| qas | Release-qas，不附加调试器 | Release-qas，企业签名 | 企业 QAS |
+| prd | Release-prd，不附加调试器 | Release-prd，企业签名 | 企业 PRD |
 
-共享启动项只依赖仓库配置；Local 启动项需要先执行当前系统的 `bootstrap` 或
-`app ide`。`.vscode/settings.json` 只使用 `.fvm/flutter_sdk` 相对路径，
-不得写入某位开发者的 Windows、macOS SDK 绝对路径。
+企业分发签名不提供断点/热重载，日常调试选择 dev。
+dev 下需要 Profile 或 Release 时可编辑 Run 的 Build Configuration，签名身份仍是个人。
 
-Android/iOS 移动端启动项不设置固定 `deviceId`。运行前在 VS Code 右下角选择
-当前模拟器、Simulator 或真机，再按 `F5`；共享配置会使用 Flutter 扩展当前选中的
-真实设备 ID。`android` 和 `ios` 是平台名称，不是可跨电脑使用的设备 ID。
-
-Windows 同事运行 Android 时同样选择 `MERP QAS Android Debug`，不需要 Windows
-专属启动项。仓库当前没有 `windows/` 桌面端工程，所以 Windows 主机只用于开发
-Android；iOS 启动项只能在 macOS 使用。
-
-### 5.3 构建 QAS APK
+第一次新增 dev 配置后，在 macOS 执行：
 
 ```bash
-./tool/app analyze
-./tool/app test
-./tool/app build qas android
-```
-
-Windows 对应：
-
-```powershell
-.\tool\app.cmd analyze
-.\tool\app.cmd test
-.\tool\app.cmd build qas android
-```
-
-脚本完成后会打印实际 APK 完整路径。当前典型路径为：
-
-```text
-build/app/outputs/apk/qas/release/app-qas-arm64-v8a-release.apk
-```
-
-安装到真机：
-
-```bash
-$HOME/Library/Android/sdk/platform-tools/adb install -r \
-  build/app/outputs/apk/qas/release/app-qas-arm64-v8a-release.apk
-```
-
-### 5.4 配置 Android PRD 签名
-
-复制示例：
-
-```bash
-cp android/key.properties.example android/key.properties
-```
-
-Windows 使用
-`Copy-Item android\key.properties.example android\key.properties`。
-
-填写：
-
-```properties
-storeFile=/绝对路径/production-upload-keystore.jks
-storePassword=由发布负责人提供
-keyAlias=由发布负责人提供
-keyPassword=由发布负责人提供
-```
-
-`key.properties` 和 keystore 已被 Git 忽略。不要将密码写进 Gradle 或 CI 配置文件。
-
-没有生产签名时，PRD 构建会明确失败，不会使用 debug 签名代替。
-
-### 5.5 构建 Android PRD AAB
-
-先设置正式版本：
-
-```bash
-BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build prd android
-```
-
-Windows PowerShell：
-
-```powershell
-$env:BUILD_NAME = "1.2.0"
-$env:BUILD_NUMBER = "10001"
-.\tool\app.cmd build prd android
-```
-
-本地会显示 PRD 警告，输入：
-
-```text
-prd
-```
-
-才会继续。构建产物为 `.aab`，用于 Google Play 或企业应用发布平台。
-
-构建后至少检查：
-
-- Application ID 是 `com.delta.merpdelta`。
-- 使用生产签名，不是 Android Debug 证书。
-- `versionCode` 大于已发布版本。
-- 百度 Android AK 包名和签名 SHA1 匹配。
-- 登录、WebView、地图、定位、相机、文件和扫码完成真机回归。
-
-### 5.6 Release 只构建 arm64-v8a
-
-项目已经把 Android Release 产物固定为 `arm64-v8a`，QAS APK、PRD AAB、macOS、
-Windows 和 CI 使用相同规则。QAS APK 使用 `--split-per-abi` 生成 ARM64 独立包；
-APK 和 AAB 还会在 Release 最终包装阶段排除其他 ABI：
-
-```kotlin
-androidComponents {
-    onVariants(selector().withBuildType("release")) { variant ->
-        variant.packaging.jniLibs.excludes.addAll(
-            setOf("**/armeabi-v7a/**", "**/x86/**", "**/x86_64/**"),
-        )
-    }
-}
-```
-
-配置前先检查目标设备：
-
-```bash
-adb shell getprop ro.product.cpu.abilist
-```
-
-目标真机输出必须包含 `arm64-v8a`。32 位 ARM 手机不能安装 Release 包；Debug
-不限制 ABI，因此 x86_64 和 ARM64 模拟器仍可用于页面及普通业务开发。百度地图
-核心库不提供 x86_64，地图与定位最终必须在 ARM64 真机或 ARM64 模拟器回归。
-
-## 6. iOS 开发与打包
-
-### 6.1 iOS 真机准备
-
-1. 用数据线连接 iPhone。
-2. iPhone 信任当前 Mac，并开启开发者模式。
-3. 打开：
-
-```text
-ios/Runner.xcworkspace
-```
-
-不要打开 `Runner.xcodeproj`。
-
-4. 在 Xcode 的 Signing & Capabilities 中确认 Team。
-5. `qas` Scheme 使用 `com.delta.merpdelta.qas`。
-6. `prd` Scheme 使用 `com.delta.merpdelta`。
-
-### 6.2 iOS 真机运行
-
-命令行：
-
-```bash
-./tool/app run qas ios
-```
-
-Xcode：
-
-1. Scheme 选择 `qas`。
-2. 设备选择连接的 iPhone。
-3. Run Configuration 使用 `Debug-qas`。
-4. 点击运行。
-
-从 Xcode 运行时也必须保证 QAS 的 Dart define 已配置；团队日常优先使用
-`./tool/app run qas ios`，避免遗漏参数。
-
-### 6.3 构建 QAS IPA
-
-```bash
-./tool/app analyze
-./tool/app test
-./tool/app build qas ios
-```
-
-脚本使用 development 导出方式。成功后会打印 IPA 完整路径，当前典型路径：
-
-```text
-build/ios/ipa/merp.ipa
-```
-
-该 IPA 只能安装到 Provisioning Profile 包含的测试设备。
-
-### 6.4 配置 iOS PRD 发布签名
-
-PRD 发布需要：
-
-- Apple Distribution 证书及私钥。
-- `com.delta.merpdelta` 对应的 App Store Provisioning Profile。
-- Apple Developer Team 权限。
-- App Store Connect 应用记录和上传权限。
-
-证书、私钥、Provisioning Profile 和 App Store Connect 凭证不得提交 Git。
-
-### 6.5 构建 iOS PRD IPA
-
-```bash
-BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build prd ios
-```
-
-本地输入 `prd` 后，脚本以 App Store 方式归档和导出。构建成功不代表已上传商店；
-上传和发布是独立步骤。
-
-构建后检查：
-
-- Scheme 为 `prd`。
-- Bundle Identifier 为 `com.delta.merpdelta`。
-- Display Name 为 `MERP`。
-- 使用 Apple Distribution 签名。
-- `CFBundleShortVersionString` 和 `CFBundleVersion` 正确。
-- 百度 iOS AK 与 PRD Bundle ID 匹配。
-- 真机完成登录恢复、WebView、Bridge、地图定位和系统返回回归。
-
-## 7. 版本号规则
-
-项目默认版本来自 `pubspec.yaml`：
-
-```yaml
-version: 1.0.0+10000
-```
-
-- `1.0.0`：对用户展示的版本号。
-- `10000`：五位数内部构建编号，Android 对应 `versionCode`，iOS 对应
-  `CFBundleVersion`。后续发布只递增该数字，不从展示版本号推导。
-
-版本接口同时返回最低可用版本与最新可下载版本，客户端判断规则为：
-
-- 当前构建号小于 `minimumVersionCode`：强制升级。
-- 当前构建号大于或等于 `minimumVersionCode`，但小于 `latestVersionCode`：可选升级。
-- 当前构建号大于或等于 `latestVersionCode`：已是最新版，不执行降级。
-
-构建时可以覆盖：
-
-```bash
-BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build qas android
-```
-
-Android 的 `BUILD_NUMBER` 对应 `versionCode`，iOS 对应 `CFBundleVersion`。每次正式
-上传都必须使用更大的五位构建编号。项目的 Mac 和 Windows
-统一构建脚本会拒绝非五位的 `BUILD_NUMBER`，防止再产出无法与后端比较的包。
-
-## 8. CI 接入
-
-仓库没有绑定特定 CI 供应商。流水线只需调用统一入口：
-
-```bash
-./tool/bootstrap
-./tool/app analyze
-./tool/app test
-CI=true BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build prd android
-```
-
-iOS：
-
-```bash
-CI=true BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build prd ios
-```
-
-`CI=true` 只跳过本地交互确认，不会关闭生产配置和签名检查。
-
-CI Secret 至少包含：
-
-- `config/prd.local.json` 所需生产配置。
-- 百度 Android/iOS AK。
-- Android keystore 和签名密码。
-- iOS Distribution 证书、私钥和 Provisioning Profile。
-- App Store Connect 凭证（只有上传任务需要）。
-
-## 9. 发布前检查清单
-
-### 公共检查
-
-- `git status` 中没有误提交的本地配置、Token 或签名文件。
-- `./tool/app analyze` 通过。
-- `./tool/app test` 通过。
-- 版本号和构建编号正确。
-- QAS 验证通过后再构建 PRD。
-
-### Android
-
-- PRD AAB 包标识正确。
-- 使用生产签名。
-- minSdk 仍满足 Android 7 目标设备。
-- 在最低版本和主流高版本真机上完成回归。
-- 百度地图 AK 与签名 SHA1 匹配。
-
-### iOS
-
-- PRD Scheme 和 Bundle ID 正确。
-- Distribution 证书和 Profile 有效。
-- 最低支持版本真机完成回归。
-- 百度 `mapapi.bundle`、地图和定位正常。
-- IPA 验证通过后再上传 App Store Connect。
-
-## 10. 常见问题
-
-### 找不到 FVM
-
-不要执行全局 `fvm`。macOS 运行：
-
-```bash
-./tool/bootstrap
-```
-
-Windows 运行：
-
-```powershell
-.\tool\bootstrap.cmd
-```
-
-### Android 找不到设备
-
-```bash
-adb kill-server
-adb start-server
-adb devices
-```
-
-确认手机已允许 USB 调试。
-
-### Android PRD 提示 signing is not configured
-
-这是预期保护。检查 `android/key.properties` 和 keystore，不要改回 debug 签名。
-
-### iOS 提示 requires a development team
-
-打开 `ios/Runner.xcworkspace`，选择 Runner target，在 Signing & Capabilities 中选择
-正确 Team，并确认当前 Bundle ID 已在 Apple Developer 后台注册。
-
-### iOS 提示 Provisioning Profile 缺少设备
-
-QAS development IPA 需要将真机 UDID 加入开发者后台并重新生成 Profile。PRD App
-Store Profile 不需要登记具体测试设备。
-
-### 修改配置后应用仍使用旧值
-
-`--dart-define` 是编译期配置，热重载不会替换。停止应用后重新执行：
-
-```bash
-./tool/app run qas android
-```
-
-或：
-
-```bash
-./tool/app run qas ios
-```
-
-### WebView 或百度插件修改后表现异常
-
-停止运行并完整重建。iOS 必要时先执行：
-
-```bash
+./.fvm/flutter_sdk/bin/flutter pub get
 cd ios
 pod install
 ```
 
-然后返回项目根目录通过 `./tool/app` 启动。
+日常 Flutter 构建也会按需更新 Pods。无需删除 Podfile.lock 或升级全部 Pods。
+
+直接用 Xcode 的 dev 默认连接 QAS；如果此前通过 Flutter CLI/VS Code 启动过 dev，
+会沿用最近那次 dev 的 APP_ENV 和显式参数。希望 Xcode 固定某个接口环境时，在
+Dev.local.xcconfig 设置：
+
+```text
+MERP_API_ENV = qas
+```
+
+也可写 prd/mock；该本地设置对 iOS 的 CLI 构建也生效。通常留空，让 VS Code 启动项决定。
+企业 Scheme 始终强制对应接口环境，并清除 Mock 登录/更新开关。
+
+工程的 Flutter 构建阶段通过 `tool/xcode_backend` 调用原始 Flutter 构建脚本。
+它根据当前配置重新读取对应身份的地图文件，拒绝旧 Generated.xcconfig 中不匹配身份的参数。
+不打印 Key；不修改 Flutter SDK。不要手动编辑 Generated.xcconfig。
+
+## 6. 企业发布电脑
+
+### iOS
+
+安装公司提供的企业证书及其私钥（通常是带密码的 .p12），再安装两个 Bundle ID
+各自匹配的企业 Provisioning Profile。填写：
+
+```text
+// ios/Config/Qas.local.xcconfig
+DEVELOPMENT_TEAM = 企业TeamID
+PROVISIONING_PROFILE_SPECIFIER = 企业QAS描述文件名称
+```
+
+`Prd.local.xcconfig` 填企业 Team 与 PRD Profile。这些设置只影响企业身份。
+同时填写 baidu_map.qas.local.json / baidu_map.prd.local.json 的企业 AK。
+
+```bash
+./tool/app build qas ios
+./tool/app build prd ios
+```
+
+两者都以 enterprise 导出 IPA。也可在 Xcode 选择 qas/prd → Product → Archive，
+在 Organizer 导出企业分发包。导出用的 ExportOptions.plist 与 OTA manifest.plist
+用途不同：前者给 Xcode 导出，后者给手机通过网页安装。
+
+需要安装清单时：
+
+```bash
+IOS_OTA_BASE_URL=https://example.com/apps/qas ./tool/app build qas ios-ota
+IOS_OTA_BASE_URL=https://example.com/apps/prd ./tool/app build prd ios-ota
+```
+
+产物位于 `build/ios/ota/qas` 或 `build/ios/ota/prd`。
+把目录中的 IPA、manifest.plist 上传到相同 HTTPS 路径，安装链接形如：
+
+```text
+itms-services://?action=download-manifest&url=https://example.com/apps/qas/manifest.plist
+```
+
+清单读取 IPA 中真实 Bundle ID/版本，不从个人配置猜测。
+脚本不会自动上传服务器。只有匹配企业证书/Profile 的机器才能完成企业签名导出。
+
+### Android
+
+QAS 使用 `android/key-qas.properties`，PRD 使用 `android/key.properties`。
+分别从同名 example 复制，填写 keystore 路径、storePassword、keyAlias、keyPassword。
+覆盖旧应用时必须用旧应用的真实签名；不能使用个人 debug 签名代替。
+
+```bash
+./tool/app build qas android # ARM64 APK
+./tool/app build prd android # ARM64 AAB
+```
+
+沿用现有产物格式：QAS APK 可直接安装；AAB 不可直接用 adb 安装。
+内部 PRD APK 若有需要，可使用相同 PRD 配置调用 Flutter build apk；仍需通过
+Gradle 的身份、APP_ENV、地图 Key 和签名校验。
+QAS/PRD 只开放 Release 变体；dev 用于 Debug/Profile/Release 开发验证。
+
+## 7. 版本、维护和检查
+
+版本来源：pubspec.yaml 的 `version: 1.0.0+10000`。
+显示版本与五位数内部版本独立；构建编号递增，不从显示版本字符串推导。
+更新接口低于 minimumVersionCode 强制升级，介于 minimum/latest 之间可选升级。
+
+```bash
+BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build qas ios
+./tool/app analyze
+./tool/app test
+ruby test/tool/build_configuration_test.rb
+```
+
+构建配置回归测试覆盖 dev 的三种接口环境、企业 Key 隔离、Mock 禁用、
+Xcode 跨身份切换、CLI 身份及 enterprise 导出参数。它不需要企业私钥。
+
+`./tool/app clean --dry-run` 预览项目空间清理；清理前停止 IDE 调试和构建。
+清理会归档 Android Release APK/AAB、mapping/符号文件，不归档 iOS IPA/Archive，
+保留 Pods、本地配置、签名和全局缓存。
+
+改公共身份时，维护者安装 xcodeproj gem 后执行一次
+`ruby tool/configure_ios_flavors.rb` 并提交生成的工程、xcconfig 和 Scheme。
+生成器不会覆盖已有本地 Team。普通同事拉代码后无需执行它。
+
+常见问题：
+
+- 包名权限错误：只改 Dev.local.xcconfig 的 MERP_BUNDLE_ID，并同步个人地图 AK。
+- Could not attach：确认选中 dev/Debug-dev，使用 Apple Development 和开发 Profile。
+- 企业 Profile 不匹配：核对 Bundle ID 大小写、企业 Team、证书私钥和 Profile。
+- 地图白屏/鉴权失败：检查当前身份对应的 AK；Android 还要核对实际签名 SHA1。
+- Xcode 缺少 Pods 配置：pub get 后执行 pod install，不要用 xcodeproj 替代 xcworkspace。
+- install/run 卡住：使用 -v 查看阶段，Android 可加 --recover；不会重置 App 数据。

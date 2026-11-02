@@ -1,0 +1,4 @@
+// Copy to Prd.local.xcconfig on the enterprise release machine.
+DEVELOPMENT_TEAM =
+PROVISIONING_PROFILE_SPECIFIER =
+// Profile must match com.delta.MERPDelta and enterprise distribution.

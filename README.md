@@ -13,218 +13,107 @@ MERP 是原 Cordova 6.5 外壳的 Flutter 升级版本。Flutter 统一负责启
 
 ## 开发环境与打包
 
-项目统一使用 Flutter `3.44.6` 和项目内固定版本的 FVM。新同事不需要全局安装
-FVM，也不要直接执行全局 `flutter`。首次拉取代码后，在项目根目录按系统运行：
-
-完整教程见
-[MERP Flutter 开发、运行与发布教程](docs/DEVELOPMENT_AND_RELEASE_GUIDE.md)。
+项目固定 Flutter `3.44.6`，团队启动/打包脚本仅维护 macOS。
+完整操作见 [开发、运行与企业发布教程](docs/DEVELOPMENT_AND_RELEASE_GUIDE.md)。
 
 ```bash
-# macOS
 ./tool/bootstrap
-./tool/app doctor
-```
-
-```powershell
-# Windows（CMD 或 PowerShell）
-.\tool\bootstrap.cmd
-.\tool\app.cmd doctor
-```
-
-`bootstrap` 会识别 macOS/Windows 和 CPU 架构，下载并校验对应平台的固定版本
-FVM，安装 `.fvmrc` 指定的 Flutter、获取依赖并检查开发环境。macOS 额外检查
-Xcode 和 CocoaPods；Windows 支持 Android 开发与打包，不能运行或构建 iOS。
-重复执行会复用 `.tool-cache` 缓存。初始化同时会生成本机 QAS 配置和 IDE
-运行配置；本地配置变化后可以单独执行：
-
-```bash
-# macOS
 ./tool/app ide
 ```
 
-```powershell
-# Windows
-.\tool\app.cmd ide
-```
+### 安装身份与接口环境
 
-日常联调使用真实登录的 QAS：
+| 身份（Flavor / Scheme） | Android applicationId / 默认 iOS Bundle ID | 签名用途 |
+| --- | --- | --- |
+| dev | `com.delta.merpdelta.qas` | 个人开发，支持 Debug/Profile/Release |
+| qas | `com.delta.MERPDeltaTest` | 企业 QAS 分发 |
+| prd | `com.delta.MERPDelta` | 企业 PRD 分发 |
+
+身份的公共来源是 `config/build_profiles.json`。Android namespace 不变。
+`run` 一律使用 dev 安装身份，命令中的 qas/prd/mock 选择接口环境；
+`build` 使用 qas/prd 企业身份。Mock 不允许打包发布。
 
 ```bash
-./tool/app run qas android
 ./tool/app run qas ios
-
-# 指定设备
-./tool/app run qas android -d <device-id>
+./tool/app run qas android -d emulator-5554
+./tool/app run qas android --recover -d emulator-5554
+./tool/app run mock ios
+./tool/app run prd ios           # 个人签名 + PRD 接口，需先填生产地址
+./tool/app run qas ios --profile # 个人签名的性能测试
+./tool/app run qas ios --release # 个人签名的 Release 验证
 ```
 
-内网不可用、仅需查看首页或页面排版时，使用独立 Mock 启动项。它复用 QAS 的
-地址与原生 Flavor，但不请求登录、用户资料和菜单接口：
+### 一次填写本机配置
+
+`./tool/app ide` 只创建缺失文件，不覆盖已填内容：
+
+- `ios/Config/Dev.local.xcconfig`：个人 DEVELOPMENT_TEAM，可覆盖 MERP_BUNDLE_ID。
+- `ios/Config/Qas.local.xcconfig`、`Prd.local.xcconfig`：企业 Team 和对应 Profile。
+- `config/baidu_map.dev.local.json`、`baidu_map.qas.local.json`、`baidu_map.prd.local.json`：各身份的地图 AK。
+- `config/qas.local.json`、`prd.local.json`：接口地址等本机覆盖。
+- `config/mock.local.json`、`webview.local.json`：Mock 和网页覆盖。
+
+旧 `config/baidu_map.local.json` 仅在 dev 文件不存在时复制到 dev，新构建不再读取旧文件。
+企业 Key 需要单独填写，不能使用个人包对应的 Key。真实值均被 Git 忽略。
+Android Manifest 和 Dart 使用同一组传入的地图 AK。
+
+### VS Code、Android Studio 和 Xcode
+
+VS Code 选择 `MERP DEV · QAS · Debug + HTTP Logs · iOS/Android` 后按 F5。
+启动前自动补齐本地空配置；在右下角选择实际设备，不在共享配置中固定 deviceId。
+Mock、PRD 接口、Profile 和 Release 启动项都使用 dev 身份。
+企业 IPA 从“运行任务”选择 Enterprise QAS/PRD iOS IPA。
+
+Android Studio 打开项目根目录。共享配置为 `MERP DEV QAS Android` /
+`MERP DEV MOCK Android`；`./tool/app ide` 生成对应 Local 配置。
+不要使用无 Flavor 的原生 `app` 启动项。Debug APK 路径是
+`build/app/outputs/flutter-apk/app-dev-debug.apk`。
+
+Xcode 打开 `ios/Runner.xcworkspace`：日常调试选 dev，企业归档选 qas/prd。
+新电脑无需运行 `configure_ios_flavors.rb`，Scheme 和工程配置已提交。
+归档阶段根据当前 Scheme 重新解析配置，避免沿用上一次个人调试的地图 Key。
+详细签名配置及直接用 Xcode 选择接口环境见开发教程。
+
+`android/local.properties` 不提交。SDK 路径缺失时回退到项目 `.fvm/flutter_sdk`，
+Android SDK 尝试环境变量或 `$HOME/Library/Android/sdk`。首次初始化后不需要复制
+其他电脑的 `build/`。
+
+### 企业构建
 
 ```bash
-./tool/app run mock android
-./tool/app run mock ios
+./tool/app build qas android # ARM64 APK，android/key-qas.properties
+./tool/app build prd android # ARM64 AAB，android/key.properties
+./tool/app build qas ios     # 企业 IPA
+./tool/app build prd ios     # 企业 IPA
+
+IOS_OTA_BASE_URL=https://example.com/merp/qas ./tool/app build qas ios-ota
+IOS_OTA_BASE_URL=https://example.com/merp/prd ./tool/app build prd ios-ota
 ```
 
-Windows 使用相同参数，把入口替换为 `.\tool\app.cmd`：
+QAS/PRD iOS 均采用 enterprise 导出。OTA 输出在 `build/ios/ota/<qas|prd>/`，
+包含 IPA 和安装用的 `manifest.plist`。企业证书及匹配包名的 Profile 需要安装在
+发布电脑上；开发电脑只需自己的开发证书。Android 企业签名不回退到 debug。
 
-```powershell
-.\tool\app.cmd run qas android
-.\tool\app.cmd run qas android -d emulator-5554
-```
+版本来源为 `pubspec.yaml`，构建编号保持五位数；可用
+`BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build qas android` 覆盖。
+PRD 本地构建要求输入 prd 确认；CI 可设置 `CI=true`。脚本不会自动发布。
 
-Android Studio 打开项目根目录后，可直接选择共享的 `MERP QAS Android`；执行过
-`bootstrap` 后还会出现加载本机地图/WebView配置的
-`MERP QAS Android (Local)`。VS Code 同样提供 QAS Android/iOS 的共享与 Local
-启动项。共享配置不依赖密钥，保证新电脑可以启动；Local 配置文件均被 Git 忽略。
-
-### 新电脑与 IDE 启动
-
-新电脑必须打开 Flutter 项目根目录 `merp/`，不能只打开 `merp/android/`。
-`build/` 是本机构建产物，不提交 Git，也不需要从其他电脑复制。
-
-`android/local.properties` 仍是本机文件，不提交 Git。Gradle 会优先使用其中有效的
-`flutter.sdk`；文件缺失或路径已经失效时，会自动回退到项目固定的
-`.fvm/flutter_sdk`，并在本机生成或修复 `local.properties`。macOS 上缺少有效
-`sdk.dir` 时也会尝试使用 `ANDROID_SDK_ROOT`、`ANDROID_HOME` 或默认的
-`$HOME/Library/Android/sdk`；Windows 还会尝试
-`%LOCALAPPDATA%\Android\Sdk`。如果仍找不到 Flutter SDK，按错误提示在项目根目录
-执行当前系统的 `bootstrap` 即可。
-
-Android Studio运行配置：
-
-| 配置 | 用途 | 配置来源 |
-| --- | --- | --- |
-| `MERP QAS Android` | 无本地密钥也能启动的共享 QAS Debug | 仓库 `.run/` |
-| `MERP QAS Android (Local)` | 加载本机地图、WebView和 QAS 覆盖值 | `./tool/app ide` 自动生成 |
-
-不要使用 Android Studio自动产生的无 Flavor `app` 配置。项目启用
-`qas/prd` Flavor 后不会生成 `app-debug.apk`，QAS Debug 的正确产物是：
-
-```text
-build/app/outputs/flutter-apk/app-qas-debug.apk
-```
-
-VS Code运行配置：
-
-| 配置 | Flavor | 本地覆盖 |
-| --- | --- | --- |
-| `MERP QAS Android Debug` | `qas` | 否 |
-| `MERP QAS Android Profile` | `qas` | 否 |
-| `MERP QAS Android Debug (Local)` | `qas` | 是 |
-| `MERP QAS iOS Debug` | `qas` | 否 |
-| `MERP QAS iOS Debug (Local)` | `qas` | 是 |
-
-`.vscode/settings.json` 只保存 `.fvm/flutter_sdk` 相对路径，不得提交某位开发者的
-Android SDK、Flutter SDK、Pub Cache 或 Gradle Cache 绝对路径。
-移动端启动项不写死 `deviceId`；运行前先在 VS Code 右下角选择当前模拟器或真机，
-再按 `F5`。例如 Android 模拟器的真实设备 ID 通常是 `emulator-5554`，不同电脑
-和不同启动次数可能变化，不能写进共享配置。
-
-Windows 上安装 Flutter 与 Dart 的 VS Code 扩展后，仍选择
-`MERP QAS Android Debug`，再选择 Android 模拟器或手机。项目没有 Windows
-桌面端工程，因此“Windows 同事开发”指在 Windows 主机上开发 Android，不要选择
-Windows 桌面设备。iOS 启动项只可在 macOS 使用。
-
-代码检查与测试：
+### 检查与本机空间清理
 
 ```bash
 ./tool/app analyze
 ./tool/app test
+ruby test/tool/build_configuration_test.rb
+./tool/app clean --dry-run
+./tool/app clean
 ```
 
-Windows 对应为 `.\tool\app.cmd analyze` 和 `.\tool\app.cmd test`。
+清理前停止所有调试和构建。清理命令先归档 Android Release APK/AAB、mapping 和
+符号文件到 `.artifacts/android/`，再清理项目构建产物；不归档 iOS IPA/Archive。
+保留源码、Pods、本地配置、签名文件和全局 Gradle/Pub 缓存。首次重建后恢复增量构建。
 
-### macOS 本机空间清理
-
-适用于本机日常 Android/iOS Debug 调试、保留 Android Release，且不需要保留
-iOS 发布产物的工作方式。先停止 VS Code/Xcode 调试和所有 Flutter/Gradle 构建：
-
-```bash
-./tool/app clean --dry-run  # 只查看范围和占用，不删除项目文件
-./tool/app clean            # 输入 yes 确认后执行
-./tool/app clean --yes      # 已确认范围时非交互执行
-```
-
-命令先把 `build/app/outputs/apk`、`flutter-apk` 中的 Release APK、`bundle` 中的 Release AAB，
-以及 mapping/原生符号文件复制到 `.artifacts/android/clean-<时间>-<随机标识>/`，
-逐个校验成功后才删除 `build`、`.dart_tool/flutter_build`、`android/.gradle` 和
-`android/build`。不保存 Debug APK、iOS IPA/Archive、iOS 升级验证目录。
-归档保留原输出目录结构；每次单独归档，不覆盖旧包，也不自动删除旧归档。
-
-保留源码、本地配置、签名证书、`ios/Pods`、`.dart_tool` 包配置、全局
-Gradle/Pub 缓存和 Wrapper。无需先初始化 FVM，不会自动构建任何平台。
-清理后直接使用原来的 `./tool/app run qas android` 或 `./tool/app run qas ios`；
-第一次构建会重新生成中间文件，之后恢复增量构建。此命令目前仅支持 `tool/app`
-（macOS），不改变 Windows 脚本，也不限制其他电脑执行 iOS 发布命令。
-
-构建矩阵：
-
-```bash
-# QAS 测试包
-./tool/app build qas android  # arm64-v8a release APK
-./tool/app build qas ios      # development IPA
-IOS_OTA_BASE_URL=https://example.com/merp/ios ./tool/app build qas ios-ota
-
-# PRD 正式包，本地需输入 prd 二次确认
-./tool/app build prd android  # arm64-v8a release AAB
-./tool/app build prd ios      # App Store IPA
-
-# CI 无交互执行示例
-CI=true BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build prd android
-```
-
-`ios-ota` 会构建 Ad Hoc IPA，并在 `build/ios/ota/qas` 生成可放到服务器的
-`manifest.plist`。`IOS_OTA_BASE_URL` 必须填写服务器上最终存放 IPA 和 plist 的
-HTTPS 目录，例如 `https://example.com/merp/ios`。生成后把该目录下的 IPA 和
-`manifest.plist` 一起上传到服务器，安装链接格式为
-`itms-services://?action=download-manifest&url=https://example.com/merp/ios/manifest.plist`。
-
-命令会统一注入 Flavor、`config/<env>.json`、本地地图/WebView 配置、版本号和
-构建编号，并在成功后打印实际产物的完整路径、环境、版本和 Git 提交。PRD 不提供
-日常运行命令，也不会自动上传商店。Android 命令检测到终端 Java 低于 17 时，会
-自动使用标准安装位置中的 Android Studio 内置 JDK。
-
-环境配置：
-
-- QAS 使用 `config/qas.json`，现有 QAS API 地址已迁移，始终走真实登录与真实菜单。
-  默认关闭高频 Debug/Info
-  追踪，只保留警告、错误、故障编号和应用内诊断信息；需要排查接口时可在
-  `config/qas.local.json` 中临时设置 `"ENABLE_LOG": true`。
-  VS Code 可直接按 F5 启动并在「调试控制台」查看日志；日志使用标准 ANSI 前景色，
-  Error 为红色、Warning 为黄色。终端任务仅作为无需断点时的备用启动方式。
-- PRD 使用 `config/prd.json`，生产 API 尚不能从仓库确认，当前留空并在构建前拦截。
-- 本地或 CI 可生成被 Git 忽略的 `config/prd.local.json` 覆盖生产配置。
-- 百度地图 AK 放在 `config/baidu_map.local.json`；WebView 私有参数放在
-  `config/webview.local.json`。两者都不会进入 Git。
-
-百度地图本地配置可从示例创建：
-
-```bash
-cp config/baidu_map.example.json config/baidu_map.local.json
-```
-
-打包注意事项：
-
-- `config/baidu_map.local.json` 不能提交 Git；提交前执行 `git check-ignore -v config/baidu_map.local.json`。
-- Android 百度 AK 会校验 applicationId 和签名 SHA1，release 签名变化后必须同步百度控制台。
-- iOS 百度 AK 会校验 Bundle Identifier，Xcode 工程和百度控制台必须一致。
-- Android PRD 使用 `com.delta.merpdelta`，QAS 使用 `com.delta.merpdelta.qas`，两者可同时安装。
-- Android QAS release 使用 debug 签名作为测试包。PRD 必须配置
-  `android/key.properties` 和生产 keystore，缺失时构建会失败，绝不回退到 debug 签名。
-- Android Release 产物统一只包含 `arm64-v8a`；Debug 不限制 ABI，以保留
-  Android Studio 和 VS Code 模拟器开发能力。
-- iOS PRD 使用 `com.delta.merpdelta`，QAS 使用 `com.delta.merpdelta.qas`，共享
-  Scheme 为 `prd` 和 `qas`。
-- iOS IPA 需要匹配两个 Bundle ID 的证书和 Provisioning Profile；PRD 发布还需要
-  Apple Distribution 证书和 App Store Connect 权限。
-- iOS 必须打开 `ios/Runner.xcworkspace`，不要单独打开 `Runner.xcodeproj`。
-- 修改百度插件、Gradle、Pod、权限、启动图或图标后，必须双端真机验证地图加载和点击定位。
-
-仓库当前未绑定 CI 供应商。后续流水线只调用 `./tool/bootstrap` 和
-`CI=true ./tool/app build prd <platform>`，不要在 CI 再维护一套 Flutter 参数。
-CI 密钥至少包括 Android keystore 与四项 `key.properties` 值、PRD 环境配置、
-百度平台 AK，以及 iOS Distribution 证书、私钥、Provisioning Profile 和
-App Store Connect 凭证。
+Windows 专用 bootstrap/app/configure_ide 和 E 盘环境配置脚本已移除。
+Gradle 上游自带的 `gradlew.bat` 及历史图标素材生成工具不属于团队启动/打包入口，保留。
 
 ## 目录结构
 
@@ -234,9 +123,8 @@ merp/
 ├── .vscode/                                 # VS Code QAS Flavor启动配置
 ├── config/                                  # QAS/PRD公共配置与本地覆盖模板
 ├── tool/                                     # 固定工具链、首次初始化和统一构建入口
-│   ├── app / bootstrap                       # macOS 入口
-│   ├── app.cmd / bootstrap.cmd               # Windows 入口
-│   └── *.ps1                                 # Windows PowerShell 实现
+│   ├── app / bootstrap                       # macOS 开发与企业打包入口
+│   └── build_configuration.rb                # 按安装身份解析配置
 ├── android/                                  # Android 工程、权限、启动图、图标和 Gradle 配置
 │   └── app/
 │       ├── build.gradle.kts                  # minSdk=24，明确兼容 Android 7.0
@@ -553,7 +441,9 @@ Mock 启动会跳过登录、用户资料及后端菜单加载，展示本地开
 ```text
 config/qas.local.json
 config/mock.local.json
-config/baidu_map.local.json
+config/baidu_map.dev.local.json
+config/baidu_map.qas.local.json
+config/baidu_map.prd.local.json
 config/webview.local.json
 ```
 
@@ -563,8 +453,8 @@ config/webview.local.json
 ./tool/app ide
 ```
 
-PRD 首次构建时创建 `config/prd.local.json` 并填写真实生产地址；PRD 不提供本地
-日常运行命令，只允许通过统一脚本构建：
+PRD 使用前填写 `config/prd.local.json` 的真实生产地址。
+`./tool/app run prd ios` 使用个人身份调试生产接口；企业发布使用：
 
 ```bash
 ./tool/app build prd android
@@ -575,7 +465,7 @@ PRD 首次构建时创建 `config/prd.local.json` 并填写真实生产地址；
 不会互相读取 refresh token；QAS/PRD 首次进入各自环境需要登录一次，Mock 不保存登录会话。
 
 百度地图当前接入 Android/iOS 基础地图与按需精确定位，不包含 Search SDK。真实 AK 放在 Git 忽略的
-`config/baidu_map.local.json`，由 `tool/app` 和 Local IDE配置自动注入。
+`config/baidu_map.<dev|qas|prd>.local.json`，按安装身份自动注入。
 
 隐私初始化、Android/iOS 配置、CocoaPods、后端权限结构和故障排查见
 [百度地图跨平台接入与调试复盘](docs/baidu_map_cross_platform_debugging.md)。

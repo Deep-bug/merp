@@ -21,8 +21,7 @@ pluginManagement {
                 }
 
             requireNotNull(flutterSdkDirectory) {
-                "Flutter SDK not found. Run ./tool/bootstrap (macOS) or " +
-                    ".\\tool\\bootstrap.cmd (Windows) from the project root, " +
+                "Flutter SDK not found. Run ./tool/bootstrap (macOS) from the project root, " +
                     "or configure flutter.sdk in android/local.properties."
             }
 
@@ -44,7 +43,6 @@ pluginManagement {
                     listOfNotNull(
                         System.getenv("ANDROID_SDK_ROOT"),
                         System.getenv("ANDROID_HOME"),
-                        System.getenv("LOCALAPPDATA")?.let { "$it/Android/Sdk" },
                         "${System.getProperty("user.home")}/Library/Android/sdk",
                     ).asSequence()
                         .map { file(it) }

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Xcode Archive may follow a CLI dev run. Re-resolve by the active scheme so
+# stale Generated.xcconfig cannot carry a dev key or QAS endpoint into PRD.
+TOOL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DART_DEFINES="$(/usr/bin/ruby "$TOOL_DIR/build_configuration.rb" xcode)"
+export DART_DEFINES
+exec /bin/sh "$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh" "$@"

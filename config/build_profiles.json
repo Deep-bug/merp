@@ -1,0 +1,17 @@
+{
+  "dev": {
+    "androidApplicationId": "com.delta.merpdelta.qas",
+    "iosBundleId": "com.delta.merpdelta.qas",
+    "displayName": "MERP DEV"
+  },
+  "qas": {
+    "androidApplicationId": "com.delta.MERPDeltaTest",
+    "iosBundleId": "com.delta.MERPDeltaTest",
+    "displayName": "MERP QAS"
+  },
+  "prd": {
+    "androidApplicationId": "com.delta.MERPDelta",
+    "iosBundleId": "com.delta.MERPDelta",
+    "displayName": "MERP"
+  }
+}

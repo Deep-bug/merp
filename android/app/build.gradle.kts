@@ -1,5 +1,7 @@
 import java.io.FileInputStream
 import java.util.Properties
+import java.util.Base64
+import groovy.json.JsonSlurper
 
 plugins {
     id("com.android.application")
@@ -8,21 +10,21 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-fun readLocalBaiduMapAk(): String {
-    val file = rootProject.file("../config/baidu_map.local.json")
-    if (!file.exists()) {
-        return ""
+// Installation identity is independent of APP_ENV (the backend environment).
+val buildProfiles = JsonSlurper().parse(rootProject.file("../config/build_profiles.json")) as Map<*, *>
+val dartDefines = (project.findProperty("dart-defines") as? String).orEmpty()
+    .split(',').filter { it.isNotBlank() }.associate {
+        val decoded = String(Base64.getDecoder().decode(it), Charsets.UTF_8)
+        decoded.substringBefore('=') to decoded.substringAfter('=', "")
     }
-    val match = Regex("\"BAIDU_MAP_ANDROID_AK\"\\s*:\\s*\"([^\"]*)\"")
-        .find(file.readText())
-    return match?.groupValues?.get(1).orEmpty()
-}
-
-val releaseSigningProperties = Properties()
-val releaseSigningFile = rootProject.file("key.properties")
-val hasReleaseSigning = releaseSigningFile.exists()
-if (hasReleaseSigning) {
-    FileInputStream(releaseSigningFile).use(releaseSigningProperties::load)
+// Reuse exactly the same AK as Dart. Never independently read a different local file.
+val androidMapAk = dartDefines["BAIDU_MAP_ANDROID_AK"].orEmpty()
+val signingFiles = mapOf("qas" to "key-qas.properties", "prd" to "key.properties")
+val signingProperties = signingFiles.mapValues { (_, path) ->
+    Properties().apply {
+        val signingFile = rootProject.file(path)
+        if (signingFile.isFile) FileInputStream(signingFile).use { load(it) }
+    }
 }
 
 configurations.configureEach {
@@ -47,40 +49,37 @@ android {
     }
 
     defaultConfig {
-        // 现有包标识作为 PRD Application ID 保留；QAS 在 flavor 中追加后缀。
+        // namespace stays stable; each flavor supplies its installation identity.
         applicationId = "com.delta.merpdelta"
         // 明确锁定 API 24，即 Android 7.0。不要跟随 Flutter 默认值静默上升。
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["BAIDU_MAP_ANDROID_AK"] = readLocalBaiduMapAk()
+        manifestPlaceholders["BAIDU_MAP_ANDROID_AK"] = androidMapAk
     }
 
     signingConfigs {
-        if (hasReleaseSigning) {
-            create("release") {
-                keyAlias = releaseSigningProperties.getProperty("keyAlias")
-                keyPassword = releaseSigningProperties.getProperty("keyPassword")
-                storeFile = file(releaseSigningProperties.getProperty("storeFile"))
-                storePassword = releaseSigningProperties.getProperty("storePassword")
+        signingProperties.forEach { (profile, properties) ->
+            if (properties.isNotEmpty()) create(profile) {
+                keyAlias = properties.getProperty("keyAlias")
+                keyPassword = properties.getProperty("keyPassword")
+                storeFile = properties.getProperty("storeFile")?.let { file(it) }
+                storePassword = properties.getProperty("storePassword")
             }
         }
     }
 
     flavorDimensions += "environment"
     productFlavors {
-        create("qas") {
-            dimension = "environment"
-            applicationIdSuffix = ".qas"
-            manifestPlaceholders["appName"] = "MERP QAS"
-            signingConfig = signingConfigs.getByName("debug")
-        }
-        create("prd") {
-            dimension = "environment"
-            manifestPlaceholders["appName"] = "MERP"
-            if (hasReleaseSigning) {
-                signingConfig = signingConfigs.getByName("release")
+        buildProfiles.forEach { (name, rawProfile) ->
+            val profile = name as String
+            val values = rawProfile as Map<*, *>
+            create(profile) {
+                dimension = "environment"
+                applicationId = values["androidApplicationId"] as String
+                manifestPlaceholders["appName"] = values["displayName"] as String
+                signingConfig = signingConfigs.findByName(if (profile == "dev") "debug" else profile)
             }
         }
     }
@@ -96,6 +95,12 @@ android {
 }
 
 androidComponents {
+    // Enterprise identities are distribution-only; use dev for debug/profile runs.
+    beforeVariants(selector().all()) { variant ->
+        if (variant.productFlavors.any { it.second != "dev" } && variant.buildType != "release") {
+            variant.enable = false
+        }
+    }
     onVariants(selector().withBuildType("release")) { variant ->
         // Flutter 插件会在 NDK 过滤之后合并第三方 AAR 的原生库，因此还要在
         // Release 最终包装阶段排除非 ARM64 目录。该规则同时覆盖 APK 和 AAB。
@@ -110,14 +115,21 @@ androidComponents {
 }
 
 gradle.taskGraph.whenReady {
-    val buildsPrdRelease = gradle.startParameter.taskNames.any {
-        it.contains("PrdRelease", ignoreCase = true)
-    }
-    if (buildsPrdRelease && !hasReleaseSigning) {
-        throw GradleException(
-            "PRD release signing is not configured. Create android/key.properties " +
-                "and reference a protected production keystore. Debug signing is never used for PRD.",
-        )
+    signingFiles.forEach { (profile, path) ->
+        val buildsProfile = allTasks.any {
+            it.project == project && it.name.contains("${profile}Release", ignoreCase = true)
+        }
+        if (buildsProfile) {
+            val properties = signingProperties.getValue(profile)
+            require(listOf("keyAlias", "keyPassword", "storeFile", "storePassword").all {
+                !properties.getProperty(it).isNullOrBlank()
+            }) { "Configure android/$path for $profile distribution; dev is for personal debugging." }
+            require(file(properties.getProperty("storeFile")).isFile) { "Keystore file does not exist for $profile." }
+            require(dartDefines["MERP_BUILD_PROFILE"] == profile && dartDefines["APP_ENV"] == profile) {
+                "Build identity/API configuration mismatch. Use ./tool/app build $profile android."
+            }
+            require(androidMapAk.isNotBlank()) { "Missing $profile Baidu Android AK." }
+        }
     }
 }
 

@@ -2,6 +2,29 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "MERP: Prepare local config",
+      "type": "process",
+      "command": "${workspaceFolder}/tool/configure_ide",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "MERP: Enterprise QAS iOS IPA",
+      "type": "process",
+      "command": "${workspaceFolder}/tool/app",
+      "args": ["build", "qas", "ios"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "MERP: Enterprise PRD iOS IPA",
+      "type": "process",
+      "command": "${workspaceFolder}/tool/app",
+      "args": ["build", "prd", "ios"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
       "label": "MERP: QAS Android HTTP Logs (Terminal)",
       "type": "shell",
       "command": "./tool/app",

@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="MERP QAS Android" type="FlutterRunConfigurationType" factoryName="Flutter">
-    <option name="additionalArgs" value="--dart-define-from-file=config/qas.json" />
-    <option name="buildFlavor" value="qas" />
+  <configuration default="false" name="MERP DEV QAS Android" type="FlutterRunConfigurationType" factoryName="Flutter">
+    <option name="additionalArgs" value="--dart-define-from-file=config/qas.json --dart-define=MERP_BUILD_PROFILE=dev" />
+    <option name="buildFlavor" value="dev" />
     <option name="filePath" value="$PROJECT_DIR$/lib/main.dart" />
     <method v="2" />
   </configuration>

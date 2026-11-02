@@ -40,6 +40,8 @@ migrate_working_dir/
 
 # Local vendor credentials. Commit only the matching *.example.json template.
 /config/baidu_map.local.json
+/config/baidu_map.*.local.json
+/ios/Config/*.local.xcconfig
 /config/environment.*.local.json
 /config/webview.local.json
 /config/qas.local.json
@@ -48,6 +50,7 @@ migrate_working_dir/
 
 # Android production signing files must remain local or in the CI secret store.
 /android/key.properties
+/android/key-qas.properties
 /android/*.jks
 /android/*.keystore
 /android/app/*.jks

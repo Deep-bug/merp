@@ -1,0 +1,3 @@
+#include? "Pods/Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release-dev.xcconfig"
+#include "../Config/Dev.xcconfig"
+PRODUCT_BUNDLE_IDENTIFIER = $(MERP_BUNDLE_ID).RunnerTests

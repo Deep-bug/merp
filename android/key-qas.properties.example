@@ -1,0 +1,6 @@
+# Copy to android/key-qas.properties. Use the certificate of the existing QAS app.
+# This is separate from android/key.properties (PRD); no debug-signing fallback.
+storeFile=/absolute/path/to/qas.keystore
+storePassword=replace-me
+keyAlias=replace-me
+keyPassword=replace-me

@@ -1,0 +1,9 @@
+// Generated from config/build_profiles.json. Edit the source, then regenerate.
+MERP_BUNDLE_ID = com.delta.merpdelta.qas
+APP_DISPLAY_NAME = MERP DEV
+DEVELOPMENT_TEAM =
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY[sdk=iphoneos*] = Apple Development
+PROVISIONING_PROFILE_SPECIFIER =
+#include? "Dev.local.xcconfig"
+PRODUCT_BUNDLE_IDENTIFIER = $(MERP_BUNDLE_ID)

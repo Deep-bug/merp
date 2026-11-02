@@ -1,0 +1,7 @@
+// Copy to Dev.local.xcconfig; configure once on each developer machine.
+// Use the Team that owns your development certificate, not the enterprise Team.
+DEVELOPMENT_TEAM =
+// Override only if your personal Team cannot register the default dev bundle ID.
+// MERP_BUNDLE_ID = com.yourcompany.merp.dev
+// Optional: force an API environment in Xcode (also applies to iOS CLI builds).
+// MERP_API_ENV = qas

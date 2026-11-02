@@ -22,6 +22,7 @@ usage() {
   ./tool/app run qas android [Flutter 额外参数]
   ./tool/app run qas android --recover [-d <device-id>] [Flutter 额外参数]
   ./tool/app run qas ios [Flutter 额外参数]
+  ./tool/app run prd ios [Flutter 额外参数]  # 个人 dev 身份 + PRD 接口
   ./tool/app run mock android [Flutter 额外参数]
   ./tool/app run mock ios [Flutter 额外参数]
   ./tool/app build qas android [Flutter 额外参数]
@@ -34,8 +35,11 @@ usage() {
   BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build qas android
 
 iOS OTA：
-  ios-ota 会构建 Ad Hoc IPA，并在 build/ios/ota/qas 生成 manifest.plist。
+  ios / ios-ota 使用企业签名；ios-ota 在 build/ios/ota/<qas|prd> 生成 manifest.plist。
   IOS_OTA_BASE_URL 必须填写服务器上存放 IPA 和 plist 的 HTTPS 目录。
+
+身份选择：run 一律使用 dev（个人签名），build 使用 qas/prd（企业签名）。
+  Profile/Release 性能测试可用 ./tool/app run qas ios --profile 或 --release。
 
 Android 恢复启动：
   --recover 仅用于 Android run。启动前会停止目标设备上的 MERP 残留进程，
@@ -110,32 +114,15 @@ project_build_number() {
 
 config_args() {
   local environment="$1"
-  local base_environment="$environment"
-  if [[ "$environment" == "mock" ]]; then
-    # mock 复用 QAS 地址与本机覆盖，最后再由 mock.json 覆盖 APP_ENV 与 Mock 开关。
-    base_environment="qas"
-  fi
-  local base_file="$ROOT_DIR/config/$base_environment.json"
-  local override_file="$ROOT_DIR/config/$base_environment.local.json"
-
-  [[ -f "$base_file" ]] || fail "缺少环境配置：$base_file"
-  CONFIG_ARGUMENTS=("--dart-define-from-file=$base_file")
-  [[ -f "$override_file" ]] && CONFIG_ARGUMENTS+=("--dart-define-from-file=$override_file")
-  if [[ "$environment" == "mock" ]]; then
-    CONFIG_ARGUMENTS+=("--dart-define-from-file=$ROOT_DIR/config/mock.json")
-    [[ -f "$ROOT_DIR/config/mock.local.json" ]] &&
-      CONFIG_ARGUMENTS+=("--dart-define-from-file=$ROOT_DIR/config/mock.local.json")
-  fi
-  [[ -f "$ROOT_DIR/config/baidu_map.local.json" ]] &&
-    CONFIG_ARGUMENTS+=("--dart-define-from-file=$ROOT_DIR/config/baidu_map.local.json")
-  [[ -f "$ROOT_DIR/config/webview.local.json" ]] &&
-    CONFIG_ARGUMENTS+=("--dart-define-from-file=$ROOT_DIR/config/webview.local.json")
+  mkdir -p "$ROOT_DIR/.tool-cache"
+  RESOLVED_CONFIG="$(mktemp "$ROOT_DIR/.tool-cache/build-config.XXXXXX")"
+  ruby "$TOOL_DIR/build_configuration.rb" "$BUILD_PROFILE" "$environment" >"$RESOLVED_CONFIG" ||
+    fail "无法解析构建配置。"
+  CONFIG_ARGUMENTS=("--dart-define-from-file=$RESOLVED_CONFIG")
 }
 
 validate_prd_config() {
-  local source_file="$ROOT_DIR/config/prd.json"
-  [[ -f "$ROOT_DIR/config/prd.local.json" ]] &&
-    source_file="$ROOT_DIR/config/prd.local.json"
+  local source_file="$RESOLVED_CONFIG"
   local api_url
   api_url="$(sed -n 's/.*"API_BASE_URL"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$source_file")"
   if [[ -z "$api_url" || "$api_url" == *"替换"* || "$api_url" == *"placeholder"* ]]; then
@@ -147,7 +134,7 @@ confirm_prd() {
   if [[ "${CI:-}" == "true" || "${CI:-}" == "1" ]]; then
     return
   fi
-  printf '\n警告：即将构建 PRD 正式包，不会自动上传应用商店。\n'
+  printf '\n警告：即将构建 PRD 正式包，不会自动上传或分发。\n'
   printf '请输入 prd 继续：'
   read -r confirmation
   [[ "$confirmation" == "prd" ]] || {
@@ -300,7 +287,7 @@ generate_ios_ota_package() {
   local build_number="$3"
   local marker="$4"
   local base_url="${IOS_OTA_BASE_URL:-}"
-  local title="${IOS_OTA_TITLE:-MERP QAS}"
+  local title="${IOS_OTA_TITLE:-MERP $environment}"
   local source_ipa
   local output_dir
   local ipa_name
@@ -348,10 +335,8 @@ case "$COMMAND" in
     flutter doctor -v
     printf '\n项目环境检查：\n'
     printf '  Flutter 固定版本：%s\n' "$FLUTTER_VERSION"
-    printf '  Android flavors：qas / prd\n'
-    printf '  iOS shared schemes：qas / prd\n'
-    [[ -f "$ROOT_DIR/config/baidu_map.local.json" ]] ||
-      printf '  [提示] 缺少 config/baidu_map.local.json，地图功能将没有本地 AK。\n'
+    printf '  Android flavors / iOS schemes：dev / qas / prd\n'
+    printf '  run = 个人 dev；build = 企业 qas/prd。地图 Key 按身份选择。\n'
     [[ -f "$ROOT_DIR/android/key.properties" ]] ||
       printf '  [提示] 缺少 android/key.properties，PRD Android 构建会被安全拦截。\n'
     exit 0
@@ -386,17 +371,11 @@ PLATFORM="${3:-}"
 if [[ "$COMMAND" == "run" && "$PLATFORM" == "ios-ota" ]]; then
   fail "ios-ota 只用于 build，运行调试请使用 ios。"
 fi
-if [[ "$COMMAND" == "build" && "$PLATFORM" == "ios-ota" && "$ENVIRONMENT" != "qas" ]]; then
-  fail "ios-ota 当前只用于 QAS 测试分发；PRD 请走 app-store 构建。"
-fi
 if [[ "$COMMAND" == "build" && "$PLATFORM" == "ios-ota" ]]; then
   [[ -n "${IOS_OTA_BASE_URL:-}" ]] ||
     fail "ios-ota 需要设置 IOS_OTA_BASE_URL，例如：IOS_OTA_BASE_URL=https://example.com/merp/ios ./tool/app build qas ios-ota"
   [[ "${IOS_OTA_BASE_URL:-}" == https://* ]] ||
     fail "IOS_OTA_BASE_URL 必须是 HTTPS 地址，iOS OTA 安装不接受普通 HTTP。"
-fi
-if [[ "$COMMAND" == "run" && "$ENVIRONMENT" == "prd" ]]; then
-  fail "不提供 run prd；本地日常运行固定使用 QAS。"
 fi
 if [[ "$COMMAND" == "build" && "$ENVIRONMENT" == "mock" ]]; then
   fail "mock 仅用于 Debug 启动，不允许构建或发布。"
@@ -408,6 +387,11 @@ shift 3
 EXTRA_ARGUMENTS=("")
 RECOVER_ANDROID=false
 for argument in "$@"; do
+  case "$argument" in
+    --flavor|--flavor=*)
+      fail "安装身份由 run/build 自动选择，请不要额外传 --flavor。"
+      ;;
+  esac
   if [[ "$argument" == "--recover" ]]; then
     RECOVER_ANDROID=true
   else
@@ -419,7 +403,20 @@ if [[ "$RECOVER_ANDROID" == true &&
   fail "--recover 仅支持 Android run。"
 fi
 ensure_fvm
+BUILD_PROFILE="$ENVIRONMENT"
+[[ "$COMMAND" == "run" ]] && BUILD_PROFILE="dev"
+"$TOOL_DIR/configure_ide" >/dev/null
 config_args "$ENVIRONMENT"
+trap '[[ -z "${RESOLVED_CONFIG:-}" ]] || rm -f "$RESOLVED_CONFIG"' EXIT
+printf '安装身份：%s；接口环境：%s；地图配置：config/baidu_map.%s.local.json\n' \
+  "$BUILD_PROFILE" "$ENVIRONMENT" "$BUILD_PROFILE"
+if [[ "$COMMAND" == "build" ]]; then
+  ruby -rjson -e '
+    config = JSON.parse(File.read(ARGV[0]))
+    key = ARGV[1] == "android" ? "BAIDU_MAP_ANDROID_AK" : "BAIDU_MAP_IOS_AK"
+    abort "请填写 config/baidu_map.#{ARGV[2]}.local.json 中的 #{key}" if config.fetch(key, "").strip.empty?
+  ' "$RESOLVED_CONFIG" "$PLATFORM" "$BUILD_PROFILE" || fail "企业发布缺少地图 Key。"
+fi
 if [[ "$PLATFORM" == "android" ]]; then
   ensure_android_java
 fi
@@ -437,9 +434,10 @@ if [[ "$COMMAND" == "run" ]]; then
   if [[ "$RECOVER_ANDROID" == true ]]; then
     DEVICE_ID="$(device_id_from_arguments "${EXTRA_ARGUMENTS[@]:1}")"
     [[ -n "$DEVICE_ID" ]] || fail "--recover 无法确定目标 Android 设备。"
-    recover_android_device "$DEVICE_ID" "com.delta.MERPDeltaTest"
+    PACKAGE_NAME="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV[0])).fetch(ARGV[1]).fetch("androidApplicationId")' "$ROOT_DIR/config/build_profiles.json" "$BUILD_PROFILE")"
+    recover_android_device "$DEVICE_ID" "$PACKAGE_NAME"
   fi
-  RUN_ARGUMENTS=(run --flavor qas)
+  RUN_ARGUMENTS=(run --flavor "$BUILD_PROFILE")
   HAS_EXPLICIT_BUILD_MODE=false
   for argument in "${EXTRA_ARGUMENTS[@]:1}"; do
     case "$argument" in
@@ -472,8 +470,8 @@ if [[ "$ENVIRONMENT" == "prd" ]]; then
 fi
 
 mkdir -p "$ROOT_DIR/.tool-cache"
-MARKER="$ROOT_DIR/.tool-cache/build-start"
-touch "$MARKER"
+MARKER="$(mktemp "$ROOT_DIR/.tool-cache/build-start.XXXXXX")"
+trap 'rm -f "$RESOLVED_CONFIG" "$MARKER"' EXIT
 
 if [[ "$PLATFORM" == "android" && "$ENVIRONMENT" == "qas" ]]; then
   flutter build apk --flavor qas --release --target lib/main.dart \
@@ -487,23 +485,13 @@ elif [[ "$PLATFORM" == "android" ]]; then
     "${CONFIG_ARGUMENTS[@]}" --build-name "$VERSION_NAME" \
     --build-number "$BUILD_NUMBER" "${EXTRA_ARGUMENTS[@]:1}"
   print_artifact prd android "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" aab
-elif [[ "$ENVIRONMENT" == "qas" ]]; then
-  EXPORT_METHOD="development"
-  if [[ "$PLATFORM" == "ios-ota" ]]; then
-    EXPORT_METHOD="ad-hoc"
-  fi
-  flutter build ipa --flavor qas --release --target lib/main.dart \
-    --export-method "$EXPORT_METHOD" "${CONFIG_ARGUMENTS[@]}" \
-    --build-name "$VERSION_NAME" --build-number "$BUILD_NUMBER" \
-    "${EXTRA_ARGUMENTS[@]:1}"
-  print_artifact qas ios "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" ipa
-  if [[ "$PLATFORM" == "ios-ota" ]]; then
-    generate_ios_ota_package qas "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER"
-  fi
 else
-  flutter build ipa --flavor prd --release --target lib/main.dart \
-    --export-method app-store "${CONFIG_ARGUMENTS[@]}" \
+  flutter build ipa --flavor "$BUILD_PROFILE" --release --target lib/main.dart \
+    --export-method enterprise "${CONFIG_ARGUMENTS[@]}" \
     --build-name "$VERSION_NAME" --build-number "$BUILD_NUMBER" \
     "${EXTRA_ARGUMENTS[@]:1}"
-  print_artifact prd ios "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" ipa
+  print_artifact "$ENVIRONMENT" ios "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" ipa
+  if [[ "$PLATFORM" == "ios-ota" ]]; then
+    generate_ios_ota_package "$ENVIRONMENT" "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER"
+  fi
 fi

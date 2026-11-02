@@ -2,136 +2,222 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "MERP QAS Android Debug (Local + HTTP Logs)",
+      "name": "MERP DEV · QAS · Debug + HTTP Logs · Android",
       "request": "launch",
       "type": "dart",
       "flutterMode": "debug",
       "program": "lib/main.dart",
+      "preLaunchTask": "MERP: Prepare local config",
       "toolArgs": [
         "--flavor",
-        "qas",
+        "dev",
         "--dart-define-from-file=config/qas.json",
         "--dart-define-from-file=config/qas.local.json",
-        "--dart-define-from-file=config/baidu_map.local.json",
         "--dart-define-from-file=config/webview.local.json",
+        "--dart-define-from-file=config/baidu_map.dev.local.json",
+        "--dart-define=MERP_BUILD_PROFILE=dev",
         "--dart-define=ENABLE_LOG=true"
       ],
-      "presentation": { "group": "qas", "order": 1 }
+      "presentation": {
+        "group": "dev",
+        "order": 1
+      }
     },
     {
-      "name": "MERP QAS iOS Debug (Local + HTTP Logs)",
+      "name": "MERP DEV · QAS · Debug + HTTP Logs · iOS",
       "request": "launch",
       "type": "dart",
       "flutterMode": "debug",
       "program": "lib/main.dart",
+      "preLaunchTask": "MERP: Prepare local config",
       "toolArgs": [
         "--flavor",
-        "qas",
+        "dev",
         "--dart-define-from-file=config/qas.json",
         "--dart-define-from-file=config/qas.local.json",
-        "--dart-define-from-file=config/baidu_map.local.json",
         "--dart-define-from-file=config/webview.local.json",
+        "--dart-define-from-file=config/baidu_map.dev.local.json",
+        "--dart-define=MERP_BUILD_PROFILE=dev",
         "--dart-define=ENABLE_LOG=true"
       ],
-      "presentation": { "group": "qas", "order": 2 }
+      "presentation": {
+        "group": "dev",
+        "order": 2
+      }
     },
     {
-      "name": "MERP MOCK Android Debug (QAS + Mock Login)",
+      "name": "MERP DEV · Mock · Debug · Android",
       "request": "launch",
       "type": "dart",
       "flutterMode": "debug",
       "program": "lib/main.dart",
+      "preLaunchTask": "MERP: Prepare local config",
       "toolArgs": [
         "--flavor",
-        "qas",
+        "dev",
         "--dart-define-from-file=config/qas.json",
         "--dart-define-from-file=config/qas.local.json",
         "--dart-define-from-file=config/mock.json",
-        "--dart-define-from-file=config/baidu_map.local.json",
-        "--dart-define-from-file=config/webview.local.json"
+        "--dart-define-from-file=config/mock.local.json",
+        "--dart-define-from-file=config/webview.local.json",
+        "--dart-define-from-file=config/baidu_map.dev.local.json",
+        "--dart-define=MERP_BUILD_PROFILE=dev"
       ],
-      "presentation": { "group": "mock", "order": 3 }
+      "presentation": {
+        "group": "dev",
+        "order": 3
+      }
     },
     {
-      "name": "MERP MOCK iOS Debug (QAS + Mock Login)",
+      "name": "MERP DEV · Mock · Debug · iOS",
       "request": "launch",
       "type": "dart",
       "flutterMode": "debug",
       "program": "lib/main.dart",
+      "preLaunchTask": "MERP: Prepare local config",
       "toolArgs": [
         "--flavor",
-        "qas",
+        "dev",
         "--dart-define-from-file=config/qas.json",
         "--dart-define-from-file=config/qas.local.json",
         "--dart-define-from-file=config/mock.json",
-        "--dart-define-from-file=config/baidu_map.local.json",
-        "--dart-define-from-file=config/webview.local.json"
+        "--dart-define-from-file=config/mock.local.json",
+        "--dart-define-from-file=config/webview.local.json",
+        "--dart-define-from-file=config/baidu_map.dev.local.json",
+        "--dart-define=MERP_BUILD_PROFILE=dev"
       ],
-      "presentation": { "group": "mock", "order": 4 }
+      "presentation": {
+        "group": "dev",
+        "order": 4
+      }
     },
     {
-      "name": "MERP QAS Android Release (Baidu Map)",
+      "name": "MERP DEV · PRD API · Debug + HTTP Logs · Android",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main.dart",
+      "preLaunchTask": "MERP: Prepare local config",
+      "toolArgs": [
+        "--flavor",
+        "dev",
+        "--dart-define-from-file=config/prd.json",
+        "--dart-define-from-file=config/prd.local.json",
+        "--dart-define-from-file=config/webview.local.json",
+        "--dart-define-from-file=config/baidu_map.dev.local.json",
+        "--dart-define=MERP_BUILD_PROFILE=dev",
+        "--dart-define=ENABLE_LOG=true"
+      ],
+      "presentation": {
+        "group": "dev",
+        "order": 5
+      }
+    },
+    {
+      "name": "MERP DEV · PRD API · Debug + HTTP Logs · iOS",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main.dart",
+      "preLaunchTask": "MERP: Prepare local config",
+      "toolArgs": [
+        "--flavor",
+        "dev",
+        "--dart-define-from-file=config/prd.json",
+        "--dart-define-from-file=config/prd.local.json",
+        "--dart-define-from-file=config/webview.local.json",
+        "--dart-define-from-file=config/baidu_map.dev.local.json",
+        "--dart-define=MERP_BUILD_PROFILE=dev",
+        "--dart-define=ENABLE_LOG=true"
+      ],
+      "presentation": {
+        "group": "dev",
+        "order": 6
+      }
+    },
+    {
+      "name": "MERP DEV · QAS · Profile · Android",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "program": "lib/main.dart",
+      "preLaunchTask": "MERP: Prepare local config",
+      "toolArgs": [
+        "--flavor",
+        "dev",
+        "--dart-define-from-file=config/qas.json",
+        "--dart-define-from-file=config/qas.local.json",
+        "--dart-define-from-file=config/webview.local.json",
+        "--dart-define-from-file=config/baidu_map.dev.local.json",
+        "--dart-define=MERP_BUILD_PROFILE=dev"
+      ],
+      "presentation": {
+        "group": "dev",
+        "order": 7
+      }
+    },
+    {
+      "name": "MERP DEV · QAS · Profile · iOS",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "program": "lib/main.dart",
+      "preLaunchTask": "MERP: Prepare local config",
+      "toolArgs": [
+        "--flavor",
+        "dev",
+        "--dart-define-from-file=config/qas.json",
+        "--dart-define-from-file=config/qas.local.json",
+        "--dart-define-from-file=config/webview.local.json",
+        "--dart-define-from-file=config/baidu_map.dev.local.json",
+        "--dart-define=MERP_BUILD_PROFILE=dev"
+      ],
+      "presentation": {
+        "group": "dev",
+        "order": 8
+      }
+    },
+    {
+      "name": "MERP DEV · QAS · Release · Android",
       "request": "launch",
       "type": "dart",
       "flutterMode": "release",
       "program": "lib/main.dart",
+      "preLaunchTask": "MERP: Prepare local config",
       "toolArgs": [
         "--flavor",
-        "qas",
+        "dev",
         "--dart-define-from-file=config/qas.json",
         "--dart-define-from-file=config/qas.local.json",
-        "--dart-define-from-file=config/baidu_map.local.json",
-        "--dart-define-from-file=config/webview.local.json"
+        "--dart-define-from-file=config/webview.local.json",
+        "--dart-define-from-file=config/baidu_map.dev.local.json",
+        "--dart-define=MERP_BUILD_PROFILE=dev"
       ],
-      "presentation": { "group": "qas", "order": 5 }
+      "presentation": {
+        "group": "dev",
+        "order": 9
+      }
     },
     {
-      "name": "MERP QAS iOS Release (Baidu Map)",
+      "name": "MERP DEV · QAS · Release · iOS",
       "request": "launch",
       "type": "dart",
       "flutterMode": "release",
       "program": "lib/main.dart",
+      "preLaunchTask": "MERP: Prepare local config",
       "toolArgs": [
         "--flavor",
-        "qas",
+        "dev",
         "--dart-define-from-file=config/qas.json",
         "--dart-define-from-file=config/qas.local.json",
-        "--dart-define-from-file=config/baidu_map.local.json",
-        "--dart-define-from-file=config/webview.local.json"
+        "--dart-define-from-file=config/webview.local.json",
+        "--dart-define-from-file=config/baidu_map.dev.local.json",
+        "--dart-define=MERP_BUILD_PROFILE=dev"
       ],
-      "presentation": { "group": "qas", "order": 6 }
-    },
-    {
-      "name": "MERP PRD Android Debug (Production Config)",
-      "request": "launch",
-      "type": "dart",
-      "flutterMode": "debug",
-      "program": "lib/main.dart",
-      "toolArgs": [
-        "--flavor",
-        "prd",
-        "--dart-define-from-file=config/prd.json",
-        "--dart-define-from-file=config/prd.local.json",
-        "--dart-define-from-file=config/baidu_map.local.json",
-        "--dart-define-from-file=config/webview.local.json"
-      ],
-      "presentation": { "group": "prd", "order": 7 }
-    },
-    {
-      "name": "MERP PRD iOS Debug (Production Config)",
-      "request": "launch",
-      "type": "dart",
-      "flutterMode": "debug",
-      "program": "lib/main.dart",
-      "toolArgs": [
-        "--flavor",
-        "prd",
-        "--dart-define-from-file=config/prd.json",
-        "--dart-define-from-file=config/prd.local.json",
-        "--dart-define-from-file=config/baidu_map.local.json",
-        "--dart-define-from-file=config/webview.local.json"
-      ],
-      "presentation": { "group": "prd", "order": 8 }
+      "presentation": {
+        "group": "dev",
+        "order": 10
+      }
     }
   ]
 }

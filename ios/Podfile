@@ -9,12 +9,15 @@ Pod::PICKER_MEDIA = false
 
 project 'Runner', {
   'Debug' => :debug,
+  'Debug-dev' => :debug,
   'Debug-qas' => :debug,
   'Debug-prd' => :debug,
   'Profile' => :release,
+  'Profile-dev' => :release,
   'Profile-qas' => :release,
   'Profile-prd' => :release,
   'Release' => :release,
+  'Release-dev' => :release,
   'Release-qas' => :release,
   'Release-prd' => :release,
 }
