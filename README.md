@@ -82,7 +82,7 @@ Android SDK 尝试环境变量或 `$HOME/Library/Android/sdk`。首次初始化�
 
 ```bash
 ./tool/app build qas android # ARM64 APK，android/key-qas.properties
-./tool/app build prd android # ARM64 AAB，android/key.properties
+./tool/app build prd android # ARM64 APK，android/key.properties
 ./tool/app build qas ios     # 企业 IPA
 ./tool/app build prd ios     # 企业 IPA
 
@@ -96,7 +96,8 @@ QAS/PRD iOS 均采用 enterprise 导出。OTA 输出在 `build/ios/ota/<qas|prd>
 
 版本来源为 `pubspec.yaml`，构建编号保持五位数；可用
 `BUILD_NAME=1.2.0 BUILD_NUMBER=10001 ./tool/app build qas android` 覆盖。
-PRD 本地构建要求输入 prd 确认；CI 可设置 `CI=true`。脚本不会自动发布。
+PRD 本地构建要求输入 prd 确认；CI 可设置 `CI=true`。QAS/PRD Android
+均生成可直接安装的 ARM64 APK，不生成 AAB；脚本不会自动发布。
 
 ### 检查与本机空间清理
 

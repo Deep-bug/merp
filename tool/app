@@ -473,18 +473,12 @@ mkdir -p "$ROOT_DIR/.tool-cache"
 MARKER="$(mktemp "$ROOT_DIR/.tool-cache/build-start.XXXXXX")"
 trap 'rm -f "$RESOLVED_CONFIG" "$MARKER"' EXIT
 
-if [[ "$PLATFORM" == "android" && "$ENVIRONMENT" == "qas" ]]; then
-  flutter build apk --flavor qas --release --target lib/main.dart \
+if [[ "$PLATFORM" == "android" ]]; then
+  flutter build apk --flavor "$BUILD_PROFILE" --release --target lib/main.dart \
     --target-platform android-arm64 --split-per-abi \
     "${CONFIG_ARGUMENTS[@]}" --build-name "$VERSION_NAME" \
     --build-number "$BUILD_NUMBER" "${EXTRA_ARGUMENTS[@]:1}"
-  print_artifact qas android "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" apk
-elif [[ "$PLATFORM" == "android" ]]; then
-  flutter build appbundle --flavor prd --release --target lib/main.dart \
-    --target-platform android-arm64 \
-    "${CONFIG_ARGUMENTS[@]}" --build-name "$VERSION_NAME" \
-    --build-number "$BUILD_NUMBER" "${EXTRA_ARGUMENTS[@]:1}"
-  print_artifact prd android "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" aab
+  print_artifact "$ENVIRONMENT" android "$VERSION_NAME" "$BUILD_NUMBER" "$MARKER" apk
 else
   flutter build ipa --flavor "$BUILD_PROFILE" --release --target lib/main.dart \
     --export-method enterprise "${CONFIG_ARGUMENTS[@]}" \

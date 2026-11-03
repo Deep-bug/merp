@@ -115,9 +115,28 @@ androidComponents {
 }
 
 gradle.taskGraph.whenReady {
+    // Flutter invokes an explicit assemble<Flavor>Release task. Prefer that
+    // requested artifact over incidental tasks from other flavors in the graph.
+    val requestedTasks = gradle.startParameter.taskNames.map { it.substringAfterLast(':') }
+    val hasExplicitReleaseArtifact = signingFiles.keys.any { profile ->
+        requestedTasks.any {
+            it.equals("assemble${profile}Release", ignoreCase = true) ||
+                it.equals("bundle${profile}Release", ignoreCase = true)
+        }
+    }
     signingFiles.forEach { (profile, path) ->
-        val buildsProfile = allTasks.any {
-            it.project == project && it.name.contains("${profile}Release", ignoreCase = true)
+        val artifactTasks = listOf("assemble${profile}Release", "bundle${profile}Release")
+        // Generic Gradle invocations (e.g. assembleRelease) have no explicit
+        // flavor; only then inspect the actual artifact tasks in the graph.
+        val buildsProfile = if (hasExplicitReleaseArtifact) {
+            requestedTasks.any { requested ->
+                artifactTasks.any { it.equals(requested, ignoreCase = true) }
+            }
+        } else {
+            allTasks.any { task ->
+                task.project == project &&
+                    artifactTasks.any { it.equals(task.name, ignoreCase = true) }
+            }
         }
         if (buildsProfile) {
             val properties = signingProperties.getValue(profile)
